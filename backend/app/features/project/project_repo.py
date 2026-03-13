@@ -1,9 +1,3 @@
-"""
-Project repository (veri erişim) modülü.
-
-Project tablosu için DB sorgularını tanımlar.
-BaseRepository[Project]'dan türer — CRUD otomatik gelir.
-"""
 
 from uuid import UUID
 

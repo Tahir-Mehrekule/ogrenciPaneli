@@ -1,0 +1,9 @@
+{
+  "root": ".",
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "extraPaths": ["."],
+  "include": ["app", "tests"],
+  "reportMissingImports": true,
+  "reportMissingModuleSource": false
+}

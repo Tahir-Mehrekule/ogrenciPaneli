@@ -1,10 +1,4 @@
-"""
-Auth controller (API endpoint) modülü.
 
-Kayıt, giriş, token yenileme ve profil endpoint'lerini tanımlar.
-Her endpoint AuthService'i çağırarak iş mantığını yönetir.
-Controller'da iş mantığı YOKTUR — sadece request alır, service'e yönlendirir, response döner.
-"""
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -40,13 +34,7 @@ def register(
     data: RegisterRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Yeni kullanıcı kaydı.
 
-    - Email .edu.tr ile bitmelidir
-    - @ogr. içeriyorsa → STUDENT rolü atanır
-    - Kayıt başarılıysa access + refresh token döner
-    """
     service = AuthService(db)
     return service.register(data)
 
@@ -63,10 +51,6 @@ def login(
 ):
     """
     Kullanıcı girişi.
-
-    - Email ve şifre doğrulanır
-    - Hesap aktif olmalıdır
-    - Başarılıysa access (15dk) + refresh (7 gün) token döner
     """
     service = AuthService(db)
     return service.login(data)
@@ -83,13 +67,7 @@ def refresh_token(
     data: RefreshTokenRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Token yenileme (sliding expiration).
 
-    - Geçerli bir refresh token gereklidir
-    - Kullanıcı hâlâ aktif olmalıdır
-    - Yeni access + refresh token çifti döner
-    """
     service = AuthService(db)
     return service.refresh(data)
 
@@ -103,10 +81,5 @@ def refresh_token(
 def get_profile(
     current_user=Depends(get_current_user),
 ):
-    """
-    Mevcut kullanıcının profil bilgisi.
 
-    - Geçerli bir access token gereklidir (Authorization header)
-    - Şifre bilgisi response'ta YER ALMAZ
-    """
     return UserResponse.model_validate(current_user)

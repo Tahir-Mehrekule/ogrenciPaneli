@@ -45,10 +45,12 @@ class Project(BaseModel):
 
     course_id = Column(
         UUID(as_uuid=True),
-        nullable=True,       # Faz 2'de ForeignKey("courses.id") olacak
+        ForeignKey("courses.id", ondelete="SET NULL"),
+        nullable=True,       # Mevcut projeler için geriye dönük uyumluluk
         index=True,
-        comment="Ders ID'si (Faz 2)"
+        comment="Ders ID'si"
     )
+
 
     status = Column(
         Enum(ProjectStatus, name="project_status"),

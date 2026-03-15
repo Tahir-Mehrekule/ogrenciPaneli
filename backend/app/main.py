@@ -19,6 +19,7 @@ from app.features.project_member.project_member_controller import router as proj
 from app.features.task.task_controller import router as task_router
 from app.features.report.report_controller import router as report_router
 from app.features.ai.ai_controller import router as ai_router
+from app.features.course.course_controller import router as course_router
 
 
 # --- Uygulama Oluşturma ---
@@ -56,6 +57,7 @@ app.include_router(project_member_router)
 app.include_router(task_router)
 app.include_router(report_router)
 app.include_router(ai_router)
+app.include_router(course_router)
 
 
 # --- Health Check ---

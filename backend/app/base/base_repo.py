@@ -8,7 +8,7 @@ Her feature kendi repo'sunu BaseRepository'den türeterek CRUD kodunu tekrar yaz
 from uuid import UUID
 from typing import TypeVar, Generic, Type
 
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, or_
 from sqlalchemy.orm import Session
 
 from app.base.base_model import BaseModel
@@ -125,6 +125,93 @@ class BaseRepository(Generic[ModelType]):
             )
 
         return query.offset(skip).limit(limit).all()
+
+    def get_many(
+        self,
+        filters: dict = None,
+        in_filters: dict = None,
+        like_filters: dict = None,
+        search: str = None,
+        search_fields: list[str] = None,
+        page: int = 1,
+        size: int = 20,
+        sort_by: str = "created_at",
+        order: str = "desc",
+        active_only: bool = True,
+    ) -> tuple[list[ModelType], int]:
+        """
+        Genelleştirilmiş listeleme metodu.
+        Filtreleme, arama, sayfalama ve sıralama işlemlerini tek merkezden yapar.
+        Diğer modüller kendi repo'larında ayrıca get_filtered yazmak zorunda kalmaz.
+
+        Args:
+            filters: Kesin eşleşme filtreleri (dict). Örn: {"status": "APPROVED", "created_by": uuid}
+            in_filters: IN sorguları (dict). Örn: {"project_id": [uuid1, uuid2]}
+            like_filters: Kısmi eşleşme filtreleri — ILIKE (dict). Örn: {"department": "Bilgisayar"}
+            search: Arama terimi. Örn: "Ali"
+            search_fields: Aranacak alan isimleri. Örn: ["title", "description"]
+            page: Sayfa numarası (1'den başlar)
+            size: Sayfa başına kayıt sayısı
+            sort_by: Sıralama alanı
+            order: Sıralama yönü ("asc" veya "desc")
+            active_only: True ise sadece aktif (silinmemiş) kayıtlar
+
+        Returns:
+            tuple[list[ModelType], int]: (kayıt listesi, toplam kayıt sayısı)
+        """
+        query = self.db.query(self.model)
+
+        # 1. Aktif kayıt filtresi
+        if active_only:
+            query = query.filter(self.model.is_active == True)
+
+        # 2. Kesin eşleşme filtreleri (== operatörü)
+        if filters:
+            for key, value in filters.items():
+                column = getattr(self.model, key, None)
+                if column is not None and value is not None:
+                    query = query.filter(column == value)
+
+        # 3. IN filtreleri (column.in_([...]) operatörü)
+        if in_filters:
+            for key, value_list in in_filters.items():
+                column = getattr(self.model, key, None)
+                if column is not None and value_list is not None:
+                    query = query.filter(column.in_(value_list))
+
+        # 4. ILIKE filtreleri (kısmi eşleşme — %terim%)
+        if like_filters:
+            for key, value in like_filters.items():
+                column = getattr(self.model, key, None)
+                if column is not None and value is not None:
+                    query = query.filter(column.ilike(f"%{value}%"))
+
+        # 5. Arama (birden fazla alanda OR mantığıyla ILIKE)
+        if search and search_fields:
+            search_term = f"%{search.strip()}%"
+            conditions = []
+            for field_name in search_fields:
+                column = getattr(self.model, field_name, None)
+                if column is not None:
+                    conditions.append(column.ilike(search_term))
+            if conditions:
+                query = query.filter(or_(*conditions))
+
+        # Toplam kayıt sayısı (sayfalama uygulanmadan önce)
+        total = query.count()
+
+        # 6. Sıralama
+        sort_column = getattr(self.model, sort_by, None)
+        if sort_column is not None:
+            query = query.order_by(
+                desc(sort_column) if order == "desc" else asc(sort_column)
+            )
+
+        # 7. Sayfalama
+        skip = (page - 1) * size
+        items = query.offset(skip).limit(size).all()
+
+        return items, total
 
     def count(self, active_only: bool = True) -> int:
         """

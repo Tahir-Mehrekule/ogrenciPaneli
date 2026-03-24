@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
 from app.common.enums import UserRole
 from app.features.ai.ai_service import AIService
-from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse
+from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse, ReportAnalysisRequest, ReportAnalysisResponse
 
 
 router = APIRouter(
@@ -66,3 +66,25 @@ def get_saved_suggestion(
     Kaydedilmiş AI önerisini getirir. Henüz öneri üretilmemişse 400 döner.
     """
     return AIService(db).get_saved_suggestion(project_id, current_user)
+
+
+@router.post(
+    "/analyze-report",
+    response_model=ReportAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Haftalık Raporu Analiz Et",
+    description=(
+        "Belirtilen öğrenci raporunu AI ile analiz ederek; "
+        "özet, güçlü/zayıf yönler ve tavsiyeler üretir. "
+        "Sadece rapor sahibi, öğretmen ve admin kullanabilir."
+    ),
+)
+def analyze_report(
+    data: ReportAnalysisRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Rapor özetleme ve analiz.
+    """
+    return AIService(db).analyze_report(data, current_user)

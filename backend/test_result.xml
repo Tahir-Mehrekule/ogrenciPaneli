@@ -1,0 +1,1299 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="15" failures="1" skipped="0" tests="63" time="33.930" timestamp="2026-03-17T05:42:52.155389+03:00" hostname="DESKTOP-HCKQVOD"><testcase classname="tests.test_ai.test_ai_unit.TestBuildUserPrompt" name="test_proje_bilgisi_prompt_içinde" time="0.504" /><testcase classname="tests.test_ai.test_ai_unit.TestBuildUserPrompt" name="test_prompt_boş_değil" time="0.417" /><testcase classname="tests.test_ai.test_ai_unit.TestParseResponse" name="test_geçerli_json_parse_edilir" time="0.420" /><testcase classname="tests.test_ai.test_ai_unit.TestParseResponse" name="test_markdown_kod_bloğu_temizlenir" time="0.435" /><testcase classname="tests.test_ai.test_ai_unit.TestParseResponse" name="test_geçersiz_json_hata_fırlatır" time="0.478" /><testcase classname="tests.test_ai.test_ai_unit.TestParseResponse" name="test_eksik_choices_hata_fırlatır" time="0.341" /><testcase classname="tests.test_auth.test_auth_api.TestRegister" name="test_başarılı_kayıt" time="0.393"><failure message="ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])">self = &lt;tests.test_auth.test_auth_api.TestRegister object at 0x0000028441A85A90&gt;
+client = &lt;starlette.testclient.TestClient object at 0x0000028441B6E660&gt;
+
+    def test_başarılı_kayıt(self, client):
+        """Geçerli bilgilerle kayıt → 201 + token döner."""
+&gt;       resp = client.post("/api/v1/auth/register", json={
+            "email": "yeni@stu.edu.tr",
+            "password": "Test1234!",
+            "name": "Yeni Kullanıcı",
+        })
+
+tests\test_auth\test_auth_api.py:14: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\testclient.py:546: in post
+    return super().post(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:1144: in post
+    return self.request(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\testclient.py:445: in request
+    return super().request(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:914: in send
+    response = self._send_handling_auth(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\httpx\_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\testclient.py:348: in handle_request
+    raise exc
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\testclient.py:345: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\anyio\from_thread.py:326: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\concurrent\futures\_base.py:450: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\concurrent\futures\_base.py:395: in __get_result
+    raise self._exception
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\anyio\from_thread.py:257: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\applications.py:1139: in __call__
+    await super().__call__(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\middleware\cors.py:85: in __call__
+    await self.app(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\routing.py:736: in app
+    await route.handle(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\routing.py:290: in handle
+    await self.app(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:120: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:106: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:430: in app
+    raw_response = await run_endpoint_function(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:318: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\concurrency.py:32: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\anyio\to_thread.py:61: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\anyio\_backends\_asyncio.py:2525: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\anyio\_backends\_asyncio.py:986: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+app\features\auth\auth_controller.py:39: in register
+    return service.register(data)
+           ^^^^^^^^^^^^^^^^^^^^^^
+app\features\auth\auth_service.py:35: in register
+    hashed_password = hash_password(data.password)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x00000284420C83E0&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</failure></testcase><testcase classname="tests.test_auth.test_auth_api.TestRegister" name="test_tekrar_aynı_email" time="0.321"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_tekrar_aynı_email&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028442092E50&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_auth.test_auth_api.TestRegister" name="test_geçersiz_email" time="0.445" /><testcase classname="tests.test_auth.test_auth_api.TestRegister" name="test_kısa_şifre" time="0.413" /><testcase classname="tests.test_auth.test_auth_api.TestLogin" name="test_başarılı_giriş" time="0.418"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_başarılı_giriş&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443B5F380&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_auth.test_auth_api.TestLogin" name="test_yanlış_şifre" time="0.393"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_yanlış_şifre&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x000002844214F250&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_auth.test_auth_api.TestLogin" name="test_olmayan_kullanıcı" time="0.498" /><testcase classname="tests.test_auth.test_auth_api.TestMe" name="test_geçerli_token_ile_profil" time="0.442"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_geçerli_token_ile_profil&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x000002844220B2A0&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_auth.test_auth_api.TestMe" name="test_token_olmadan" time="0.414" /><testcase classname="tests.test_auth.test_auth_api.TestMe" name="test_geçersiz_token" time="0.500" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSchoolEmail" name="test_gecerli_ogrenci_email" time="0.489" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSchoolEmail" name="test_gecerli_ogretmen_email" time="0.483" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSchoolEmail" name="test_gecersiz_gmail" time="0.539" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSchoolEmail" name="test_gecersiz_hotmail" time="0.503" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateRoleChange" name="test_son_admin_rolü_değiştirilemez" time="0.466" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateRoleChange" name="test_birden_fazla_admin_varsa_değiştirilebilir" time="0.538" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateRoleChange" name="test_kullanici_kendi_rolünü_değiştiremez" time="0.492" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSelfDelete" name="test_kendini_silemez" time="0.416" /><testcase classname="tests.test_auth.test_auth_unit.TestValidateSelfDelete" name="test_baskasını_silebilir" time="0.399" /><testcase classname="tests.test_project.test_project_api.TestProjectCreate" name="test_student_proje_oluşturabilir" time="0.422"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_student_proje_oluşturabilir&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x000002844220A510&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_api.TestProjectCreate" name="test_token_olmadan_proje_oluşturulamaz" time="0.443" /><testcase classname="tests.test_project.test_project_api.TestProjectList" name="test_student_sadece_kendi_projelerini_görür" time="0.429"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_student_sadece_kendi_projelerini_görür&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x000002844220B460&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_api.TestProjectList" name="test_teacher_tum_projeleri_görür" time="0.420"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_teacher_tum_projeleri_görür&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x00000284422099B0&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_api.TestProjectStatusFlow" name="test_submit_pending_yap" time="0.477"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_submit_pending_yap&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443687690&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_api.TestProjectStatusFlow" name="test_approve_teacher_yapabilir" time="0.548"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_approve_teacher_yapabilir&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443684C90&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_api.TestProjectStatusFlow" name="test_student_onaylayamaz" time="0.483"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_student_onaylayamaz&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443686B30&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_project.test_project_unit.TestStatusTransition" name="test_draft_to_pending_gecerli" time="0.452" /><testcase classname="tests.test_project.test_project_unit.TestStatusTransition" name="test_draft_to_approved_gecersiz" time="0.506" /><testcase classname="tests.test_project.test_project_unit.TestStatusTransition" name="test_completed_proje_değiştirilemez" time="0.490" /><testcase classname="tests.test_project.test_project_unit.TestStatusTransition" name="test_approved_to_in_progress_gecerli" time="0.526" /><testcase classname="tests.test_project.test_project_unit.TestStatusTransition" name="test_rejected_to_draft_gecerli" time="0.406" /><testcase classname="tests.test_project.test_project_unit.TestValidateProjectOwner" name="test_sahip_erişebilir" time="0.452" /><testcase classname="tests.test_project.test_project_unit.TestValidateProjectOwner" name="test_admin_erişebilir" time="0.491" /><testcase classname="tests.test_project.test_project_unit.TestValidateProjectOwner" name="test_yabancı_kullanıcı_erişemez" time="0.505" /><testcase classname="tests.test_report.test_report_api.TestReportCreate" name="test_rapor_oluşturulur" time="0.527"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_rapor_oluşturulur&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443B8A6D0&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_report.test_report_api.TestReportCreate" name="test_aynı_haftada_ikinci_rapor_reddedilir" time="0.477"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_aynı_haftada_ikinci_rapor_reddedilir&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443B8B460&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_report.test_report_api.TestReportSubmit" name="test_rapor_teslim_edilir" time="0.472"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_rapor_teslim_edilir&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443B88910&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_report.test_report_api.TestReportReview" name="test_teacher_raporu_inceler" time="0.389"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_teacher_raporu_inceler&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443B89940&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_report.test_report_api.TestReportReview" name="test_student_rapor_inceleyemez" time="0.381"><error message="failed on setup with &quot;ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])&quot;">fixturedef = &lt;FixtureDef argname='student_user' scope='function' baseid='tests'&gt;
+request = &lt;SubRequest 'student_user' for &lt;Function test_student_rapor_inceleyemez&gt;&gt;
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -&gt; object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+                return (yield)
+            if not _is_coroutine_or_asyncgen(fixturedef.func):
+&gt;               return (yield)
+                        ^^^^^
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pytest_asyncio\plugin.py:730: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conftest.py:71: in student_user
+    password_hash=hash_password("Test1234!"),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+app\core\security.py:33: in hash_password
+    return pwd_context.hash(password)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\context.py:2258: in hash
+    return record.hash(secret, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:779: in hash
+    self.checksum = self._calc_checksum(secret)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:591: in _calc_checksum
+    self._stub_requires_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2254: in _stub_requires_backend
+    cls.set_backend()
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2156: in set_backend
+    return owner.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2163: in set_backend
+    return cls.set_backend(name, dryrun=dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2188: in set_backend
+    cls._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2311: in _set_backend
+    super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:2224: in _set_backend
+    ok = loader(**kwds)
+         ^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:626: in _load_backend_mixin
+    return mixin_cls._finalize_backend_mixin(name, dryrun)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:421: in _finalize_backend_mixin
+    if detect_wrap_bug(IDENT_2A):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:380: in detect_wrap_bug
+    if verify(secret, bug_hash):
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\utils\handlers.py:792: in verify
+    return consteq(self._calc_checksum(secret), chk)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;passlib.handlers.bcrypt._BcryptBackend object at 0x0000028443BB1B70&gt;
+secret = b'01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345...7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234'
+
+    def _calc_checksum(self, secret):
+        # bcrypt behavior:
+        #   secret must be bytes
+        #   config must be ascii bytes
+        #   returns ascii bytes
+        secret, ident = self._prepare_digest_args(secret)
+        config = self._get_config(ident)
+        if isinstance(config, unicode):
+            config = config.encode("ascii")
+&gt;       hash = _bcrypt.hashpw(secret, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
+
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\passlib\handlers\bcrypt.py:655: ValueError</error></testcase><testcase classname="tests.test_report.test_report_unit.TestWeeklyUniqueness" name="test_ilk_rapor_oluşturulabilir" time="0.340" /><testcase classname="tests.test_report.test_report_unit.TestWeeklyUniqueness" name="test_aynı_haftada_ikinci_rapor_reddedilir" time="0.331" /><testcase classname="tests.test_report.test_report_unit.TestReportEditable" name="test_draft_rapor_düzenlenebilir" time="0.442" /><testcase classname="tests.test_report.test_report_unit.TestReportEditable" name="test_submitted_rapor_düzenlenemez" time="0.412" /><testcase classname="tests.test_report.test_report_unit.TestReportEditable" name="test_reviewed_rapor_düzenlenemez" time="0.503" /><testcase classname="tests.test_report.test_report_unit.TestReportSubmittable" name="test_draft_teslim_edilebilir" time="0.395" /><testcase classname="tests.test_report.test_report_unit.TestReportSubmittable" name="test_submitted_tekrar_teslim_edilemez" time="0.391" /><testcase classname="tests.test_report.test_report_unit.TestReportOwner" name="test_sahip_erişebilir" time="0.401" /><testcase classname="tests.test_report.test_report_unit.TestReportOwner" name="test_başkasının_raporu_düzenlenemez" time="0.447" /><testcase classname="tests.test_report.test_report_unit.TestGetCurrentWeekAndYear" name="test_dönen_değerler_geçerli_aralıkta" time="0.387" /><testcase classname="tests.test_task.test_task_unit.TestTaskStatusTransition" name="test_todo_to_in_progress_student_yapabilir" time="0.394" /><testcase classname="tests.test_task.test_task_unit.TestTaskStatusTransition" name="test_review_to_done_student_yapamaz" time="0.495" /><testcase classname="tests.test_task.test_task_unit.TestTaskStatusTransition" name="test_review_to_done_teacher_yapabilir" time="0.453" /><testcase classname="tests.test_task.test_task_unit.TestTaskStatusTransition" name="test_done_değiştirilemez" time="0.498" /><testcase classname="tests.test_task.test_task_unit.TestTaskStatusTransition" name="test_geçersiz_atlama" time="0.510" /><testcase classname="tests.test_task.test_task_unit.TestAssigneeIsMember" name="test_üye_olan_kişiye_atanabilir" time="0.608" /><testcase classname="tests.test_task.test_task_unit.TestAssigneeIsMember" name="test_üye_olmayan_kişiye_atanamaz" time="0.495" /><testcase classname="tests.test_task.test_task_unit.TestAssigneeIsMember" name="test_atama_yoksa_kontrol_edilmez" time="0.554" /></testsuite></testsuites>

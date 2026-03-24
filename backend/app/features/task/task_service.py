@@ -10,7 +10,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
-from app.common.enums import TaskStatus, UserRole
+from app.common.enums import TaskStatus, UserRole, NotificationType
+from app.common.notification_helper import send_notification
 from app.common.exceptions import ForbiddenException
 from app.features.task.task_model import Task
 from app.features.task.task_repo import TaskRepo
@@ -61,6 +62,18 @@ class TaskService:
             "due_date": data.due_date,
         }
         task = self.repo.create(task_data)
+        
+        # Başkası adına görev oluşturulduysa, atanan kişiye bildirim (kendisi atamadıysa)
+        if data.assigned_to and str(data.assigned_to) != str(current_user.id):
+            send_notification(
+                db=self.db,
+                user_id=data.assigned_to,
+                type=NotificationType.TASK_ASSIGNED,
+                title="Yeni Görev Atandı",
+                message=f"'{project.title}' projesinde size '{task.title}' adlı yeni bir görev atandı.",
+                related_id=task.id
+            )
+            
         return TaskResponse.model_validate(task)
 
     def list_tasks(self, params: TaskFilterParams, current_user: User) -> PaginatedResponse:
@@ -70,11 +83,33 @@ class TaskService:
         - STUDENT: sadece üyesi olduğu projelerdeki görevler
         - TEACHER/ADMIN: tüm görevler
         """
-        project_ids = None
+        # Dinamik filtre oluştur
+        filters = {}
+        if params.project_id:
+            filters["project_id"] = params.project_id
+        if params.assigned_to:
+            filters["assigned_to"] = params.assigned_to
+        if params.status:
+            filters["status"] = params.status
+        if params.ai_suggested is not None:
+            filters["ai_suggested"] = params.ai_suggested
+
+        # STUDENT için proje kısıtlaması (IN filtresi)
+        in_filters = {}
         if current_user.role == UserRole.STUDENT:
             project_ids = self.member_repo.get_user_projects(current_user.id)
+            in_filters["project_id"] = project_ids
 
-        tasks, total = self.repo.get_filtered(params, project_ids=project_ids)
+        tasks, total = self.repo.get_many(
+            filters=filters,
+            in_filters=in_filters if in_filters else None,
+            search=params.search,
+            search_fields=["title", "description"],
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
         items = [TaskResponse.model_validate(t) for t in tasks]
 
         return PaginatedResponse(
@@ -110,6 +145,18 @@ class TaskService:
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         updated = self.repo.update(task_id, update_data)
+        
+        # Atama değiştiyse bildirim gönder (ve atanan kişi kendisi değilse)
+        if data.assigned_to is not None and str(data.assigned_to) != str(task.assigned_to) and str(data.assigned_to) != str(current_user.id):
+            send_notification(
+                db=self.db,
+                user_id=data.assigned_to,
+                type=NotificationType.TASK_ASSIGNED,
+                title="Görev Size Atandı",
+                message=f"'{project.title}' projesindeki '{updated.title}' adlı görev size atandı.",
+                related_id=updated.id
+            )
+            
         return TaskResponse.model_validate(updated)
 
     def update_status(self, task_id: UUID, data: TaskStatusUpdate, current_user: User) -> TaskResponse:

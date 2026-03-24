@@ -14,7 +14,7 @@ from app.common.enums import ProjectStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_repo import ProjectRepo
 from app.features.ai.ai_manager import call_openrouter
-from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse
+from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse, ReportAnalysisRequest, ReportAnalysisResponse
 from app.features.ai.ai_config import DEFAULT_MODEL
 from app.features.auth.auth_model import User
 
@@ -121,4 +121,34 @@ class AIService:
             tasks=tasks,
             generated_at=generated_at,
             model_used=plan.get("model", DEFAULT_MODEL),
+        )
+
+    def analyze_report(self, data: ReportAnalysisRequest, current_user: User) -> ReportAnalysisResponse:
+        """
+        Öğrenci raporunu AI ile analiz eder.
+        """
+        from app.features.report.report_repo import ReportRepo
+        from app.features.ai.ai_manager import call_openrouter_for_report
+        
+        report_repo = ReportRepo(self.db)
+        report = report_repo.get_by_id_or_404(data.report_id)
+        
+        # Yetki kontrolü (Öğrenci ise sadece kendi raporu; değilse öğretmen/admin)
+        is_owner = str(report.submitted_by) == str(current_user.id)
+        is_privileged = current_user.role in [UserRole.TEACHER, UserRole.ADMIN]
+        if not is_owner and not is_privileged:
+            raise ForbiddenException("Bu raporu analiz etme yetkiniz yok")
+
+        # OpenRouter'ı çağır
+        analysis_result = call_openrouter_for_report(report.project.title, report.content)
+
+        # Yanıtı hazırla
+        return ReportAnalysisResponse(
+            report_id=data.report_id,
+            summary=analysis_result.get("summary", ""),
+            strengths=analysis_result.get("strengths", []),
+            weaknesses=analysis_result.get("weaknesses", []),
+            recommendations=analysis_result.get("recommendations", []),
+            generated_at=datetime.now(timezone.utc),
+            model_used=DEFAULT_MODEL
         )

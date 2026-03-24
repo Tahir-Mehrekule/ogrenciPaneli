@@ -69,6 +69,28 @@ class Settings(BaseSettings):
         description="İzin verilen origin'ler (virgülle ayrılmış)"
     )
 
+    # --- MinIO (S3) Storage ---
+    MINIO_ENDPOINT: str = Field(
+        default="minio:9000",
+        description="MinIO sunucu adresi (Docker içi: minio:9000)"
+    )
+    MINIO_ACCESS_KEY: str = Field(
+        default="minioadmin",
+        description="MinIO erişim anahtarı"
+    )
+    MINIO_SECRET_KEY: str = Field(
+        default="minioadmin",
+        description="MinIO gizli anahtarı"
+    )
+    MINIO_BUCKET_NAME: str = Field(
+        default="unitrack-files",
+        description="Depolanacak ana bucket adı"
+    )
+    MINIO_SECURE: bool = Field(
+        default=False,
+        description="HTTPS kullanılıp kullanılmayacağı (lokalde False)"
+    )
+
     @property
     def allowed_origins_list(self) -> list[str]:
         """ALLOWED_ORIGINS string'ini listeye çevirir."""

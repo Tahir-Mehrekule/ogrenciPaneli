@@ -43,6 +43,9 @@ htmlcov/
 # Logs
 *.log
 
+# Text files (test outputs, etc.)
+*.txt
+
 # Node (frontend - ileride kullanılacak)
 node_modules/
 .next/

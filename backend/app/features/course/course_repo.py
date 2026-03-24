@@ -12,11 +12,21 @@ from sqlalchemy.orm import Session
 
 from app.base.base_repo import BaseRepository
 from app.features.course.course_model import Course, CourseEnrollment
-from app.features.course.course_dto import CourseFilterParams
 
 
 class CourseRepo(BaseRepository[Course]):
-    """Ders CRUD + filtreleme operasyonları."""
+    """
+    Ders CRUD operasyonları.
+
+    BaseRepository'den miras alınan işlemler:
+    - create, get_by_id, get_by_id_or_404, get_all, get_many, count, update, delete, hard_delete
+
+    get_many ile tüm filtreleme, arama, sayfalama ve sıralama
+    işlemleri merkezi olarak yapılır — burada ayrıca yazılmaz (DRY).
+
+    Ek sorgular:
+    - get_by_code: Ders koduna göre getir (unique alan — duplicate kontrolü için)
+    """
 
     def __init__(self, db: Session):
         super().__init__(Course, db)
@@ -28,54 +38,6 @@ class CourseRepo(BaseRepository[Course]):
             .filter(Course.code == code, Course.is_active == True)
             .first()
         )
-
-    def get_filtered(
-        self,
-        params: CourseFilterParams,
-        teacher_id: Optional[UUID] = None,
-    ) -> tuple[list[Course], int]:
-        """
-        Filtreli ve sayfalanmış ders listesi.
-
-        Args:
-            params: Filtreleme parametreleri
-            teacher_id: Sadece bu öğretmenin derslerini getir (opsiyonel)
-
-        Returns:
-            (ders_listesi, toplam_sayı)
-        """
-        query = self.db.query(Course).filter(Course.is_active == True)
-
-        # Öğretmen filtresi
-        if teacher_id:
-            query = query.filter(Course.teacher_id == teacher_id)
-        if params.teacher_id:
-            query = query.filter(Course.teacher_id == params.teacher_id)
-
-        # Dönem filtresi
-        if params.semester:
-            query = query.filter(Course.semester == params.semester)
-
-        # Arama (ders adı veya kodu)
-        if params.search:
-            search_term = f"%{params.search}%"
-            query = query.filter(
-                (Course.name.ilike(search_term)) | (Course.code.ilike(search_term))
-            )
-
-        total = query.count()
-
-        # Sıralama
-        sort_column = getattr(Course, params.sort_by, Course.created_at)
-        query = query.order_by(
-            desc(sort_column) if params.order == "desc" else asc(sort_column)
-        )
-
-        # Sayfalama
-        skip = (params.page - 1) * params.size
-        items = query.offset(skip).limit(params.size).all()
-
-        return items, total
 
 
 class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):

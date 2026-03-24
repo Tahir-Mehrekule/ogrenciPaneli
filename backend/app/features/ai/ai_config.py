@@ -66,3 +66,26 @@ def build_user_prompt(title: str, description: str) -> str:
 Proje Açıklaması: {description}
 
 Bu projeyi tamamlamak için 5-8 adet görev öner. Sadece JSON formatında yanıt ver."""
+
+
+REPORT_ANALYSIS_SYSTEM_PROMPT = """Sen bir proje yönetim asistanı ve eğitim mentorusun.
+Sana bir öğrencinin haftalık proje raporu verilecek. Raporu dikkatlice analiz et.
+
+KURALLAR:
+- Analizi objektif ve yapıcı bir dille yap.
+- Güçlü yönleri ve gelişime açık eksikleri (zayıf yönleri) net bir şekilde listele.
+- Gelecek haftalar için somut ve uygulanabilir tavsiyeler ver.
+
+YANIT FORMATI (sadece JSON, başka hiçbir şey ekleme):
+{
+  "summary": "Raporun iki üç cümlelik genel özeti",
+  "strengths": ["Güçlü yön 1", "Güçlü yön 2"],
+  "weaknesses": ["Eksik yön 1", "Eksik yön 2"],
+  "recommendations": ["Tavsiye 1", "Tavsiye 2"]
+}"""
+
+
+def build_report_analysis_prompt(title: str, content: str) -> str:
+    """Rapor içeriğinden kullanıcı prompt'unu oluşturur."""
+    return f"Rapor Başlığı: {title}\n\nRapor İçeriği:\n{content}\n\nLütfen bu raporu analiz et ve istenen JSON formatında yanıt ver."
+

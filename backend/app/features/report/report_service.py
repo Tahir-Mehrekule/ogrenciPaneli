@@ -10,7 +10,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
-from app.common.enums import ReportStatus, UserRole
+from app.common.enums import ReportStatus, UserRole, NotificationType
+from app.common.notification_helper import send_notification
 from app.common.exceptions import ForbiddenException, NotFoundException
 from app.common.validators import validate_youtube_url
 from app.features.report.report_repo import ReportRepo
@@ -66,11 +67,32 @@ class ReportService:
         Filtreli rapor listesi.
         STUDENT sadece kendi raporlarını görür.
         """
-        user_id_filter = None
-        if current_user.role == UserRole.STUDENT:
-            user_id_filter = current_user.id
+        # Dinamik filtre oluştur
+        filters = {}
+        if params.project_id:
+            filters["project_id"] = params.project_id
+        if params.submitted_by:
+            filters["submitted_by"] = params.submitted_by
+        if params.status:
+            filters["status"] = params.status
+        if params.week_number:
+            filters["week_number"] = params.week_number
+        if params.year:
+            filters["year"] = params.year
 
-        reports, total = self.repo.get_filtered(params, user_id=user_id_filter)
+        # STUDENT sadece kendi raporlarını görür
+        if current_user.role == UserRole.STUDENT:
+            filters["submitted_by"] = current_user.id
+
+        reports, total = self.repo.get_many(
+            filters=filters,
+            search=params.search,
+            search_fields=["content"],
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
         items = [ReportResponse.model_validate(r) for r in reports]
 
         return PaginatedResponse(
@@ -128,4 +150,15 @@ class ReportService:
             "status": ReportStatus.REVIEWED,
             "reviewer_note": data.reviewer_note,
         })
+        
+        # Raporu gönderen öğrenciye bildirim
+        send_notification(
+            db=self.db,
+            user_id=report.submitted_by,
+            type=NotificationType.REPORT_REVIEWED,
+            title="Raporunuz İncelendi",
+            message=f"{report.year} Yılı {report.week_number}. Hafta raporunuz öğretmen tarafından incelendi.",
+            related_id=report.id
+        )
+        
         return ReportResponse.model_validate(updated)

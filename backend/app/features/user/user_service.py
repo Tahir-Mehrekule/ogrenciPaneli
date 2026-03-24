@@ -47,7 +47,29 @@ class UserService:
         Returns:
             PaginatedResponse[UserListResponse]: Sayfalanmış kullanıcı listesi
         """
-        users, total = self.repo.get_filtered(params)
+        # Dinamik filtre oluştur
+        filters = {}
+        if params.role is not None:
+            filters["role"] = params.role
+        if params.is_active is not None:
+            filters["is_active"] = params.is_active
+
+        # Bölüm araması — ILIKE (kısmi eşleşme)
+        like_filters = {}
+        if params.department is not None:
+            like_filters["department"] = params.department
+
+        users, total = self.repo.get_many(
+            filters=filters,
+            like_filters=like_filters if like_filters else None,
+            search=params.search,
+            search_fields=["name", "email"],
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+            active_only=False,  # is_active filtresini kendimiz yönetiyoruz
+        )
         items = [UserListResponse.model_validate(u) for u in users]
 
         return PaginatedResponse(
@@ -104,8 +126,8 @@ class UserService:
 
         # Rol değişikliği varsa validasyon yap
         if data.role is not None and data.role != target_user.role:
-            admin_count = len(self.repo.filter_by_role("admin"))
-            validate_role_change(current_user, target_user, data.role, admin_count)
+            admins, _ = self.repo.get_many(filters={"role": "admin"}, active_only=True)
+            validate_role_change(current_user, target_user, data.role, len(admins))
 
         # None olan alanları filtrele (PATCH semantiği)
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}

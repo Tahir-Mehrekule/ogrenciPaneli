@@ -17,9 +17,10 @@ from app.main import app
 from app.core.security import hash_password
 from app.common.enums import UserRole
 from app.features.auth.auth_model import User
+from unittest.mock import patch, MagicMock
 
-# PostgreSQL test veritabanı (Docker container içinde: db:5432)
-TEST_DATABASE_URL = "postgresql://postgres:postgres@db:5432/unitrack_test"
+# PostgreSQL test veritabanı (Docker üzerinden localhost:5432)
+TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/unitrack_test"
 
 engine = create_engine(TEST_DATABASE_URL)
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -138,3 +139,14 @@ def admin_token(client, admin_user):
         "password": "Test1234!",
     })
     return resp.json()["access_token"]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_minio():
+    """
+    Testler sırasında MinIO (S3) sunucusuna gerçek istek gitmesini engeller.
+    Yoksa container (app_core_storage) başlatılırken getaddrinfo failed - timeout alır.
+    """
+    with patch("app.core.storage.Minio") as mock:
+        yield mock
+

@@ -20,6 +20,9 @@ from app.features.task.task_controller import router as task_router
 from app.features.report.report_controller import router as report_router
 from app.features.ai.ai_controller import router as ai_router
 from app.features.course.course_controller import router as course_router
+from app.features.notification.notification_controller import router as notification_router
+from app.features.file.file_controller import router as file_router
+from app.features.admin.admin_controller import router as admin_router
 
 
 # --- Uygulama Oluşturma ---
@@ -58,6 +61,9 @@ app.include_router(task_router)
 app.include_router(report_router)
 app.include_router(ai_router)
 app.include_router(course_router)
+app.include_router(notification_router)
+app.include_router(file_router)
+app.include_router(admin_router)
 
 
 # --- Health Check ---

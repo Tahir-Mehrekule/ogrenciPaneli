@@ -67,11 +67,24 @@ class CourseService:
         - ADMIN: tüm dersler
         - STUDENT: tüm aktif dersler
         """
-        teacher_filter = None
+        # Dinamik filtre oluştur
+        filters = {}
         if current_user.role == UserRole.TEACHER:
-            teacher_filter = current_user.id
+            filters["teacher_id"] = current_user.id
+        if params.teacher_id:
+            filters["teacher_id"] = params.teacher_id
+        if params.semester:
+            filters["semester"] = params.semester
 
-        courses, total = self.repo.get_filtered(params, teacher_id=teacher_filter)
+        courses, total = self.repo.get_many(
+            filters=filters,
+            search=params.search,
+            search_fields=["name", "code"],
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
         items = [CourseResponse.model_validate(c) for c in courses]
 
         return PaginatedResponse(

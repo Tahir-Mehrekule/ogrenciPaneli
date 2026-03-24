@@ -10,7 +10,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
-from app.common.enums import ProjectStatus, UserRole
+from app.common.enums import ProjectStatus, UserRole, NotificationType
+from app.common.notification_helper import send_notification
 from app.features.project.project_model import Project
 from app.features.project.project_repo import ProjectRepo
 from app.features.project.project_manager import (
@@ -69,12 +70,26 @@ class ProjectService:
         Returns:
             PaginatedResponse[ProjectResponse]: Sayfalanmış proje listesi
         """
-        # STUDENT sadece kendi projelerini görür
-        user_id_filter = None
-        if current_user.role == UserRole.STUDENT:
-            user_id_filter = current_user.id
+        # Dinamik filtre oluştur
+        filters = {}
+        if params.status:
+            filters["status"] = params.status
+        if params.created_by:
+            filters["created_by"] = params.created_by
 
-        projects, total = self.repo.get_filtered(params, user_id=user_id_filter)
+        # STUDENT sadece kendi projelerini görür
+        if current_user.role == UserRole.STUDENT:
+            filters["created_by"] = current_user.id
+
+        projects, total = self.repo.get_many(
+            filters=filters,
+            search=params.search,
+            search_fields=["title", "description"],
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
         items = [ProjectResponse.model_validate(p) for p in projects]
 
         return PaginatedResponse(
@@ -138,6 +153,17 @@ class ProjectService:
         project = self.repo.get_by_id_or_404(project_id)
         validate_status_transition(project.status, ProjectStatus.APPROVED)
         updated = self.repo.update(project_id, {"status": ProjectStatus.APPROVED})
+        
+        # Proje sahibine bildirim gönder
+        send_notification(
+            db=self.db,
+            user_id=project.created_by,
+            type=NotificationType.PROJECT_APPROVED,
+            title="Projeniz Onaylandı",
+            message=f"'{project.title}' adlı projeniz onaylanmıştır. Artık görev oluşturabilirsiniz.",
+            related_id=project.id
+        )
+        
         return ProjectResponse.model_validate(updated)
 
     def reject_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
@@ -145,6 +171,17 @@ class ProjectService:
         project = self.repo.get_by_id_or_404(project_id)
         validate_status_transition(project.status, ProjectStatus.REJECTED)
         updated = self.repo.update(project_id, {"status": ProjectStatus.REJECTED})
+        
+        # Proje sahibine bildirim gönder
+        send_notification(
+            db=self.db,
+            user_id=project.created_by,
+            type=NotificationType.PROJECT_REJECTED,
+            title="Projeniz Reddedildi",
+            message=f"'{project.title}' adlı projeniz reddedildi. Lütfen detaylı bilgi alıp tekrar deneyin.",
+            related_id=project.id
+        )
+        
         return ProjectResponse.model_validate(updated)
 
     def delete_project(self, project_id: UUID, current_user: User) -> dict:

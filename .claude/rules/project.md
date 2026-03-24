@@ -492,10 +492,10 @@ GET    /api/v1/ai/models
 - **Stil:** Tailwind CSS
 - **State:** React hooks (useState, useEffect, useContext)
 - **HTTP:** fetch veya axios ile apiClient wrapper (DRY)
-- TypeScript kullanılmayacak, JavaScript ile yazılacak
-- Component isimleri PascalCase: `ProjectCard.jsx`
-- Hook isimleri camelCase: `useProjects.js`
-- API çağrıları `features/{feature}/api.js` içinde
+- TypeScript ile yazılacak
+- Component isimleri PascalCase: `ProjectCard.tsx`
+- Hook isimleri camelCase: `useProjects.ts`
+- API çağrıları `features/{feature}/api.ts` içinde
 
 ### JavaScript / Frontend (Mobil)
 - **Framework:** React Native + Expo (Expo Router)

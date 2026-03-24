@@ -68,3 +68,19 @@ class ReportStatus(str, enum.Enum):
     DRAFT = "draft"
     SUBMITTED = "submitted"
     REVIEWED = "reviewed"
+
+
+class NotificationType(str, enum.Enum):
+    """
+    Bildirim tipleri:
+    - PROJECT_APPROVED: Proje onaylandı
+    - PROJECT_REJECTED: Proje reddedildi
+    - TASK_ASSIGNED: Görev atandı
+    - REPORT_REVIEWED: Rapor incelendi
+    - SYSTEM_ALERT: Sistem duyurusu
+    """
+    PROJECT_APPROVED = "project_approved"
+    PROJECT_REJECTED = "project_rejected"
+    TASK_ASSIGNED = "task_assigned"
+    REPORT_REVIEWED = "report_reviewed"
+    SYSTEM_ALERT = "system_alert"

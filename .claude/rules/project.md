@@ -7,8 +7,7 @@ Her sorun veya öneri için somut tradeoff'ları açıkla, görüşünü belirt 
 
 ## Proje Tanımı
 
-UniTrack AI, üniversite öğrencileri ve öğretmenleri için geliştirilmiş bir **Proje Yönetim Sistemi**dir. Öğrenciler proje oluşturur, öğretmenler onaylar, AI destekli görev dağılımı yapılır, haftalık raporlar ve YouTube video linkleri takip edilir. Gerçek bir üniversite problemi çözmek amacıyla geliştirilmektedir.
-
+1
 ### Temel Özellikler
 - Okul mail adresi ile kayıt/giriş (rol otomatik atanır)
 - Öğrenci proje oluşturur → öğretmen onaylar/reddeder

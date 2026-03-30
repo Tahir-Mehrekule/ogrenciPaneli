@@ -28,7 +28,7 @@ services:
     container_name: unitrack-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "19000:8000"
     volumes:
       - ./backend:/app
     environment:

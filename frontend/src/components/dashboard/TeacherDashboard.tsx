@@ -10,9 +10,9 @@ export const TeacherDashboard = () => {
 
   // İlerleyen safhalarda /api/v1/projects endpointine bağlanacak mock geçici veriler
   const mockStats = [
-    { title: "Verdiğim Dersler", value: "4", icon: BookOpen, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/50" },
-    { title: "Danışmanı Olduğum Projeler", value: "7", icon: Users, color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50" },
-    { title: "Onay Bekleyenler", value: "3", icon: Clock, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/50" },
+    { title: "Verdiğim Dersler", value: "0", icon: BookOpen, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/50" },
+    { title: "Danışmanı Olduğum Projeler", value: "0", icon: Users, color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50" },
+    { title: "Onay Bekleyenler", value: "0", icon: Clock, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/50" },
   ];
 
   return (

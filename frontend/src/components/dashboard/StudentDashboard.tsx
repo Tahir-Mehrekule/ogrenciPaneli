@@ -9,9 +9,9 @@ export const StudentDashboard = () => {
 
   // İlerleyen modüllerde (Kurs, Proje modülü) gerçek API istekleriyle doldurulacak olan geçici veri seti
   const mockStats = [
-    { title: "Kayıtlı Derslerim", value: "3", icon: BookOpen, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/50" },
-    { title: "Aktif Projelerim", value: "2", icon: FolderKanban, color: "text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50" },
-    { title: "Bekleyen Görevlerim", value: "5", icon: CheckSquare, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/50" },
+    { title: "Kayıtlı Derslerim", value: "0", icon: BookOpen, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/50" },
+    { title: "Aktif Projelerim", value: "0", icon: FolderKanban, color: "text-indigo-600 bg-indigo-100 dark:bg-indigo-900/50" },
+    { title: "Bekleyen Görevlerim", value: "0", icon: CheckSquare, color: "text-amber-600 bg-amber-100 dark:bg-amber-900/50" },
   ];
 
   return (

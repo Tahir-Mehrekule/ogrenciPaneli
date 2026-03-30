@@ -17,6 +17,7 @@ import {
 export const Sidebar = () => {
   const { user } = useAuth();
   const pathname = usePathname();
+  const role = user?.role?.toUpperCase();
 
   // Role dayalı menü oluşturma stratejisi
   const getNavLinks = () => {
@@ -24,7 +25,7 @@ export const Sidebar = () => {
       { name: "Genel Bakış", href: "/dashboard", icon: LayoutDashboard },
     ];
 
-    if (user?.role === "STUDENT") {
+    if (role === "STUDENT") {
       return [
         ...baseLinks,
         { name: "Ders Kataloğu", href: "/dashboard/courses", icon: BookOpen },
@@ -33,7 +34,7 @@ export const Sidebar = () => {
       ];
     }
 
-    if (user?.role === "TEACHER") {
+    if (role === "TEACHER") {
       return [
         ...baseLinks,
         { name: "Verdiğim Dersler", href: "/dashboard/courses", icon: BookOpen },
@@ -42,7 +43,7 @@ export const Sidebar = () => {
       ];
     }
 
-    if (user?.role === "ADMIN") {
+    if (role === "ADMIN") {
       return [
         { name: "Sistem İstatistikleri", href: "/dashboard/admin", icon: BarChart3 },
         { name: "Ayarlar", href: "/dashboard/settings", icon: Settings },

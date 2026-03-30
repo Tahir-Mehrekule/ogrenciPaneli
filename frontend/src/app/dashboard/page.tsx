@@ -7,20 +7,11 @@ import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
 
-  // Kullanıcının rolüne göre doğru dashboard bileşenini ekrana basar
-  if (user?.role === "ADMIN") {
-    return <AdminDashboard />;
-  }
+  if (role === "ADMIN") return <AdminDashboard />;
+  if (role === "TEACHER") return <TeacherDashboard />;
+  if (role === "STUDENT") return <StudentDashboard />;
 
-  if (user?.role === "TEACHER") {
-    return <TeacherDashboard />;
-  }
-
-  if (user?.role === "STUDENT") {
-    return <StudentDashboard />;
-  }
-
-  // Yükleme anında veya yetki hatasında boş döner (DashboardLayout zaten /login'e atar)
   return null;
 }

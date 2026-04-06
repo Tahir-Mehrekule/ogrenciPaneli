@@ -12,8 +12,8 @@ from app.core.config import settings
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_ENDPOINT = f"{OPENROUTER_BASE_URL}/chat/completions"
 
-# Kullanılacak model (ücretsiz ve güçlü)
-DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+# Kullanılacak model
+DEFAULT_MODEL = "minimax/minimax-m2.5"
 
 # API isteği için header'lar
 def get_headers() -> dict:

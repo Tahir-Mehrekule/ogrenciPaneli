@@ -31,6 +31,7 @@ from app.features.report.report_model import Report  # noqa: F401
 from app.features.course.course_model import Course, CourseEnrollment  # noqa: F401
 from app.features.notification.notification_model import Notification  # noqa: F401
 from app.features.file.file_model import FileUpload  # noqa: F401
+from app.features.activity_log.activity_log_model import ActivityLog  # noqa: F401
 
 # Alembic Config objesi (alembic.ini'den okunur)
 config = context.config

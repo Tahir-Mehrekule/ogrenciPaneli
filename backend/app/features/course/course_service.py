@@ -10,8 +10,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
-from app.common.enums import UserRole
+from app.common.enums import UserRole, ActivityAction, EntityType
 from app.common.exceptions import NotFoundException
+from app.common.activity_log_helper import log_activity
 from app.features.course.course_model import Course, CourseEnrollment
 from app.features.course.course_repo import CourseRepo, CourseEnrollmentRepo
 from app.features.course.course_manager import (
@@ -51,11 +52,16 @@ class CourseService:
 
         course_data = {
             "name": data.name,
-            "code": data.code.upper(),  # Ders kodu her zaman büyük harf
+            "code": data.code.upper(),
             "semester": data.semester,
             "teacher_id": current_user.id,
+            "require_youtube": data.require_youtube,
+            "require_file": data.require_file,
         }
         course = self.repo.create(course_data)
+        log_activity(self.db, ActivityAction.COURSE_CREATE, user_id=current_user.id,
+                     entity_type=EntityType.COURSE, entity_id=course.id,
+                     details={"name": course.name, "code": course.code})
         return CourseResponse.model_validate(course)
 
     def list_courses(
@@ -113,6 +119,9 @@ class CourseService:
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         updated = self.repo.update(course_id, update_data)
+        log_activity(self.db, ActivityAction.COURSE_UPDATE, user_id=current_user.id,
+                     entity_type=EntityType.COURSE, entity_id=course_id,
+                     details=update_data)
         return CourseResponse.model_validate(updated)
 
     def delete_course(self, course_id: UUID, current_user: User) -> dict:
@@ -120,6 +129,9 @@ class CourseService:
         course = self.repo.get_by_id_or_404(course_id)
         validate_teacher_owns_course(course, current_user)
         self.repo.delete(course_id)
+        log_activity(self.db, ActivityAction.COURSE_DELETE, user_id=current_user.id,
+                     entity_type=EntityType.COURSE, entity_id=course_id,
+                     details={"name": course.name})
         return {"message": f"Ders başarıyla silindi: {course.name}"}
 
     # --- Enrollment (Kayıt) İşlemleri ---

@@ -5,6 +5,8 @@ export interface Course {
   semester: string;
   teacher_id: string;
   is_active: boolean;
+  require_youtube: boolean;
+  require_file: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -13,6 +15,8 @@ export interface CourseCreate {
   name: string;
   code: string;
   semester: string;
+  require_youtube?: boolean;
+  require_file?: boolean;
 }
 
 export interface PaginatedResponse<T> {

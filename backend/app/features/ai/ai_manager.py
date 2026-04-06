@@ -62,17 +62,20 @@ def call_openrouter(title: str, description: str) -> list[AITaskSuggestion]:
             )
             response.raise_for_status()
 
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as e:
+        print(f"AI Timeout Error: {e}", flush=True)
         raise AppException(
             detail="AI servisi yanıt vermedi. Lütfen tekrar deneyin.",
             status_code=503,
         )
     except httpx.HTTPStatusError as e:
+        print(f"AI HTTP Status Error: {e.response.status_code} - {e.response.text}", flush=True)
         raise AppException(
             detail=f"AI servisi hatası: {e.response.status_code}",
             status_code=503,
         )
     except Exception as e:
+        print(f"AI Unexpected Error: {e}", flush=True)
         raise AppException(
             detail="AI servisine bağlanırken hata oluştu.",
             status_code=503,

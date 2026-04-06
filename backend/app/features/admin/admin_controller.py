@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.dependencies import role_required
 from app.common.enums import UserRole
 from app.features.admin.admin_service import AdminService
-from app.features.admin.admin_dto import SystemStatsResponse
+from app.features.admin.admin_dto import SystemStatsResponse, DetailedStatsResponse
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -30,3 +30,17 @@ def get_system_stats(
     Sistem istatistikleri.
     """
     return AdminService(db).get_system_stats()
+
+
+@router.get(
+    "/stats/detailed",
+    response_model=DetailedStatsResponse,
+    summary="Detaylı Sistem İstatistiklerini Getir",
+    description="Kullanıcı rol dağılımı, proje/görev/rapor durum dağılımları, tamamlanma oranları ve ek sayıları döner. Sadece ADMIN.",
+)
+def get_detailed_stats(
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Detaylı sistem istatistikleri — dağılımlar ve oranlar."""
+    return AdminService(db).get_detailed_stats()

@@ -1,11 +1,21 @@
-export type ProjectStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type ProjectStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'in_progress' | 'completed';
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'review';
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
 
 export interface Project {
   id: string;
   title: string;
   description: string;
   course_id: string | null;
+  course_name: string | null;
+  course_code: string | null;
   status: ProjectStatus;
   created_by: string;
   ai_task_plan: any | null;

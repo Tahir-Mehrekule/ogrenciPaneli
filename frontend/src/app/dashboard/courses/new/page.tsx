@@ -11,6 +11,8 @@ export default function NewCoursePage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [semester, setSemester] = useState("");
+  const [requireYoutube, setRequireYoutube] = useState(false);
+  const [requireFile, setRequireFile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,7 +26,13 @@ export default function NewCoursePage() {
     try {
       setIsLoading(true);
       setError("");
-      await apiClient.post("/api/v1/courses", { name, code, semester });
+      await apiClient.post("/api/v1/courses", {
+        name,
+        code,
+        semester,
+        require_youtube: requireYoutube,
+        require_file: requireFile,
+      });
       router.push("/dashboard/courses");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -39,6 +47,9 @@ export default function NewCoursePage() {
       setIsLoading(false);
     }
   };
+
+  const inputClass =
+    "w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400";
 
   return (
     <div className="mx-auto max-w-lg">
@@ -69,7 +80,7 @@ export default function NewCoursePage() {
                 placeholder="Yazılım Mühendisliği"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+                className={inputClass}
               />
             </div>
 
@@ -82,7 +93,7 @@ export default function NewCoursePage() {
                 placeholder="CENG314"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+                className={inputClass}
               />
             </div>
 
@@ -95,8 +106,52 @@ export default function NewCoursePage() {
                 placeholder="2025-2026 Güz"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+                className={inputClass}
               />
+            </div>
+
+            {/* Rapor Gereksinimleri */}
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Haftalık Rapor Gereksinimleri
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Öğrencilerin rapor teslim ederken uyması gereken zorunluluklar.
+              </p>
+
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={requireYoutube}
+                    onChange={(e) => setRequireYoutube(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-300 dark:bg-slate-600 rounded-full peer-checked:bg-indigo-600 transition-colors" />
+                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+                <div>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">YouTube video zorunlu</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Rapor tesliminde video linki şartı</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={requireFile}
+                    onChange={(e) => setRequireFile(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-300 dark:bg-slate-600 rounded-full peer-checked:bg-indigo-600 transition-colors" />
+                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
+                </div>
+                <div>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Dosya ekleme zorunlu</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Rapor tesliminde en az bir dosya şartı</p>
+                </div>
+              </label>
             </div>
 
             <button

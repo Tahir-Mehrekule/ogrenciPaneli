@@ -46,22 +46,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (data: LoginRequest) => {
     const response = await apiClient.post("/api/v1/auth/login", data);
-    const { access_token } = response.data;
+    const { access_token, refresh_token } = response.data;
 
     await SecureStore.setItemAsync("access_token", access_token);
+    if (refresh_token) {
+      await SecureStore.setItemAsync("refresh_token", refresh_token);
+    }
     await fetchUser();
   };
 
   const register = async (data: RegisterRequest) => {
     const response = await apiClient.post("/api/v1/auth/register", data);
-    const { access_token } = response.data;
+    const { access_token, refresh_token } = response.data;
 
     await SecureStore.setItemAsync("access_token", access_token);
+    if (refresh_token) {
+      await SecureStore.setItemAsync("refresh_token", refresh_token);
+    }
     await fetchUser();
   };
 
   const logout = async () => {
     await SecureStore.deleteItemAsync("access_token");
+    await SecureStore.deleteItemAsync("refresh_token");
     await SecureStore.deleteItemAsync("user_data");
     setUser(null);
   };

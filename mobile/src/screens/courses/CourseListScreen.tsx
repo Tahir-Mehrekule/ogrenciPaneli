@@ -94,30 +94,57 @@ export const CourseListScreen = ({ navigation }: any) => {
         </Card>
       ) : (
         courses.map((course) => (
-          <Card key={course.id} className="mb-3">
-            <CardContent className="pt-5 pb-4">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 mr-3">
-                  <View className="flex-row items-center mb-1">
-                    <View className="bg-indigo-900/50 rounded-lg px-2 py-0.5 mr-2">
-                      <Text className="text-xs font-bold text-indigo-400">{course.code}</Text>
+          <TouchableOpacity
+            key={course.id}
+            activeOpacity={user?.role === 'TEACHER' ? 0.7 : 1}
+            onPress={() => {
+              if (user?.role === 'TEACHER') {
+                navigation.navigate('CourseEdit', { courseId: course.id });
+              }
+            }}
+          >
+            <Card className="mb-3">
+              <CardContent className="pt-5 pb-4">
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 mr-3">
+                    <View className="flex-row items-center mb-1">
+                      <View className="bg-indigo-900/50 rounded-lg px-2 py-0.5 mr-2">
+                        <Text className="text-xs font-bold text-indigo-400">{course.code}</Text>
+                      </View>
+                      <Text className="text-xs text-gray-500">{course.semester}</Text>
                     </View>
-                    <Text className="text-xs text-gray-500">{course.semester}</Text>
+                    <Text className="text-base font-semibold text-white mt-1">{course.name}</Text>
+                    {(course.require_youtube || course.require_file) && (
+                      <View className="flex-row gap-1.5 mt-2">
+                        {course.require_youtube && (
+                          <View className="rounded-md bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5">
+                            <Text className="text-[10px] font-semibold text-amber-400">Video zorunlu</Text>
+                          </View>
+                        )}
+                        {course.require_file && (
+                          <View className="rounded-md bg-blue-900/30 border border-blue-500/20 px-1.5 py-0.5">
+                            <Text className="text-[10px] font-semibold text-blue-400">Dosya zorunlu</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {user?.role === 'TEACHER' && (
+                      <Text className="text-xs text-gray-500 mt-2">Düzenlemek için dokunun</Text>
+                    )}
                   </View>
-                  <Text className="text-base font-semibold text-white mt-1">{course.name}</Text>
-                </View>
 
-                {user?.role === 'STUDENT' && (
-                  <TouchableOpacity
-                    className="bg-indigo-600 rounded-lg px-4 py-2"
-                    onPress={() => handleEnroll(course.id)}
-                  >
-                    <Text className="text-white text-xs font-semibold">Kayıt Ol</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </CardContent>
-          </Card>
+                  {user?.role === 'STUDENT' && (
+                    <TouchableOpacity
+                      className="bg-indigo-600 rounded-lg px-4 py-2"
+                      onPress={() => handleEnroll(course.id)}
+                    >
+                      <Text className="text-white text-xs font-semibold">Kayıt Ol</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </CardContent>
+            </Card>
+          </TouchableOpacity>
         ))
       )}
 

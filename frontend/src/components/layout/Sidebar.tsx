@@ -45,7 +45,11 @@ export const Sidebar = () => {
 
     if (role === "ADMIN") {
       return [
+        ...baseLinks,
         { name: "Sistem İstatistikleri", href: "/dashboard/admin", icon: BarChart3 },
+        { name: "Tüm Dersler", href: "/dashboard/courses", icon: BookOpen },
+        { name: "Tüm Projeler", href: "/dashboard/projects", icon: FolderKanban },
+        { name: "Tüm Raporlar", href: "/dashboard/reports", icon: FileText },
         { name: "Ayarlar", href: "/dashboard/settings", icon: Settings },
       ];
     }

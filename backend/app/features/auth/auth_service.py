@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, create_access_token, create_refresh_token
 from app.common.exceptions import NotFoundException
+from app.common.enums import ActivityAction, EntityType
+from app.common.activity_log_helper import log_activity
 from app.features.auth.auth_repo import AuthRepo
 from app.features.auth.auth_dto import (
     RegisterRequest,
@@ -46,18 +48,24 @@ class AuthService:
 
         # 4. Token oluştur
         token_data = {"sub": str(user.id)}
+        log_activity(self.db, ActivityAction.USER_REGISTER, user_id=user.id,
+                     entity_type=EntityType.USER, entity_id=user.id,
+                     details={"email": user.email, "role": user.role.value})
         return TokenResponse(
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),
         )
 
     def login(self, data: LoginRequest) -> TokenResponse:
-       
+
         # 1. Doğrulama
         user = verify_login(data.email, data.password, self.repo)
 
         # 2. Token oluştur
         token_data = {"sub": str(user.id)}
+        log_activity(self.db, ActivityAction.USER_LOGIN, user_id=user.id,
+                     entity_type=EntityType.USER, entity_id=user.id,
+                     details={"email": user.email})
         return TokenResponse(
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),

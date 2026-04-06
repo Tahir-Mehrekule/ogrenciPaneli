@@ -16,6 +16,8 @@ interface Project {
   status: ProjectStatus;
   created_by: string;
   course_id: string | null;
+  course_name: string | null;
+  course_code: string | null;
   created_at: string;
 }
 
@@ -28,6 +30,7 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; className: string }>
 
 export default function ProjectsPage() {
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,15 +80,15 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {user?.role === "TEACHER" ? "Gelen Projeler" : "Projelerim"}
+            {(role === "TEACHER" || role === "ADMIN") ? "Tüm Projeler" : "Projelerim"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {user?.role === "TEACHER"
-              ? "Danışmanı olduğunuz projeler."
+            {(role === "TEACHER" || role === "ADMIN")
+              ? "Sistemdeki tüm projeler."
               : "Oluşturduğunuz tüm projeler."}
           </p>
         </div>
-        {user?.role === "STUDENT" && (
+        {role === "STUDENT" && (
           <button
             onClick={() => router.push("/dashboard/projects/new")}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
@@ -109,56 +112,82 @@ export default function ProjectsPage() {
           <CardContent className="flex flex-col items-center justify-center p-12">
             <FolderKanban className="h-10 w-10 text-gray-400 dark:text-gray-500" />
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              {user?.role === "TEACHER" ? "Henüz gönderilmiş proje yok." : "Henüz bir proje oluşturmadınız."}
+              {(role === "TEACHER" || role === "ADMIN") ? "Henüz gönderilmiş proje yok." : "Henüz bir proje oluşturmadınız."}
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Proje Listesi */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => {
-          const status = STATUS_CONFIG[project.status];
-          return (
-            <Card
-              key={project.id}
-              className="cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all"
-              onClick={() => router.push(`/dashboard/projects/${project.id}`)}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${status.className}`}>
-                    {status.label}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(project.created_at).toLocaleDateString("tr-TR")}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">{project.title}</h3>
-                <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{project.description}</p>
+      {/* Proje Listesi — Derse Göre Gruplandırılmış */}
+      {(() => {
+        const grouped = projects.reduce((acc, project) => {
+          const key = project.course_name ?? "Ders Atanmamış";
+          if (!acc[key]) acc[key] = { code: project.course_code, projects: [] };
+          acc[key].projects.push(project);
+          return acc;
+        }, {} as Record<string, { code: string | null; projects: Project[] }>);
 
-                {/* Öğretmen: Onayla / Reddet */}
-                {user?.role === "TEACHER" && project.status === "PENDING" && (
-                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleApprove(project.id)}
-                      className="flex-1 rounded-lg bg-emerald-600 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                    >
-                      Onayla
-                    </button>
-                    <button
-                      onClick={() => handleReject(project.id)}
-                      className="flex-1 rounded-lg bg-red-700 py-1.5 text-xs font-semibold text-white hover:bg-red-800"
-                    >
-                      Reddet
-                    </button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+        return Object.entries(grouped).map(([courseName, { code, projects: courseProjects }]) => (
+          <div key={courseName} className="space-y-4">
+            {/* Ders Başlığı */}
+            <div className="flex items-center gap-3">
+              {code && (
+                <span className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-xs font-bold text-indigo-400">
+                  {code}
+                </span>
+              )}
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{courseName}</h3>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+              <span className="text-xs text-gray-400">{courseProjects.length} proje</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {courseProjects.map((project) => {
+                const normalizedStatus = project.status?.toUpperCase() as ProjectStatus;
+                const status = STATUS_CONFIG[normalizedStatus] ?? { label: project.status, className: "bg-slate-700 text-slate-300" };
+                return (
+                  <Card
+                    key={project.id}
+                    className="cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all"
+                    onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${status.className}`}>
+                          {status.label}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(project.created_at).toLocaleDateString("tr-TR")}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{project.title}</h3>
+                      <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{project.description}</p>
+
+                      {/* Öğretmen: Onayla / Reddet */}
+                      {(role === "TEACHER" || role === "ADMIN") && project.status === "PENDING" && (
+                        <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleApprove(project.id)}
+                            className="flex-1 rounded-lg bg-emerald-600 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Onayla
+                          </button>
+                          <button
+                            onClick={() => handleReject(project.id)}
+                            className="flex-1 rounded-lg bg-red-700 py-1.5 text-xs font-semibold text-white hover:bg-red-800"
+                          >
+                            Reddet
+                          </button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ));
+      })()}
     </div>
   );
 }

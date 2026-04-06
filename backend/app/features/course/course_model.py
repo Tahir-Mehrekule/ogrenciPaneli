@@ -5,7 +5,7 @@ Course (ders) veritabanı modeli.
 Projeler bir derse bağlanır, öğrenciler derslere kaydolur.
 """
 
-from sqlalchemy import Column, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -53,6 +53,22 @@ class Course(BaseModel):
         nullable=False,
         index=True,
         comment="Dersin öğretmeni"
+    )
+
+    require_youtube = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Haftalık raporda YouTube video zorunlu mu"
+    )
+
+    require_file = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Haftalık raporda dosya ekleme zorunlu mu"
     )
 
     # İlişkiler

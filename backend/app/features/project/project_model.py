@@ -76,6 +76,7 @@ class Project(BaseModel):
 
     # İlişkiler
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
+    course = relationship("Course", foreign_keys=[course_id], lazy="select")
 
     def __repr__(self):
         return f"<Project(id={self.id}, title={self.title}, status={self.status})>"

@@ -15,28 +15,32 @@ import { Plus, CheckCircle, Circle, Clock } from 'lucide-react-native';
 import { Project, Task, TaskStatus } from '../../types/project';
 
 const PROJECT_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  draft:    { label: 'Taslak',     bg: 'bg-slate-700',      text: 'text-slate-300' },
+  pending:  { label: 'Bekliyor',   bg: 'bg-amber-900/50',   text: 'text-amber-400' },
+  approved: { label: 'Onaylı',     bg: 'bg-emerald-900/50', text: 'text-emerald-400' },
+  rejected: { label: 'Reddedildi', bg: 'bg-red-900/50',     text: 'text-red-400' },
   DRAFT:    { label: 'Taslak',     bg: 'bg-slate-700',      text: 'text-slate-300' },
-  PENDING:  { label: 'Bekliyor',   bg: 'bg-amber-900/50',   text: 'text-amber-400' },
-  APPROVED: { label: 'Onaylı',     bg: 'bg-emerald-900/50', text: 'text-emerald-400' },
-  REJECTED: { label: 'Reddedildi', bg: 'bg-red-900/50',     text: 'text-red-400' },
 };
 
 const TASK_STATUS_NEXT: Record<TaskStatus, TaskStatus> = {
-  TODO: 'IN_PROGRESS',
-  IN_PROGRESS: 'DONE',
-  DONE: 'TODO',
+  todo: 'in_progress',
+  in_progress: 'done',
+  done: 'todo',
+  review: 'done',
 };
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  TODO: 'Yapılacak',
-  IN_PROGRESS: 'Devam Ediyor',
-  DONE: 'Tamamlandı',
+  todo: 'Yapılacak',
+  in_progress: 'Devam Ediyor',
+  done: 'Tamamlandı',
+  review: 'İncelemede',
 };
 
 const TASK_ICON_COLOR: Record<TaskStatus, string> = {
-  TODO: '#64748b',
-  IN_PROGRESS: '#f59e0b',
-  DONE: '#10b981',
+  todo: '#64748b',
+  in_progress: '#f59e0b',
+  done: '#10b981',
+  review: '#818cf8',
 };
 
 const safeErrorMsg = (error: any, fallback: string) => {
@@ -49,6 +53,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 export const ProjectDetailScreen = ({ route, navigation }: any) => {
   const { projectId } = route.params;
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase() ?? '';
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -57,19 +62,26 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [projRes, taskRes] = await Promise.all([
-        apiClient.get<Project>(`/api/v1/projects/${projectId}`),
-        apiClient.get(`/api/v1/tasks?project_id=${projectId}&per_page=100`),
-      ]);
+      const projRes = await apiClient.get<Project>(`/api/v1/projects/${projectId}`);
       setProject(projRes.data);
-      setTasks(taskRes.data.items ?? []);
     } catch (error) {
       Alert.alert('Hata', safeErrorMsg(error, 'Proje yüklenemedi.'));
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    try {
+      const taskRes = await apiClient.get(`/api/v1/tasks?project_id=${projectId}&size=100`);
+      setTasks(taskRes.data.items ?? []);
+    } catch {
+      // Görevler yüklenemese de proje detayı gösterilmeye devam eder
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [projectId]);
+
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -145,10 +157,11 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
     );
   }
 
-  const statusCfg = PROJECT_STATUS_CONFIG[project.status] ?? PROJECT_STATUS_CONFIG.DRAFT;
+  const normalizedStatus = project.status?.toLowerCase() ?? 'draft';
+  const statusCfg = PROJECT_STATUS_CONFIG[normalizedStatus] ?? PROJECT_STATUS_CONFIG.draft;
 
   // Görevleri gruplara ayır
-  const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
+  const grouped: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [], review: [] };
   tasks.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
 
   return (
@@ -168,7 +181,7 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
           <Text className="text-sm text-gray-400 mt-2 leading-5">{project.description}</Text>
 
           {/* Öğrenci Aksiyonları */}
-          {user?.role === 'STUDENT' && project.status === 'DRAFT' && (
+          {role === 'STUDENT' && normalizedStatus === 'draft' && (
             <TouchableOpacity
               className="mt-4 rounded-lg bg-indigo-600 py-2.5 items-center"
               onPress={handleSubmit}
@@ -177,8 +190,8 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
             </TouchableOpacity>
           )}
 
-          {/* Öğretmen Aksiyonları */}
-          {user?.role === 'TEACHER' && project.status === 'PENDING' && (
+          {/* Öğretmen Aksiyonları (Onay) */}
+          {(role === 'TEACHER' || role === 'ADMIN') && normalizedStatus === 'pending' && (
             <View className="flex-row gap-2 mt-4">
               <TouchableOpacity
                 className="flex-1 rounded-lg bg-emerald-700 py-2.5 items-center"
@@ -194,77 +207,165 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* AI Planlama Aksiyonu */}
+          {(role === 'TEACHER' || role === 'ADMIN') && normalizedStatus === 'approved' && (
+            <TouchableOpacity
+              className="mt-4 rounded-lg bg-indigo-600/20 border border-indigo-500/30 py-3 items-center justify-center flex-row gap-2"
+              onPress={() => {
+                Alert.alert(
+                  'Yapay Zeka ile Planla',
+                  'Proje detaylarına göre sistem otomatik görev önerip kaydedecek. Devam etmek istiyor musunuz?',
+                  [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    {
+                      text: 'Planla',
+                      onPress: async () => {
+                        try {
+                          await apiClient.post('/api/v1/ai/suggest', { project_id: projectId });
+                          Alert.alert('Harika!', 'AI tarafından önerilen görevler projeye eklendi.');
+                          fetchData();
+                        } catch (error) {
+                          Alert.alert('Hata', safeErrorMsg(error, 'AI önerisi alınamadı.'));
+                        }
+                      }
+                    }
+                  ]
+                );
+              }}
+            >
+              <Text className="text-indigo-400 text-sm font-bold">✨ AI ile Görevleri Planla</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Durum Bannerları */}
+          {normalizedStatus === 'pending' && (
+            <View className="mt-4 rounded-xl bg-amber-900/20 border border-amber-500/20 p-3 flex-row items-start gap-2">
+              <Text className="text-base">⏳</Text>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-amber-400 mb-0.5">
+                  {role === 'STUDENT' ? 'Onay Bekleniyor' : 'Bu Proje Onayınızı Bekliyor'}
+                </Text>
+                <Text className="text-xs text-gray-400 leading-4">
+                  {role === 'STUDENT'
+                    ? 'Projeniz öğretmeninizin incelemesinde. Onaylandıktan sonra görev ekleyebileceksiniz.'
+                    : 'Öğrenci bu projeyi onaylamanız için gönderdi. Yukarıdaki butonları kullanın.'}
+                </Text>
+              </View>
+            </View>
+          )}
+          {normalizedStatus === 'rejected' && (
+            <View className="mt-4 rounded-xl bg-red-900/20 border border-red-500/20 p-3 flex-row items-start gap-2">
+              <Text className="text-base">❌</Text>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-red-400 mb-0.5">Proje Reddedildi</Text>
+                <Text className="text-xs text-gray-400 leading-4">
+                  {role === 'STUDENT'
+                    ? 'Bu proje reddedildi. Yeni bir proje oluşturabilirsiniz.'
+                    : 'Bu projeyi reddettiniz.'}
+                </Text>
+              </View>
+            </View>
+          )}
+          {normalizedStatus === 'draft' && role === 'STUDENT' && (
+            <View className="mt-4 rounded-xl bg-slate-800 border border-slate-700 p-3 flex-row items-start gap-2">
+              <Text className="text-base">📝</Text>
+              <View className="flex-1">
+                <Text className="text-xs font-semibold text-slate-300 mb-0.5">Taslak Aşamasında</Text>
+                <Text className="text-xs text-gray-400 leading-4">
+                  Yukarıdaki "Onaya Gönder" butonuyla projenizi öğretmeninize iletebilirsiniz.
+                </Text>
+              </View>
+            </View>
+          )}
         </CardContent>
       </Card>
 
-      {/* Görevler Başlığı */}
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-base font-semibold text-white">Görevler</Text>
-        {user?.role === 'STUDENT' && (
-          <TouchableOpacity
-            className="flex-row items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5"
-            onPress={() => navigation.navigate('TaskCreate', { projectId })}
-          >
-            <Plus size={14} color="#818cf8" />
-            <Text className="text-indigo-400 text-xs font-semibold">Görev Ekle</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Görev Grupları */}
-      {(['TODO', 'IN_PROGRESS', 'DONE'] as TaskStatus[]).map((status) => (
-        grouped[status].length > 0 && (
-          <View key={status} className="mb-4">
-            <Text className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
-              {TASK_STATUS_LABELS[status]} ({grouped[status].length})
-            </Text>
-            {grouped[status].map((task) => (
-              <Card key={task.id} className="mb-2">
-                <CardContent className="pt-4 pb-3">
-                  <TouchableOpacity
-                    className="flex-row items-start gap-3"
-                    onPress={() => handleToggleTaskStatus(task)}
-                  >
-                    {status === 'DONE'
-                      ? <CheckCircle size={20} color={TASK_ICON_COLOR[status]} />
-                      : status === 'IN_PROGRESS'
-                      ? <Clock size={20} color={TASK_ICON_COLOR[status]} />
-                      : <Circle size={20} color={TASK_ICON_COLOR[status]} />
-                    }
-                    <View className="flex-1">
-                      <Text className={`text-sm font-medium ${status === 'DONE' ? 'text-gray-500 line-through' : 'text-white'}`}>
-                        {task.title}
-                      </Text>
-                      <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
-                        {task.description}
-                      </Text>
-                      {task.due_date && (
-                        <Text className="text-xs text-amber-500 mt-1">
-                          ⏰ {new Date(task.due_date).toLocaleDateString('tr-TR')}
-                        </Text>
-                      )}
-                      {task.ai_suggested && (
-                        <View className="mt-1 self-start rounded bg-indigo-900/40 px-1.5 py-0.5">
-                          <Text className="text-xs text-indigo-400">🤖 AI Önerisi</Text>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Görevler Başlığı + Kilitli Uyarı */}
+      {normalizedStatus !== 'approved' ? (
+        <View className="rounded-xl border-2 border-dashed border-slate-700 p-6 items-center mb-4">
+          <Text className="text-2xl mb-2">🔒</Text>
+          <Text className="text-sm font-semibold text-gray-400 mb-1">Görevler Kilitli</Text>
+          <Text className="text-xs text-gray-500 text-center">
+            {role === 'STUDENT' && normalizedStatus === 'draft' && 'Önce projeyi öğretmeninize onay için gönderin.'}
+            {role === 'STUDENT' && normalizedStatus === 'pending' && 'Öğretmen onayı bekleniyor.'}
+            {role === 'STUDENT' && normalizedStatus === 'rejected' && 'Proje reddedildiği için görev eklenemiyor.'}
+            {(role === 'TEACHER' || role === 'ADMIN') && normalizedStatus === 'draft' && 'Öğrenci henüz projeyi onaya göndermedi.'}
+            {(role === 'TEACHER' || role === 'ADMIN') && normalizedStatus === 'pending' && 'Projeyi onaylamak için yukarıdaki butonu kullanın.'}
+            {(role === 'TEACHER' || role === 'ADMIN') && normalizedStatus === 'rejected' && 'Bu proje reddedilmiş durumda.'}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-base font-semibold text-white">Görevler</Text>
+            {role === 'STUDENT' && (
+              <TouchableOpacity
+                className="flex-row items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5"
+                onPress={() => navigation.navigate('TaskCreate', { projectId })}
+              >
+                <Plus size={14} color="#818cf8" />
+                <Text className="text-indigo-400 text-xs font-semibold">Görev Ekle</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )
-      ))}
 
-      {tasks.length === 0 && (
-        <Card>
-          <CardContent className="items-center justify-center p-8">
-            <Text className="text-gray-400 text-center text-sm">
-              Henüz görev eklenmemiş.{'\n'}Sağ üstteki butona basarak görev ekleyin.
-            </Text>
-          </CardContent>
-        </Card>
+          {/* Görev Grupları */}
+          {(['todo', 'in_progress', 'done'] as TaskStatus[]).map((status) => (
+            grouped[status].length > 0 && (
+              <View key={status} className="mb-4">
+                <Text className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
+                  {TASK_STATUS_LABELS[status]} ({grouped[status].length})
+                </Text>
+                {grouped[status].map((task) => (
+                  <Card key={task.id} className="mb-2">
+                    <CardContent className="pt-4 pb-3">
+                      <TouchableOpacity
+                        className="flex-row items-start gap-3"
+                        onPress={() => handleToggleTaskStatus(task)}
+                      >
+                        {status === 'done'
+                          ? <CheckCircle size={20} color={TASK_ICON_COLOR[status]} />
+                          : status === 'in_progress'
+                          ? <Clock size={20} color={TASK_ICON_COLOR[status]} />
+                          : <Circle size={20} color={TASK_ICON_COLOR[status]} />
+                        }
+                        <View className="flex-1">
+                          <Text className={`text-sm font-medium ${status === 'done' ? 'text-gray-500 line-through' : 'text-white'}`}>
+                            {task.title}
+                          </Text>
+                          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
+                            {task.description}
+                          </Text>
+                          {task.due_date && (
+                            <Text className="text-xs text-amber-500 mt-1">
+                              ⏰ {new Date(task.due_date).toLocaleDateString('tr-TR')}
+                            </Text>
+                          )}
+                          {task.ai_suggested && (
+                            <View className="mt-1 self-start rounded bg-indigo-900/40 px-1.5 py-0.5">
+                              <Text className="text-xs text-indigo-400">🤖 AI Önerisi</Text>
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    </CardContent>
+                  </Card>
+                ))}
+              </View>
+            )
+          ))}
+
+          {tasks.length === 0 && (
+            <Card>
+              <CardContent className="items-center justify-center p-8">
+                <Text className="text-gray-400 text-center text-sm">
+                  Henüz görev eklenmemiş.{'\n'}Sağ üstteki butona basarak görev ekleyin.
+                </Text>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       <View className="h-8" />

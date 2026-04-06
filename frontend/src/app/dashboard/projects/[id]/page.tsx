@@ -87,6 +87,7 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -127,7 +128,9 @@ export default function ProjectDetailPage() {
   if (loading) return <div className="py-20 text-center text-sm text-gray-400">Yükleniyor...</div>;
   if (!project) return <div className="py-20 text-center text-sm text-gray-400">Proje bulunamadı.</div>;
 
-  const statusCfg = PROJECT_STATUS[project.status];
+  const normalizedStatus = project.status?.toUpperCase() as ProjectStatus;
+  const statusCfg = PROJECT_STATUS[normalizedStatus] ?? { label: project.status, className: "bg-slate-700 text-slate-300" };
+  const role = user?.role?.toUpperCase();
   const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
   tasks.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
 
@@ -147,12 +150,12 @@ export default function ProjectDetailPage() {
 
             {/* Aksiyon Butonları */}
             <div className="flex flex-col gap-2 shrink-0">
-              {user?.role === "STUDENT" && project.status === "DRAFT" && (
+              {role === "STUDENT" && normalizedStatus === "DRAFT" && (
                 <button onClick={handleSubmit} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 whitespace-nowrap">
                   📨 Onaya Gönder
                 </button>
               )}
-              {user?.role === "TEACHER" && project.status === "PENDING" && (
+              {(role === "TEACHER" || role === "ADMIN") && normalizedStatus === "PENDING" && (
                 <>
                   <button onClick={handleApprove} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                     ✅ Onayla
@@ -162,73 +165,157 @@ export default function ProjectDetailPage() {
                   </button>
                 </>
               )}
+              
+              {/* AI Planlama Aksiyonu (Herkes görür ama yetkisi olmayan disabled olarak görür) */}
+              <button
+                disabled={(role !== "TEACHER" && role !== "ADMIN") || normalizedStatus !== "APPROVED" || aiLoading}
+                title={(role !== "TEACHER" && role !== "ADMIN") ? "Sadece öğretmenler kullanabilir" : normalizedStatus !== "APPROVED" ? "Projenin onaylanması (APPROVED) gerekir" : "Yapay zeka ile görevleri planla"}
+                onClick={async () => {
+                  if ((role !== "TEACHER" && role !== "ADMIN") || normalizedStatus !== "APPROVED") return;
+                  if (!confirm('Proje detaylarına göre sistem otomatik olarak yapay zeka destekli görevler önerip projeye ekleyecek. Devam edilsin mi?')) return;
+                  try {
+                    setAiLoading(true);
+                    await apiClient.post('/api/v1/ai/suggest', { project_id: project.id });
+                    alert("Harika! AI tarafından önerilen görevler projeye eklendi.");
+                    fetchData();
+                  } catch (err: any) {
+                    alert(err.response?.data?.detail || "AI görev önerisi alınamadı.");
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+                className="disabled:opacity-50 disabled:cursor-not-allowed rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
+              >
+                {aiLoading ? "Analiz ediliyor..." : "✨ AI ile Görev Planla"}
+              </button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Görevler */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Görevler</h3>
-        {user?.role === "STUDENT" && (
-          <button
-            onClick={() => setShowNewTask(!showNewTask)}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-indigo-400 hover:bg-slate-700"
-          >
-            <Plus className="h-4 w-4" />
-            Görev Ekle
-          </button>
-        )}
-      </div>
-
-      {showNewTask && (
-        <NewTaskForm projectId={id!} onCreated={() => { setShowNewTask(false); fetchData(); }} />
+      {/* Proje Durum Banner'ları */}
+      {normalizedStatus === "DRAFT" && role === "STUDENT" && (
+        <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-4 flex items-start gap-3">
+          <span className="text-xl mt-0.5">📝</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-300 mb-1">Proje Taslak Aşamasında</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Projenizi öğretmeninize göndermek için <strong className="text-white">&quot;Onaya Gönder&quot;</strong> butonunu kullanın.
+              Onay sonrasında görev ekleyebilir ve rapor oluşturabilirsiniz.
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Kanban Kolonları */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {(["TODO", "IN_PROGRESS", "DONE"] as TaskStatus[]).map((status) => (
-          <div key={status}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {TASK_STATUS_LABELS[status]}
-              </span>
-              <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                {grouped[status].length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {grouped[status].map((task) => (
-                <Card key={task.id} className="cursor-pointer hover:ring-2 hover:ring-indigo-500/20 transition-all" onClick={() => toggleTaskStatus(task)}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2">
-                      {status === "DONE"
-                        ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                        : status === "IN_PROGRESS"
-                        ? <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                        : <Circle className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />}
-                      <div>
-                        <p className={`text-sm font-medium ${status === "DONE" ? "line-through text-gray-500" : "text-gray-900 dark:text-white"}`}>
-                          {task.title}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{task.description}</p>
-                        {task.ai_suggested && (
-                          <span className="mt-1 inline-block text-xs text-indigo-400">🤖 AI Önerisi</span>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {grouped[status].length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center dark:border-slate-700">
-                  <p className="text-xs text-gray-400">Görev yok</p>
-                </div>
-              )}
-            </div>
+      {normalizedStatus === "PENDING" && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 flex items-start gap-3">
+          <span className="text-xl mt-0.5">⏳</span>
+          <div>
+            <p className="text-sm font-semibold text-amber-400 mb-1">
+              {role === "STUDENT" ? "Onay Bekleniyor" : "Bu Proje Onayınızı Bekliyor"}
+            </p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              {role === "STUDENT"
+                ? "Projeniz öğretmeninizin incelemesinde. Onaylandıktan sonra aktif hale gelecek ve görev ekleyebileceksiniz."
+                : "Öğrenci bu projeyi onaylamanız için gönderdi. Aşağıdaki \"Onayla\" veya \"Reddet\" butonlarını kullanabilirsiniz."}
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {normalizedStatus === "REJECTED" && (
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 flex items-start gap-3">
+          <span className="text-xl mt-0.5">❌</span>
+          <div>
+            <p className="text-sm font-semibold text-red-400 mb-1">Proje Reddedildi</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              {role === "STUDENT"
+                ? "Bu proje öğretmeniniz tarafından reddedildi. Yeni bir proje oluşturabilir veya öğretmeninizle iletişime geçebilirsiniz."
+                : "Bu projeyi reddettiniz."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Görevler */}
+      {normalizedStatus !== "APPROVED" ? (
+        <div className="rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-700 p-8 text-center">
+          <span className="text-3xl mb-3 block">🔒</span>
+          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Görevler Kilitli</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {role === "STUDENT" && normalizedStatus === "DRAFT" && "Önce projeyi öğretmeninize onay için gönderin."}
+            {role === "STUDENT" && normalizedStatus === "PENDING" && "Projeniz öğretmen onayında, bekleniyor."}
+            {role === "STUDENT" && normalizedStatus === "REJECTED" && "Proje reddedildiği için görev eklenemiyor."}
+            {(role === "TEACHER" || role === "ADMIN") && normalizedStatus === "DRAFT" && "Öğrenci henüz projeyi onaya göndermedi."}
+            {(role === "TEACHER" || role === "ADMIN") && normalizedStatus === "PENDING" && "Projeyi onaylamak için yukarıdaki \"Onayla\" butonunu kullanın."}
+            {(role === "TEACHER" || role === "ADMIN") && normalizedStatus === "REJECTED" && "Bu proje reddedilmiş durumda."}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Görevler</h3>
+            {role === "STUDENT" && (
+              <button
+                onClick={() => setShowNewTask(!showNewTask)}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-indigo-400 hover:bg-slate-700"
+              >
+                <Plus className="h-4 w-4" />
+                Görev Ekle
+              </button>
+            )}
+          </div>
+
+          {showNewTask && (
+            <NewTaskForm projectId={id!} onCreated={() => { setShowNewTask(false); fetchData(); }} />
+          )}
+
+          {/* Kanban Kolonları */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {(["TODO", "IN_PROGRESS", "DONE"] as TaskStatus[]).map((status) => (
+              <div key={status}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {TASK_STATUS_LABELS[status]}
+                  </span>
+                  <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                    {grouped[status].length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {grouped[status].map((task) => (
+                    <Card key={task.id} className="cursor-pointer hover:ring-2 hover:ring-indigo-500/20 transition-all" onClick={() => toggleTaskStatus(task)}>
+                      <CardContent className="p-3">
+                        <div className="flex items-start gap-2">
+                          {status === "DONE"
+                            ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                            : status === "IN_PROGRESS"
+                            ? <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                            : <Circle className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />}
+                          <div>
+                            <p className={`text-sm font-medium ${status === "DONE" ? "line-through text-gray-500" : "text-gray-900 dark:text-white"}`}>
+                              {task.title}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{task.description}</p>
+                            {task.ai_suggested && (
+                              <span className="mt-1 inline-block text-xs text-indigo-400">🤖 AI Önerisi</span>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {grouped[status].length === 0 && (
+                    <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center dark:border-slate-700">
+                      <p className="text-xs text-gray-400">Görev yok</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

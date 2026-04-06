@@ -35,6 +35,14 @@ class CourseCreate(BaseModel):
         description="Dönem bilgisi",
         examples=["2025-2026 Güz"],
     )
+    require_youtube: bool = Field(
+        default=False,
+        description="Haftalık raporda YouTube video zorunlu mu",
+    )
+    require_file: bool = Field(
+        default=False,
+        description="Haftalık raporda dosya ekleme zorunlu mu",
+    )
 
 
 class CourseUpdate(BaseModel):
@@ -51,6 +59,14 @@ class CourseUpdate(BaseModel):
         max_length=50,
         description="Dönem bilgisi",
     )
+    require_youtube: Optional[bool] = Field(
+        default=None,
+        description="Haftalık raporda YouTube video zorunlu mu",
+    )
+    require_file: Optional[bool] = Field(
+        default=None,
+        description="Haftalık raporda dosya ekleme zorunlu mu",
+    )
 
 
 class CourseResponse(BaseResponse):
@@ -63,6 +79,8 @@ class CourseResponse(BaseResponse):
     semester: str
     teacher_id: UUID
     is_active: bool
+    require_youtube: bool = False
+    require_file: bool = False
 
 
 class CourseFilterParams(FilterParams):

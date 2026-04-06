@@ -1,4 +1,4 @@
-export type ReportStatus = 'DRAFT' | 'SUBMITTED' | 'REVIEWED';
+export type ReportStatus = 'draft' | 'submitted' | 'reviewed';
 
 export interface Report {
   id: string;
@@ -13,6 +13,8 @@ export interface Report {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  course_name?: string | null;
+  course_code?: string | null;
 }
 
 export interface ReportCreate {

@@ -23,6 +23,7 @@ from app.features.course.course_controller import router as course_router
 from app.features.notification.notification_controller import router as notification_router
 from app.features.file.file_controller import router as file_router
 from app.features.admin.admin_controller import router as admin_router
+from app.features.activity_log.activity_log_controller import router as activity_log_router
 
 
 # --- Uygulama Oluşturma ---
@@ -64,6 +65,7 @@ app.include_router(course_router)
 app.include_router(notification_router)
 app.include_router(file_router)
 app.include_router(admin_router)
+app.include_router(activity_log_router)
 
 
 # --- Health Check ---

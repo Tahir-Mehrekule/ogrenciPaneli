@@ -14,6 +14,8 @@ interface Course {
   semester: string;
   teacher_id: string;
   is_active: boolean;
+  require_youtube: boolean;
+  require_file: boolean;
 }
 
 interface PaginatedResponse {
@@ -26,6 +28,7 @@ interface PaginatedResponse {
 
 export default function CoursesPage() {
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,15 +74,15 @@ export default function CoursesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {user?.role === "TEACHER" ? "Verdiğim Dersler" : "Ders Kataloğu"}
+            {role === "TEACHER" || role === "ADMIN" ? "Verdiğim Dersler" : "Ders Kataloğu"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {user?.role === "TEACHER"
-              ? "Oluşturduğunuz dersler burada listelenir."
+            {role === "TEACHER" || role === "ADMIN"
+              ? "Sistemde oluşturulan dersler burada listelenir."
               : "Kayıt olabileceğiniz tüm dersler."}
           </p>
         </div>
-        {user?.role === "TEACHER" && (
+        {(role === "TEACHER" || role === "ADMIN") && (
           <button
             onClick={() => router.push("/dashboard/courses/new")}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
@@ -112,7 +115,15 @@ export default function CoursesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {courses.map((course) => (
-            <Card key={course.id}>
+            <Card
+              key={course.id}
+              className={role === "TEACHER" || role === "ADMIN" ? "cursor-pointer select-none transition-colors hover:border-indigo-500/50" : ""}
+              onClick={() => {
+                if (role === "TEACHER" || role === "ADMIN") {
+                  router.push(`/dashboard/courses/${course.id}`);
+                }
+              }}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="rounded-lg bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400">
@@ -125,9 +136,28 @@ export default function CoursesPage() {
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                   {course.name}
                 </h3>
-                {user?.role === "STUDENT" && (
+                {(course.require_youtube || course.require_file) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {course.require_youtube && (
+                      <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                        Video zorunlu
+                      </span>
+                    )}
+                    {course.require_file && (
+                      <span className="rounded-md bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
+                        Dosya zorunlu
+                      </span>
+                    )}
+                  </div>
+                )}
+                {(role === "TEACHER" || role === "ADMIN") && (
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    Düzenlemek için tıklayın
+                  </p>
+                )}
+                {role === "STUDENT" && (
                   <button
-                    onClick={() => handleEnroll(course.id)}
+                    onClick={(e) => { e.stopPropagation(); handleEnroll(course.id); }}
                     className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
                   >
                     Kayıt Ol

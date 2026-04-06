@@ -9,15 +9,18 @@ import { StudentDashboardScreen } from '../screens/dashboard/StudentDashboardScr
 import { TeacherDashboardScreen } from '../screens/dashboard/TeacherDashboardScreen';
 import { CourseListScreen } from '../screens/courses/CourseListScreen';
 import { CourseCreateScreen } from '../screens/courses/CourseCreateScreen';
+import { CourseEditScreen } from '../screens/courses/CourseEditScreen';
 import { ProjectListScreen } from '../screens/projects/ProjectListScreen';
 import { ProjectCreateScreen } from '../screens/projects/ProjectCreateScreen';
 import { ProjectDetailScreen } from '../screens/projects/ProjectDetailScreen';
 import { TaskCreateScreen } from '../screens/projects/TaskCreateScreen';
 import { ReportListScreen } from '../screens/reports/ReportListScreen';
 import { ReportCreateScreen } from '../screens/reports/ReportCreateScreen';
-import { View, Text, ActivityIndicator } from 'react-native';
-import { Home, User as UserIcon, BookOpen, FolderKanban, FileText } from 'lucide-react-native';
+import { NotificationListScreen } from '../screens/notifications/NotificationListScreen';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Home, User as UserIcon, BookOpen, FolderKanban, FileText, Bell } from 'lucide-react-native';
 import { Button } from '../components/ui/Button';
+import { useUnreadCount } from '../hooks/useUnreadCount';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -58,6 +61,7 @@ const CoursesStackNavigator = () => (
   <CourseStack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#818cf8', headerTitleStyle: { fontWeight: 'bold', fontSize: 16 }, headerShadowVisible: false }}>
     <CourseStack.Screen name="CourseList" component={CourseListScreen} options={{ headerShown: false }} />
     <CourseStack.Screen name="CourseCreate" component={CourseCreateScreen} options={{ title: 'Yeni Ders' }} />
+    <CourseStack.Screen name="CourseEdit" component={CourseEditScreen} options={{ title: 'Ders Düzenle' }} />
   </CourseStack.Navigator>
 );
 
@@ -80,8 +84,9 @@ const ReportsStackNavigator = () => (
 const MainTabNavigator = () => {
   const { user } = useAuth();
   const role = user?.role?.toUpperCase();
+  const { unreadCount } = useUnreadCount();
   return (
-    <Tab.Navigator screenOptions={{
+    <Tab.Navigator screenOptions={({ navigation }) => ({
       headerStyle: { backgroundColor: '#0f172a', elevation: 0, shadowOpacity: 0 },
       headerTintColor: '#818cf8',
       headerTitleStyle: { fontWeight: 'bold', fontSize: 18 },
@@ -90,13 +95,33 @@ const MainTabNavigator = () => {
       tabBarActiveTintColor: '#818cf8',
       tabBarInactiveTintColor: '#64748b',
       tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-    }}>
+      headerRight: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('NotificationsModal')} className="mr-5">
+          <View className="bg-slate-800 p-2 rounded-full">
+            <Bell color="#818cf8" size={18} />
+            {unreadCount > 0 && (
+              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full h-4 w-4 items-center justify-center">
+                <Text className="text-white font-bold" style={{ fontSize: 9 }}>
+                  {unreadCount > 9 ? '9+' : String(unreadCount)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      )
+    })}>
       <Tab.Screen name="DashboardRoot" component={role === 'TEACHER' ? TeacherDashboardScreen : StudentDashboardScreen}
         options={{ title: 'Genel Bakış', headerTitle: 'UniTrack AI', tabBarIcon: ({ color }) => <Home color={color} size={22} /> }} />
       <Tab.Screen name="CoursesRoot" component={CoursesStackNavigator}
         options={{ title: 'Dersler', headerShown: false, tabBarIcon: ({ color }) => <BookOpen color={color} size={22} /> }} />
       <Tab.Screen name="ProjectsRoot" component={ProjectsStackNavigator}
-        options={{ title: 'Projeler', headerShown: false, tabBarIcon: ({ color }) => <FolderKanban color={color} size={22} /> }} />
+        options={{ title: 'Projeler', headerShown: false, tabBarIcon: ({ color }) => <FolderKanban color={color} size={22} /> }}
+        listeners={({ navigation: nav }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            nav.navigate('ProjectsRoot', { screen: 'ProjectList', initial: true });
+          },
+        })} />
       <Tab.Screen name="ReportsRoot" component={ReportsStackNavigator}
         options={{ title: 'Raporlar', headerShown: false, tabBarIcon: ({ color }) => <FileText color={color} size={22} /> }} />
       <Tab.Screen name="ProfileRoot" component={ProfileScreen}
@@ -115,7 +140,22 @@ export const RootNavigator = () => {
   return (
     <NavigationContainer theme={DarkNavTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {user ? <Stack.Screen name="Main" component={MainTabNavigator} /> : (
+        {user ? (
+          <>
+            <Stack.Screen name="Main" component={MainTabNavigator} />
+            <Stack.Screen 
+              name="NotificationsModal" 
+              component={NotificationListScreen} 
+              options={{ 
+                headerShown: true, 
+                presentation: 'modal', 
+                title: 'Bildirimler',
+                headerStyle: { backgroundColor: '#0f172a' },
+                headerTintColor: '#818cf8',
+              }} 
+            />
+          </>
+        ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />

@@ -2,11 +2,13 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+  ({ className, onClick, ...props }, ref) => (
     <div
       ref={ref}
+      onClick={onClick}
       className={cn(
         "rounded-2xl border border-gray-200 bg-white text-gray-950 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-50",
+        onClick ? "cursor-pointer select-none" : "",
         className
       )}
       {...props}

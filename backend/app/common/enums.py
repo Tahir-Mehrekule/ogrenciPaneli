@@ -84,3 +84,31 @@ class NotificationType(str, enum.Enum):
     TASK_ASSIGNED = "task_assigned"
     REPORT_REVIEWED = "report_reviewed"
     SYSTEM_ALERT = "system_alert"
+
+
+class ActivityAction(str, enum.Enum):
+    """
+    Sistem aktivite log aksiyonları.
+    """
+    USER_LOGIN = "user_login"
+    USER_REGISTER = "user_register"
+    USER_ROLE_CHANGE = "user_role_change"
+    PROJECT_CREATE = "project_create"
+    PROJECT_APPROVE = "project_approve"
+    PROJECT_REJECT = "project_reject"
+    REPORT_SUBMIT = "report_submit"
+    REPORT_REVIEW = "report_review"
+    COURSE_CREATE = "course_create"
+    COURSE_UPDATE = "course_update"
+    COURSE_DELETE = "course_delete"
+
+
+class EntityType(str, enum.Enum):
+    """
+    Log kaydının ilgili olduğu varlık tipi.
+    """
+    USER = "user"
+    PROJECT = "project"
+    REPORT = "report"
+    COURSE = "course"
+    TASK = "task"

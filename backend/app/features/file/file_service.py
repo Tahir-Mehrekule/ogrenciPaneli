@@ -9,7 +9,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
-from app.common.enums import ReportStatus, UserRole
+from app.common.enums import UserRole, ReportStatus
 from app.common.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.features.file.file_model import FileUpload
 from app.features.file.file_repo import FileRepo
@@ -38,10 +38,6 @@ class FileService:
         # Sahibi mi?
         if str(report.submitted_by) != str(current_user.id):
             raise ForbiddenException("Sadece kendi raporunuza dosya yükleyebilirsiniz")
-
-        # DRAFT mi?
-        if report.status != ReportStatus.DRAFT:
-            raise BadRequestException(f"Sadece DRAFT raporlara dosya yüklenebilir. Mevcut durum: {report.status.value}")
 
         # Benzersiz storage_key oluştur
         # Örnek: reports/cf1d9.../örnek_sunum.pdf

@@ -65,6 +65,9 @@ class ProjectResponse(BaseResponse):
     created_by: UUID
     ai_task_plan: Optional[Any] = None
     is_active: bool
+    # Ders bilgisi (course relationship üzerinden zenginleştirilir)
+    course_name: Optional[str] = None
+    course_code: Optional[str] = None
 
 
 class ProjectFilterParams(FilterParams):

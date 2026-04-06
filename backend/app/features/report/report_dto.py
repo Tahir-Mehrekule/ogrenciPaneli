@@ -56,6 +56,9 @@ class ReportResponse(BaseResponse):
     status: ReportStatus
     reviewer_note: Optional[str] = None
     is_active: bool
+    # Ders bilgisi (project → course üzerinden zenginleştirilir)
+    course_name: Optional[str] = None
+    course_code: Optional[str] = None
 
 
 class ReportFilterParams(FilterParams):

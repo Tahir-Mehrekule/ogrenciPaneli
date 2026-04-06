@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { useAuth } from '../../hooks/useAuth';
+import { View, Text, KeyboardAvoidingView, Platform, ScrollView, Alert, Switch } from 'react-native';
 import apiClient from '../../lib/apiClient';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -11,6 +10,8 @@ export const CourseCreateScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [semester, setSemester] = useState('');
+  const [requireYoutube, setRequireYoutube] = useState(false);
+  const [requireFile, setRequireFile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreate = async () => {
@@ -19,7 +20,13 @@ export const CourseCreateScreen = ({ navigation }: any) => {
     }
     try {
       setIsLoading(true);
-      await apiClient.post('/api/v1/courses', { name, code, semester });
+      await apiClient.post('/api/v1/courses', {
+        name,
+        code,
+        semester,
+        require_youtube: requireYoutube,
+        require_file: requireFile,
+      });
       Alert.alert('Başarılı', 'Ders başarıyla oluşturuldu!', [
         { text: 'Tamam', onPress: () => navigation.goBack() }
       ]);
@@ -70,11 +77,47 @@ export const CourseCreateScreen = ({ navigation }: any) => {
               value={semester}
               onChangeText={setSemester}
             />
+
+            {/* Rapor Gereksinimleri */}
+            <View className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 mt-2 mb-4">
+              <Text className="text-sm font-medium text-gray-300 mb-1">
+                Haftalık Rapor Gereksinimleri
+              </Text>
+              <Text className="text-xs text-gray-500 mb-4">
+                Öğrencilerin rapor teslim ederken uyması gereken zorunluluklar.
+              </Text>
+
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-1 mr-3">
+                  <Text className="text-sm text-gray-200">YouTube video zorunlu</Text>
+                  <Text className="text-xs text-gray-500">Rapor tesliminde video linki şartı</Text>
+                </View>
+                <Switch
+                  value={requireYoutube}
+                  onValueChange={setRequireYoutube}
+                  trackColor={{ false: '#334155', true: '#818cf8' }}
+                  thumbColor={requireYoutube ? '#ffffff' : '#94a3b8'}
+                />
+              </View>
+
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 mr-3">
+                  <Text className="text-sm text-gray-200">Dosya ekleme zorunlu</Text>
+                  <Text className="text-xs text-gray-500">Rapor tesliminde en az bir dosya şartı</Text>
+                </View>
+                <Switch
+                  value={requireFile}
+                  onValueChange={setRequireFile}
+                  trackColor={{ false: '#334155', true: '#818cf8' }}
+                  thumbColor={requireFile ? '#ffffff' : '#94a3b8'}
+                />
+              </View>
+            </View>
+
             <Button
               title="Dersi Oluştur"
               onPress={handleCreate}
               isLoading={isLoading}
-              className="mt-4"
             />
           </CardContent>
         </Card>

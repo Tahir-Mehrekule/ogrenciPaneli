@@ -71,13 +71,31 @@ class AIService:
         # 4. OpenRouter API çağrısı
         task_suggestions = call_openrouter(project.title, project.description)
 
-        # 5. Sonucu projeye kaydet
+        # 5. Sonucu projeye kaydet (JSON olarak referans tutmak için)
         ai_plan_data = {
             "tasks": [t.model_dump() for t in task_suggestions],
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "model": DEFAULT_MODEL,
         }
         self.project_repo.update(data.project_id, {"ai_task_plan": ai_plan_data})
+
+        # --- YENİ EKLENEN KISIM: Görevleri Gerçekten Tabloya Ekle ---
+        from app.features.task.task_repo import TaskRepo
+        from app.features.task.task_model import Task
+        
+        task_repo = TaskRepo(self.db)
+        
+        for t_data in task_suggestions:
+            new_task = Task(
+                project_id=data.project_id,
+                title=t_data.title,
+                description=t_data.description,
+                ai_suggested=True  # AI tarafından oluşturulduğu işareti
+                # status zaten DB seviyesinde varsayılan TODO olarak geliyor
+            )
+            task_repo.create(new_task)
+            
+        # -------------------------------------------------------------
 
         # 6. Response döner
         return AISuggestResponse(

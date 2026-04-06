@@ -15,10 +15,10 @@ import { Project, PaginatedResponse } from '../../types/project';
 
 // Durum etiketi renk & metin tanımları
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  DRAFT:    { label: 'Taslak',   bg: 'bg-slate-700',     text: 'text-slate-300' },
-  PENDING:  { label: 'Bekliyor', bg: 'bg-amber-900/50',  text: 'text-amber-400' },
-  APPROVED: { label: 'Onaylı',   bg: 'bg-emerald-900/50',text: 'text-emerald-400' },
-  REJECTED: { label: 'Reddedildi', bg: 'bg-red-900/50', text: 'text-red-400' },
+  draft:    { label: 'Taslak',   bg: 'bg-slate-700',     text: 'text-slate-300' },
+  pending:  { label: 'Bekliyor', bg: 'bg-amber-900/50',  text: 'text-amber-400' },
+  approved: { label: 'Onaylı',   bg: 'bg-emerald-900/50',text: 'text-emerald-400' },
+  rejected: { label: 'Reddedildi', bg: 'bg-red-900/50', text: 'text-red-400' },
 };
 
 const safeErrorMsg = (error: any, fallback: string) => {
@@ -30,6 +30,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 
 export const ProjectListScreen = ({ navigation }: any) => {
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase() ?? '';
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,15 +94,15 @@ export const ProjectListScreen = ({ navigation }: any) => {
       <View className="mb-4 mt-2 flex-row items-center justify-between">
         <View>
           <Text className="text-2xl font-bold text-white">
-            {user?.role === 'TEACHER' ? 'Gelen Projeler' : 'Projelerim'}
+            {role === 'TEACHER' ? 'Gelen Projeler' : 'Projelerim'}
           </Text>
           <Text className="text-sm text-gray-400 mt-1">
-            {user?.role === 'TEACHER'
+            {role === 'TEACHER'
               ? 'Danışmanı olduğunuz projeler.'
               : 'Oluşturduğunuz tüm projeler.'}
           </Text>
         </View>
-        {user?.role === 'STUDENT' && (
+        {role === 'STUDENT' && (
           <TouchableOpacity
             className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600"
             onPress={() => navigation.navigate('ProjectCreate')}
@@ -117,53 +118,75 @@ export const ProjectListScreen = ({ navigation }: any) => {
           <CardContent className="items-center justify-center p-8">
             <FolderKanban size={40} color="#64748b" />
             <Text className="text-gray-400 mt-4 text-center">
-              {user?.role === 'TEACHER' ? 'Henüz gönderilmiş proje yok.' : 'Henüz bir proje oluşturmadınız.'}
+              {role === 'TEACHER' ? 'Henüz gönderilmiş proje yok.' : 'Henüz bir proje oluşturmadınız.'}
             </Text>
           </CardContent>
         </Card>
-      ) : (
-        projects.map((project) => {
-          const status = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.DRAFT;
-          return (
-            <Card key={project.id} className="mb-3">
-              <TouchableOpacity onPress={() => navigation.navigate('ProjectDetail', { projectId: project.id })}>
-                <CardContent className="pt-4 pb-4">
-                  {/* Başlık + Durum + Ok */}
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className={`rounded-lg px-2 py-0.5 ${status.bg}`}>
-                      <Text className={`text-xs font-bold ${status.text}`}>{status.label}</Text>
-                    </View>
-                    <ChevronRight size={16} color="#64748b" />
-                  </View>
+      ) : (() => {
+        // Projeleri derse göre grupla
+        const grouped = projects.reduce((acc, project) => {
+          const key = project.course_name ?? 'Ders Atanmamış';
+          if (!acc[key]) acc[key] = { code: project.course_code ?? null, projects: [] };
+          acc[key].projects.push(project);
+          return acc;
+        }, {} as Record<string, { code: string | null; projects: Project[] }>);
 
-                  <Text className="text-base font-semibold text-white">{project.title}</Text>
-                  <Text className="text-sm text-gray-400 mt-1" numberOfLines={2}>
-                    {project.description}
-                  </Text>
+        return Object.entries(grouped).map(([courseName, { code, projects: courseProjects }]) => (
+          <View key={courseName} className="mb-4">
+            {/* Ders Başlığı */}
+            <View className="flex-row items-center gap-2 mb-3">
+              {code && (
+                <View className="rounded-lg bg-indigo-900/40 border border-indigo-500/20 px-2 py-0.5">
+                  <Text className="text-xs font-bold text-indigo-400">{code}</Text>
+                </View>
+              )}
+              <Text className="text-sm font-semibold text-gray-300">{courseName}</Text>
+              <View className="flex-1 h-px bg-slate-700" />
+              <Text className="text-xs text-gray-500">{courseProjects.length} proje</Text>
+            </View>
 
-                  {/* Öğretmen: Onayla / Reddet butonları */}
-                  {user?.role === 'TEACHER' && project.status === 'PENDING' && (
-                    <View className="flex-row gap-2 mt-4">
-                      <TouchableOpacity
-                        className="flex-1 rounded-lg bg-emerald-700 py-2 items-center"
-                        onPress={() => handleApprove(project.id)}
-                      >
-                        <Text className="text-white text-xs font-semibold">Onayla</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        className="flex-1 rounded-lg bg-red-800 py-2 items-center"
-                        onPress={() => handleReject(project.id)}
-                      >
-                        <Text className="text-white text-xs font-semibold">Reddet</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </CardContent>
-              </TouchableOpacity>
-            </Card>
-          );
-        })
-      )}
+            {courseProjects.map((project) => {
+              const status = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.draft;
+              return (
+                <Card key={project.id} className="mb-3">
+                  <TouchableOpacity onPress={() => navigation.navigate('ProjectDetail', { projectId: project.id })}>
+                    <CardContent className="pt-4 pb-4">
+                      <View className="flex-row items-center justify-between mb-2">
+                        <View className={`rounded-lg px-2 py-0.5 ${status.bg}`}>
+                          <Text className={`text-xs font-bold ${status.text}`}>{status.label}</Text>
+                        </View>
+                        <ChevronRight size={16} color="#64748b" />
+                      </View>
+
+                      <Text className="text-base font-semibold text-white">{project.title}</Text>
+                      <Text className="text-sm text-gray-400 mt-1" numberOfLines={2}>
+                        {project.description}
+                      </Text>
+
+                      {role === 'TEACHER' && project.status?.toLowerCase() === 'pending' && (
+                        <View className="flex-row gap-2 mt-4">
+                          <TouchableOpacity
+                            className="flex-1 rounded-lg bg-emerald-700 py-2 items-center"
+                            onPress={() => handleApprove(project.id)}
+                          >
+                            <Text className="text-white text-xs font-semibold">Onayla</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            className="flex-1 rounded-lg bg-red-800 py-2 items-center"
+                            onPress={() => handleReject(project.id)}
+                          >
+                            <Text className="text-white text-xs font-semibold">Reddet</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </CardContent>
+                  </TouchableOpacity>
+                </Card>
+              );
+            })}
+          </View>
+        ));
+      })()}
 
       <View className="h-8" />
     </ScrollView>

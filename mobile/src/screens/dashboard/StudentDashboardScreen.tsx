@@ -122,12 +122,20 @@ export const StudentDashboardScreen = ({ navigation }: any) => {
               <Text className="text-sm text-gray-500 text-center mb-3">
                 Henüz proje oluşturmadınız.
               </Text>
-              <TouchableOpacity
-                className="rounded-lg bg-indigo-600 px-4 py-2"
-                onPress={() => navigation?.navigate('ProjectsRoot', { screen: 'ProjectCreate' })}
-              >
-                <Text className="text-white text-sm font-semibold">Proje Oluştur</Text>
-              </TouchableOpacity>
+              <View className="flex-row gap-2">
+                <TouchableOpacity
+                  className="rounded-lg bg-indigo-600 px-4 py-2"
+                  onPress={() => navigation?.navigate('ProjectsRoot', { screen: 'ProjectCreate' })}
+                >
+                  <Text className="text-white text-sm font-semibold">Proje Oluştur</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="rounded-lg border border-indigo-500/40 bg-indigo-900/20 px-4 py-2"
+                  onPress={() => navigation?.navigate('ProjectsRoot', { screen: 'JoinProject' })}
+                >
+                  <Text className="text-indigo-400 text-sm font-semibold">Kod ile Katıl</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             recentProjects.map((p, i) => {

@@ -6,7 +6,7 @@ Durum akışı: DRAFT → PENDING → APPROVED/REJECTED → IN_PROGRESS → COMP
 """
 
 import uuid
-from sqlalchemy import Column, String, Text, ForeignKey, Enum, JSON
+from sqlalchemy import Column, String, Text, ForeignKey, Enum, JSON, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -74,9 +74,48 @@ class Project(BaseModel):
         comment="AI önerisi (görev planı)"
     )
 
+    share_code = Column(
+        String(8),
+        unique=True,
+        nullable=True,
+        index=True,
+        comment="Projeye katılım için paylaşılabilir kısa kod (8 karakter)"
+    )
+
+    category_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("project_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Proje kategorisi (öğretmenin ders bazlı oluşturduğu bölüm)"
+    )
+
+    is_archived = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Arşivlenmiş mi? Sadece teacher/admin arşivleyebilir"
+    )
+
+    archived_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Arşivleyen kullanıcı"
+    )
+
+    archived_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Arşivlenme zamanı"
+    )
+
     # İlişkiler
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
     course = relationship("Course", foreign_keys=[course_id], lazy="select")
+    category = relationship("ProjectCategory", foreign_keys=[category_id], lazy="select")
+    archiver = relationship("User", foreign_keys=[archived_by], lazy="select")
 
     def __repr__(self):
         return f"<Project(id={self.id}, title={self.title}, status={self.status})>"

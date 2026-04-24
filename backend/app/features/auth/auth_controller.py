@@ -8,6 +8,7 @@ from app.core.dependencies import get_current_user
 from app.features.auth.auth_service import AuthService
 from app.features.auth.auth_dto import (
     RegisterRequest,
+    RegisterResponse,
     LoginRequest,
     TokenResponse,
     RefreshTokenRequest,
@@ -24,11 +25,15 @@ router = APIRouter(
 
 @router.post(
     "/register",
-    response_model=TokenResponse,
+    response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Yeni kullanıcı kaydı",
-    description="Okul mail adresi ile kayıt. Rol email'den otomatik belirlenir "
-                "(@ogr. → Student, diğer → Teacher).",
+    description=(
+        "Okul mail adresi ile kayıt. Rol email'den otomatik belirlenir "
+        "(@ogr. → Student, diğer → Teacher). "
+        "Öğrenciler PENDING statüsünde oluşturulur ve token almaz; "
+        "öğretmen/admin onayından sonra giriş yapabilirler."
+    ),
 )
 def register(
     data: RegisterRequest,

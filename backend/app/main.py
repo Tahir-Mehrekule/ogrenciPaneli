@@ -24,6 +24,9 @@ from app.features.notification.notification_controller import router as notifica
 from app.features.file.file_controller import router as file_router
 from app.features.admin.admin_controller import router as admin_router
 from app.features.activity_log.activity_log_controller import router as activity_log_router
+from app.features.department.department_controller import router as department_router
+from app.features.project_category.project_category_controller import router as project_category_router
+from app.features.student_prefix.student_prefix_controller import router as student_prefix_router
 
 
 # --- Uygulama Oluşturma ---
@@ -66,6 +69,9 @@ app.include_router(notification_router)
 app.include_router(file_router)
 app.include_router(admin_router)
 app.include_router(activity_log_router)
+app.include_router(department_router)
+app.include_router(project_category_router)
+app.include_router(student_prefix_router)
 
 
 # --- Health Check ---

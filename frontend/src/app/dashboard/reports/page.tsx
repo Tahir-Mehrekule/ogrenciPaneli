@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
-import { FileText, Plus, Paperclip } from "lucide-react";
+import { FileText, Plus, Paperclip, Search, X } from "lucide-react";
 
 type ReportStatus = "DRAFT" | "SUBMITTED" | "REVIEWED";
 
@@ -23,10 +23,10 @@ interface Report {
   course_code: string | null;
 }
 
-const STATUS_CONFIG: Record<ReportStatus, { label: string; className: string }> = {
-  DRAFT:     { label: "Taslak",        className: "bg-slate-700 text-slate-300" },
-  SUBMITTED: { label: "Teslim Edildi", className: "bg-amber-500/20 text-amber-400" },
-  REVIEWED:  { label: "İncelendi",     className: "bg-emerald-500/20 text-emerald-400" },
+const STATUS_CONFIG: Record<ReportStatus, { label: string; className: string; dot: string }> = {
+  DRAFT:     { label: "Taslak",        className: "border border-slate-600/60 bg-slate-800/60 text-slate-300",          dot: "bg-slate-400" },
+  SUBMITTED: { label: "Teslim Edildi", className: "border border-amber-500/30 bg-amber-500/10 text-amber-400",           dot: "bg-amber-400" },
+  REVIEWED:  { label: "İncelendi",     className: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400",     dot: "bg-emerald-400" },
 };
 
 export default function ReportsPage() {
@@ -38,17 +38,24 @@ export default function ReportsPage() {
   const [error, setError] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<Record<string, any>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [weekFilter, setWeekFilter] = useState("");
 
   const fetchReports = useCallback(async () => {
     try {
-      const { data } = await apiClient.get("/api/v1/reports");
+      const params = new URLSearchParams({ size: "100" });
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      if (weekFilter) params.set("week_number", weekFilter);
+      const { data } = await apiClient.get(`/api/v1/reports?${params}`);
       setReports(data.items);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Raporlar yüklenemedi.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, statusFilter, weekFilter]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -87,6 +94,48 @@ export default function ReportsPage() {
           >
             <Plus className="h-4 w-4" />
             Yeni Rapor
+          </button>
+        )}
+      </div>
+
+      {/* Filtre Çubuğu */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Proje adı veya içerik..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+        >
+          <option value="">Tüm Durumlar</option>
+          <option value="DRAFT">Taslak</option>
+          <option value="SUBMITTED">Teslim Edildi</option>
+          <option value="REVIEWED">İncelendi</option>
+        </select>
+        <select
+          value={weekFilter}
+          onChange={(e) => setWeekFilter(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+        >
+          <option value="">Tüm Haftalar</option>
+          {Array.from({ length: 14 }, (_, i) => i + 1).map((w) => (
+            <option key={w} value={String(w)}>Hafta {w}</option>
+          ))}
+        </select>
+        {(search || statusFilter || weekFilter) && (
+          <button
+            onClick={() => { setSearch(""); setStatusFilter(""); setWeekFilter(""); }}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800/40 dark:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" /> Temizle
           </button>
         )}
       </div>
@@ -137,22 +186,37 @@ export default function ReportsPage() {
 
             {courseReports.map((report) => {
           const normalizedStatus = report.status?.toUpperCase() as ReportStatus;
-          const status = STATUS_CONFIG[normalizedStatus] ?? { label: report.status, className: "bg-slate-700 text-slate-300" };
+          const status = STATUS_CONFIG[normalizedStatus] ?? { label: report.status, className: "border border-slate-600/60 bg-slate-800/60 text-slate-300", dot: "bg-slate-400" };
           return (
-            <Card key={report.id}>
-              <CardContent className="p-5">
+            <div
+              key={report.id}
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/80 shadow-sm ring-1 ring-black/5 backdrop-blur-sm transition-all hover:shadow-md hover:ring-indigo-200/50 dark:border-slate-700/60 dark:bg-slate-900/70 dark:ring-white/5 dark:hover:ring-indigo-500/20"
+            >
+              {/* Üst gradient bar */}
+              <div
+                className={`h-0.5 w-full ${
+                  normalizedStatus === "REVIEWED"
+                    ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                    : normalizedStatus === "SUBMITTED"
+                    ? "bg-gradient-to-r from-amber-400 to-orange-400"
+                    : "bg-gradient-to-r from-slate-500 to-slate-600"
+                }`}
+              />
+
+              <div className="p-5">
                 {/* Üst Satır */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`rounded-lg px-2 py-0.5 text-xs font-bold ${status.className}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ${status.className}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                     {status.label}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {report.year} — {report.week_number}. Hafta
+                  <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-slate-800 dark:text-gray-400">
+                    {report.year} · {report.week_number}. Hafta
                   </span>
                 </div>
 
                 {/* İçerik */}
-                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 line-clamp-3">
                   {report.content}
                 </p>
 
@@ -162,7 +226,7 @@ export default function ReportsPage() {
                     href={report.youtube_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200/60 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-900/10 dark:border-red-800/40 dark:text-red-400 dark:hover:bg-red-900/20"
                   >
                     🎬 Video raporu izle
                   </a>
@@ -170,9 +234,12 @@ export default function ReportsPage() {
 
                 {/* Öğretmen Notu */}
                 {report.reviewer_note && (
-                  <div className="mt-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">
-                    <p className="text-xs text-emerald-400">
-                      💬 Öğretmen notu: {report.reviewer_note}
+                  <div className="mt-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 p-3.5 dark:from-emerald-900/20 dark:to-teal-900/20 dark:border-emerald-800/40">
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                      💬 Öğretmen notu
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300">
+                      {report.reviewer_note}
                     </p>
                   </div>
                 )}
@@ -275,8 +342,8 @@ export default function ReportsPage() {
                     </button>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
             );
           })}
           </div>

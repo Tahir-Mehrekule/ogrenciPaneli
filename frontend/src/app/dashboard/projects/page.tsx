@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
-import { FolderKanban, Plus } from "lucide-react";
+import { FolderKanban, Plus, Search, X } from "lucide-react";
 
 type ProjectStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -35,17 +35,22 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const fetchProjects = useCallback(async () => {
     try {
-      const { data } = await apiClient.get("/api/v1/projects");
+      const params = new URLSearchParams({ size: "100" });
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      const { data } = await apiClient.get(`/api/v1/projects?${params}`);
       setProjects(data.items);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Projeler yüklenemedi.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, statusFilter]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
@@ -95,6 +100,41 @@ export default function ProjectsPage() {
           >
             <Plus className="h-4 w-4" />
             Yeni Proje
+          </button>
+        )}
+      </div>
+
+      {/* Filtre Çubuğu */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Proje adı veya açıklaması..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+        >
+          <option value="">Tüm Durumlar</option>
+          <option value="DRAFT">Taslak</option>
+          <option value="PENDING">Bekliyor</option>
+          <option value="APPROVED">Onaylı</option>
+          <option value="REJECTED">Reddedildi</option>
+          <option value="IN_PROGRESS">Devam Ediyor</option>
+          <option value="COMPLETED">Tamamlandı</option>
+        </select>
+        {(search || statusFilter) && (
+          <button
+            onClick={() => { setSearch(""); setStatusFilter(""); }}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800/40 dark:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" /> Temizle
           </button>
         )}
       </div>

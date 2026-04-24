@@ -8,6 +8,43 @@ Hardcoded string kullanmak yerine bu enum'lar kullanılır.
 import enum
 
 
+class ApprovalStatus(str, enum.Enum):
+    """
+    Kullanıcı hesap onay durumu.
+    Öğrenciler kayıt olduğunda PENDING başlar; öğretmen/admin onaylayana kadar giriş yapamaz.
+    - PENDING: Onay bekliyor (öğrenci kaydı varsayılanı)
+    - APPROVED: Onaylandı — giriş yapılabilir
+    - REJECTED: Reddedildi — giriş yapılamaz
+    """
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class MemberRole(str, enum.Enum):
+    """
+    Proje üyesinin proje içindeki rolü.
+    - MANAGER: Proje yöneticisi — davet gönderebilir, katılım isteklerini onaylayabilir, üye atabilir
+    - MEMBER: Normal üye
+    """
+    MANAGER = "MANAGER"
+    MEMBER = "MEMBER"
+
+
+class MemberStatus(str, enum.Enum):
+    """
+    Proje üyelik kaydının durumu.
+    - ACTIVE: Aktif üye
+    - INVITED: Davet gönderildi, kullanıcı henüz kabul etmedi
+    - JOIN_REQUESTED: Kullanıcı katılmak istedi, yönetici onayı bekleniyor
+    - REJECTED: Davet veya katılım isteği reddedildi
+    """
+    ACTIVE = "ACTIVE"
+    INVITED = "INVITED"
+    JOIN_REQUESTED = "JOIN_REQUESTED"
+    REJECTED = "REJECTED"
+
+
 class UserRole(str, enum.Enum):
     """
     Kullanıcı rolleri.

@@ -32,6 +32,10 @@ from app.features.course.course_model import Course, CourseEnrollment  # noqa: F
 from app.features.notification.notification_model import Notification  # noqa: F401
 from app.features.file.file_model import FileUpload  # noqa: F401
 from app.features.activity_log.activity_log_model import ActivityLog  # noqa: F401
+from app.features.department.department_model import Department  # noqa: F401
+from app.features.project_category.project_category_model import ProjectCategory  # noqa: F401
+from app.features.student_prefix.student_prefix_model import StudentYearPrefix  # noqa: F401
+from app.features.user_department.user_department_model import UserDepartment  # noqa: F401
 
 # Alembic Config objesi (alembic.ini'den okunur)
 config = context.config

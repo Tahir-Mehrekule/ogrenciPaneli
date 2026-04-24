@@ -52,6 +52,6 @@ class ActivityLogService:
         """Log nesnesini response DTO'ya dönüştürür ve kullanıcı bilgisiyle zenginleştirir."""
         response = ActivityLogResponse.model_validate(log)
         if log.user:
-            response.user_name = log.user.name
+            response.user_name = log.user.full_name
             response.user_email = log.user.email
         return response

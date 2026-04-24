@@ -5,6 +5,8 @@ Proje oluşturma, listeleme, onay/red ve durum yönetiminin orkestrasyon katman�
 """
 
 import math
+import secrets
+import string
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -62,12 +64,16 @@ class ProjectService:
         Returns:
             ProjectResponse: Oluşturulan proje
         """
+        # Benzersiz 8 karakterlik paylaşım kodu üret
+        share_code = self._generate_unique_share_code()
+
         project_data = {
             "title": data.title,
             "description": data.description,
             "course_id": data.course_id,
             "status": ProjectStatus.DRAFT,
             "created_by": current_user.id,
+            "share_code": share_code,
         }
         project = self.repo.create(project_data)
         log_activity(self.db, ActivityAction.PROJECT_CREATE, user_id=current_user.id,
@@ -213,3 +219,22 @@ class ProjectService:
         validate_deletable(project, current_user)
         self.repo.delete(project_id)
         return {"message": f"Proje başarıyla silindi: {project.title}"}
+
+    def get_by_share_code(self, share_code: str) -> ProjectResponse:
+        """Share link kodu ile projeyi getirir."""
+        from app.common.exceptions import NotFoundException
+        project = self.repo.get_by_share_code(share_code)
+        if project is None:
+            raise NotFoundException("Bu bağlantı kodu ile proje bulunamadı")
+        return self._to_response(project)
+
+    def _generate_unique_share_code(self, length: int = 8) -> str:
+        """Benzersiz URL-safe alfanümerik kısa kod üretir."""
+        alphabet = string.ascii_lowercase + string.digits
+        for _ in range(10):  # max 10 deneme
+            code = "".join(secrets.choice(alphabet) for _ in range(length))
+            if self.repo.get_by_share_code(code) is None:
+                return code
+        # Çok nadir çakışma — UUID ile fallback
+        import uuid
+        return str(uuid.uuid4()).replace("-", "")[:length]

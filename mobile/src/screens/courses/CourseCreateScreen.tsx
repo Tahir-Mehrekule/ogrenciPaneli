@@ -10,6 +10,8 @@ export const CourseCreateScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [semester, setSemester] = useState('');
+  const [gradeLevel, setGradeLevel] = useState('');
+  const [branch, setBranch] = useState('');
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +26,8 @@ export const CourseCreateScreen = ({ navigation }: any) => {
         name,
         code,
         semester,
+        grade_level: gradeLevel || undefined,
+        branch: branch || undefined,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
@@ -77,6 +81,26 @@ export const CourseCreateScreen = ({ navigation }: any) => {
               value={semester}
               onChangeText={setSemester}
             />
+
+            {/* Sınıf / Şube */}
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <Input
+                  label="Sınıf / Yıl (Opsiyonel)"
+                  placeholder="2. Sınıf"
+                  value={gradeLevel}
+                  onChangeText={setGradeLevel}
+                />
+              </View>
+              <View className="flex-1">
+                <Input
+                  label="Şube (Opsiyonel)"
+                  placeholder="A Şubesi"
+                  value={branch}
+                  onChangeText={setBranch}
+                />
+              </View>
+            </View>
 
             {/* Rapor Gereksinimleri */}
             <View className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 mt-2 mb-4">

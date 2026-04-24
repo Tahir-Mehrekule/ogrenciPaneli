@@ -17,18 +17,22 @@ export const LoginScreen = ({ navigation }: any) => {
     try {
       setIsLoading(true);
       await login({ email, password });
-      // Başarılı olunca AuthContext renderı yeniler ve Uygulama Navigasyonu Dashboard'a geçer.
     } catch (error: any) {
-      let errorMessage = 'Lütfen bilgilerinizi kontrol edin.';
+      const status = error.response?.status;
       const detail = error.response?.data?.detail;
+      let errorMessage = 'Lütfen bilgilerinizi kontrol edin.';
+      let errorTitle = 'Giriş Başarısız';
+
       if (typeof detail === 'string') {
         errorMessage = detail;
+        // 403 → PENDING veya REJECTED mesajını öne çıkar
+        if (status === 403) errorTitle = 'Hesap Erişimi Kısıtlı';
       } else if (Array.isArray(detail)) {
-        errorMessage = detail.map((d: any) => d.msg).join('\\n');
+        errorMessage = detail.map((d: any) => d.msg).join('\n');
       } else if (error.message) {
         errorMessage = error.message;
       }
-      Alert.alert('Giriş Başarısız', errorMessage);
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setIsLoading(false);
     }

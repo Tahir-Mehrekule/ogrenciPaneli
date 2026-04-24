@@ -7,7 +7,29 @@
       "Bash(curl -v -X OPTIONS http://localhost:19000/api/v1/courses -H \"Origin: http://localhost:3000\" -H \"Access-Control-Request-Method: GET\")",
       "Bash(docker restart:*)",
       "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@sakarya.edu.tr\",\"password\":\"admin123\"}')",
-      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@sakarya.edu.tr\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")"
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"email\\\\\":\\\\\"admin@sakarya.edu.tr\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(python -c ':*)",
+      "Bash(python:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}, indent=2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); deps=d.get\\('dependencies',{}\\); [print\\(k,v\\) for k,v in sorted\\(deps.items\\(\\)\\)]\")",
+      "Bash(xargs grep:*)",
+      "Bash(curl -s -X POST http://localhost:19000/api/v1/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{\"email\":\"mehrekule.tahir@ogr.ahievran.edu.tr\",\"password\":\"test123\"}' -i)",
+      "Bash(curl -s -X POST http://localhost:19000/api/v1/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{\"email\":\"mehrekule.tahir@ogr.ahievran.edu.tr\",\"password\":\"test\"}' -i)",
+      "Bash(docker-compose restart:*)",
+      "Bash(curl -s -X POST http://localhost:19000/api/v1/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -d '{\"email\":\"mehrekule.tahir@ogr.ahievran.edu.tr\",\"password\":\"test\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:19000/api/v1/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' -D - -d '{\"email\":\"mehrekule.tahir@ogr.ahievran.edu.tr\",\"password\":\"123456\"}')",
+      "Bash(curl -s http://localhost:19000/)",
+      "Bash(curl -s http://localhost:19000/openapi.json)",
+      "Bash(python3 -c ':*)",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node /c/Users/Tahir/Documents/GitHub/ogrenciPaneli/mobile/node_modules/typescript/bin/tsc --noEmit --project /c/Users/Tahir/Documents/GitHub/ogrenciPaneli/mobile/tsconfig.json)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(mkdir -p \"C:/Users/Tahir/Documents/GitHub/ogrenciPaneli/backend/app/features/user_department\")",
+      "Bash(touch \"C:/Users/Tahir/Documents/GitHub/ogrenciPaneli/backend/app/features/user_department/__init__.py\")"
     ]
   }
 }

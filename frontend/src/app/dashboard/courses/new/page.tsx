@@ -11,6 +11,8 @@ export default function NewCoursePage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [semester, setSemester] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [branch, setBranch] = useState("");
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +32,8 @@ export default function NewCoursePage() {
         name,
         code,
         semester,
+        grade_level: gradeLevel || undefined,
+        branch: branch || undefined,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
@@ -108,6 +112,34 @@ export default function NewCoursePage() {
                 onChange={(e) => setSemester(e.target.value)}
                 className={inputClass}
               />
+            </div>
+
+            {/* Sınıf / Şube */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Sınıf / Yıl <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="2. Sınıf"
+                  value={gradeLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Şube <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="A Şubesi"
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             </div>
 
             {/* Rapor Gereksinimleri */}

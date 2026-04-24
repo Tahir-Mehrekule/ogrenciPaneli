@@ -139,3 +139,17 @@ def delete_project(
 ):
     """Soft delete. Sadece DRAFT/REJECTED projeler silinebilir."""
     return ProjectService(db).delete_project(project_id, current_user)
+
+
+@router.get(
+    "/join/{share_code}",
+    response_model=ProjectResponse,
+    summary="Share link ile projeyi bul",
+    description="8 karakterlik paylaşım kodu ile projeyi getirir. Giriş yapmış herkes erişebilir.",
+)
+def get_by_share_code(
+    share_code: str,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).get_by_share_code(share_code)

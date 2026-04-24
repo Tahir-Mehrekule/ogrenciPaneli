@@ -9,7 +9,7 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.base.base_model import BaseModel
+from app.common.base_model import BaseModel
 
 
 class Course(BaseModel):
@@ -53,6 +53,18 @@ class Course(BaseModel):
         nullable=False,
         index=True,
         comment="Dersin öğretmeni"
+    )
+
+    grade_level = Column(
+        String(50),
+        nullable=True,
+        comment="Sınıf/yıl bilgisi (örn: '2. Sınıf'). Öğretmen ders açarken belirtir."
+    )
+
+    branch = Column(
+        String(50),
+        nullable=True,
+        comment="Şube bilgisi (örn: 'A Şubesi'). Aynı dersin birden fazla şubesini ayırt eder."
     )
 
     require_youtube = Column(

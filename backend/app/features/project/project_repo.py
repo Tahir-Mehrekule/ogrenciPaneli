@@ -24,3 +24,12 @@ class ProjectRepo(BaseRepository[Project]):
 
     def __init__(self, db: Session):
         super().__init__(Project, db)
+
+    def get_by_share_code(self, share_code: str) -> Project | None:
+        """Paylaşım kodu ile projeyi getirir."""
+        return (
+            self.db.query(Project)
+            .filter(Project.share_code == share_code)
+            .filter(Project.is_active == True)
+            .first()
+        )

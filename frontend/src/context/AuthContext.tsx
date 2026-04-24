@@ -13,6 +13,7 @@ import type {
   User,
   LoginRequest,
   RegisterRequest,
+  RegisterResponse,
   TokenResponse,
 } from "@/types/auth";
 
@@ -21,7 +22,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => void;
 }
 
@@ -30,7 +31,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   login: async () => { },
-  register: async () => { },
+  register: async () => ({ approval_status: "pending", message: "", token_type: "bearer" } as RegisterResponse),
   logout: () => { },
 });
 
@@ -81,16 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ─── Kayıt Ol ───
-  const register = async (formData: RegisterRequest) => {
-    const { data } = await apiClient.post<TokenResponse>(
+  // Öğrenci kayıtları PENDING döner (token yok, cookie set edilmez).
+  // Öğretmen/Admin kayıtları APPROVED döner (token alır, cookie set edilir).
+  const register = async (formData: RegisterRequest): Promise<RegisterResponse> => {
+    const { data } = await apiClient.post<RegisterResponse>(
       "/api/v1/auth/register",
       formData
     );
 
-    Cookies.set("access_token", data.access_token, { expires: 7 });
-    Cookies.set("refresh_token", data.refresh_token, { expires: 7 });
+    if (data.approval_status === "approved" && data.access_token && data.refresh_token) {
+      Cookies.set("access_token", data.access_token, { expires: 7 });
+      Cookies.set("refresh_token", data.refresh_token, { expires: 7 });
+      await fetchUser();
+    }
 
-    await fetchUser();
+    return data;
   };
 
   // ─── Çıkış Yap ───

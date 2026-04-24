@@ -111,7 +111,7 @@ class CourseStudentResponse(BaseModel):
     """Dersin öğrenci listesindeki öğrenci bilgisi."""
     id: UUID
     email: str
-    name: str
+    full_name: str
     enrolled_at: datetime
 
     model_config = {"from_attributes": True}

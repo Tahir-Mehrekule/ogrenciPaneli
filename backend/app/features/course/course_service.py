@@ -180,7 +180,7 @@ class CourseService:
             CourseStudentResponse(
                 id=e.student.id,
                 email=e.student.email,
-                name=e.student.name,
+                full_name=e.student.full_name,
                 enrolled_at=e.created_at,
             )
             for e in enrollments

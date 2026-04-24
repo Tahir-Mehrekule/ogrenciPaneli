@@ -6,7 +6,11 @@ import { Bell, LogOut, User as UserIcon, Menu, CheckCircle } from "lucide-react"
 import { cn } from "@/lib/utils";
 import apiClient from "@/lib/apiClient";
 
-export const Navbar = () => {
+interface NavbarProps {
+  onMenuToggle: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -65,8 +69,12 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white/80 px-6 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
       <div className="flex items-center gap-4">
-        {/* Mobil Menü Butonu (ileride eklenebilir) */}
-        <button className="block rounded p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-slate-800">
+        {/* Hamburger Menü — mobilde sidebar açar */}
+        <button
+          onClick={onMenuToggle}
+          className="block rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-slate-800"
+          aria-label="Menüyü aç/kapat"
+        >
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-bold text-indigo-600 dark:text-indigo-400">

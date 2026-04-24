@@ -12,6 +12,7 @@ from app.features.admin.admin_dto import (
     ProjectStatusBreakdown,
     TaskStatusBreakdown,
     ReportStatusBreakdown,
+    PendingStudentResponse,
 )
 from app.features.auth.auth_model import User
 from app.features.project.project_model import Project
@@ -19,7 +20,8 @@ from app.features.course.course_model import Course, CourseEnrollment
 from app.features.task.task_model import Task
 from app.features.report.report_model import Report
 from app.features.file.file_model import FileUpload
-from app.common.enums import UserRole, ProjectStatus, TaskStatus, ReportStatus
+from app.common.enums import UserRole, ProjectStatus, TaskStatus, ReportStatus, ApprovalStatus
+from app.common.exceptions import NotFoundException, BadRequestException
 
 
 class AdminService:
@@ -27,6 +29,55 @@ class AdminService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def get_pending_students(self) -> list[PendingStudentResponse]:
+        """Onay bekleyen öğrencileri listeler (kayıt tarihine göre eskiden yeniye)."""
+        from app.features.auth.auth_repo import AuthRepo
+        repo = AuthRepo(self.db)
+        students = repo.get_pending_students()
+        return [
+            PendingStudentResponse(
+                id=str(s.id),
+                email=s.email,
+                first_name=s.first_name,
+                last_name=s.last_name,
+                full_name=s.full_name,
+                student_no=s.student_no,
+                departments=[ud.department.name for ud in s.user_departments if ud.is_active and ud.department],
+                created_at=s.created_at.isoformat(),
+            )
+            for s in students
+        ]
+
+    def approve_student(self, user_id: str) -> dict:
+        """Öğrenci hesabını onaylar (PENDING → APPROVED)."""
+        from uuid import UUID
+        student = self.db.query(User).filter(
+            User.id == UUID(user_id),
+            User.is_active == True,
+        ).first()
+        if student is None:
+            raise NotFoundException("Öğrenci bulunamadı")
+        if student.approval_status != ApprovalStatus.PENDING:
+            raise BadRequestException("Bu hesap zaten işleme alınmış")
+        student.approval_status = ApprovalStatus.APPROVED
+        self.db.commit()
+        return {"message": f"'{student.full_name}' hesabı onaylandı. Artık giriş yapabilir."}
+
+    def reject_student(self, user_id: str) -> dict:
+        """Öğrenci kaydını reddeder (PENDING → REJECTED)."""
+        from uuid import UUID
+        student = self.db.query(User).filter(
+            User.id == UUID(user_id),
+            User.is_active == True,
+        ).first()
+        if student is None:
+            raise NotFoundException("Öğrenci bulunamadı")
+        if student.approval_status != ApprovalStatus.PENDING:
+            raise BadRequestException("Bu hesap zaten işleme alınmış")
+        student.approval_status = ApprovalStatus.REJECTED
+        self.db.commit()
+        return {"message": f"'{student.full_name}' hesabı reddedildi."}
 
     def get_system_stats(self) -> SystemStatsResponse:
         """Tüm tablolardan sistem istatistiklerini hesaplar."""

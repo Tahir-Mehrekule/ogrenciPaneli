@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { Navbar } from "./Navbar";
@@ -13,15 +13,14 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Yetkilendirme (Route Protection) kontrolü
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [user, loading, router]);
 
-  // Sayfa yüklenirken tüm ekranı kaplayan Skeleton (Yükleme) ekranı
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-slate-900">
@@ -33,17 +32,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     );
   }
 
-  // Kullanıcı yoksa boş sayfa (Zaten useEffect saniyesinde /login'e atacak)
   if (!user) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-slate-950">
       {/* Sol Menü */}
-      <Sidebar />
+      <Sidebar isMobileOpen={isMobileOpen} onClose={() => setIsMobileOpen(false)} />
+
+      {/* Mobil overlay backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Üst Menü */}
-        <Navbar />
+        <Navbar onMenuToggle={() => setIsMobileOpen((prev) => !prev)} />
 
         {/* Ana İçerik Alanı */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">

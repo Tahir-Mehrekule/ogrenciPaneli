@@ -240,7 +240,7 @@ Kullanıcı login olur → Access Token (15dk) + Refresh Token (7 gün)
 ## 🐳 Docker ile Çalıştırma
 
 ```bash
-# Tüm servisleri başlat (PostgreSQL + FastAPI)
+# Tüm servisleri başlat (PostgreSQL + FastAPI + MinIO)
 docker-compose up --build
 
 # Arka planda çalıştır
@@ -255,8 +255,10 @@ docker-compose down
 
 **Portlar:**
 - PostgreSQL: `localhost:5432`
-- FastAPI: `localhost:8000`
-- Swagger UI: `localhost:8000/docs`
+- FastAPI: `localhost:19000`
+- Swagger UI: `localhost:19000/docs`
+- MinIO API: `localhost:9000`
+- MinIO Console: `localhost:9001`
 
 ---
 
@@ -292,15 +294,23 @@ uvicorn app.main:app --reload --port 8000
 |------|-------|----------|
 | Proje İskeleti | ✅ | Klasörler, __init__.py dosyaları |
 | Konfigürasyon | ✅ | .gitignore, requirements.txt, .env.example, Docker |
-| Core Modül | ✅ | config, database, security, dependencies |
-| Common Modül | ✅ | 9 base sınıf (enums, exceptions, validators, base_model vb.) |
-| Auth Feature | ✅ | 6 dosya (model → dto → repo → manager → service → controller) |
-| User Feature | ⬜ | Sırada |
-| Project Feature | ⬜ | Bekliyor |
-| Project Member | ⬜ | Bekliyor |
-| Task Feature | ⬜ | Bekliyor |
-| Report Feature | ⬜ | Bekliyor |
-| AI Feature | ⬜ | Bekliyor |
-| main.py | ⬜ | Bekliyor |
-| Alembic Migration | ⬜ | Bekliyor |
-| Test Altyapısı | ⬜ | Bekliyor |
+| Core Modül | ✅ | config, database, security, dependencies, storage |
+| Common Modül | ✅ | 12 ortak dosya (enums, exceptions, validators, base sınıflar, helper'lar) |
+| Auth Feature | ✅ | Kayıt, giriş, JWT, okul mail validasyonu, profil |
+| User Feature | ✅ | Kullanıcı CRUD, rol yönetimi, filtreleme, listeleme |
+| Project Feature | ✅ | Proje oluşturma, onay/red, durum yönetimi |
+| Project Member | ✅ | Grup üyesi ekleme/çıkarma, davet, rol yönetimi |
+| Task Feature | ✅ | Görev oluşturma, atama, durum takibi |
+| Report Feature | ✅ | Haftalık rapor, YouTube link, dosya yükleme |
+| AI Feature | ✅ | OpenRouter API, çoklu model desteği, görev önerisi |
+| Course Feature | ✅ | Ders oluşturma, öğrenci kaydı, listeleme |
+| Notification | ✅ | Bildirim sistemi (in-app) |
+| File Feature | ✅ | MinIO ile dosya yükleme/indirme |
+| Admin Feature | ✅ | Admin paneli, istatistikler, kullanıcı yönetimi |
+| Department | ✅ | Bölüm yönetimi |
+| Activity Log | ✅ | Aktivite kayıtları |
+| Project Category | ✅ | Proje kategorileri |
+| Student Prefix | ✅ | Öğrenci ön ek yönetimi |
+| main.py | ✅ | 15 router kayıtlı, CORS, exception handler |
+| Alembic Migration | ✅ | DB şema yönetimi |
+| Test Altyapısı | ✅ | 9 feature için test dizinleri (conftest.py + feature bazlı testler) |

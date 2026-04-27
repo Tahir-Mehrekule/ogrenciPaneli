@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -58,6 +59,25 @@ def login(
     Kullanıcı girişi.
     """
     service = AuthService(db)
+    return service.login(data)
+
+
+@router.post(
+    "/swagger-login",
+    response_model=TokenResponse,
+    include_in_schema=False,  # Swagger'da kalabalık yapmasın diye gizliyoruz
+    summary="Swagger UI için giriş",
+)
+def swagger_login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    """
+    Swagger'ın 'Authorize' butonu arka planda Form Data gönderir.
+    Bu endpoint onu yakalayıp, standart JSON objesine (LoginRequest) çevirir.
+    """
+    service = AuthService(db)
+    data = LoginRequest(email=form_data.username, password=form_data.password)
     return service.login(data)
 
 

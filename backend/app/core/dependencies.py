@@ -16,7 +16,7 @@ from app.core.security import verify_token
 
 # OAuth2 Bearer Token şeması
 # tokenUrl: Swagger UI'daki "Authorize" butonu bu endpoint'e istek atar
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/swagger-login")
 
 
 def get_current_user(

@@ -13,6 +13,7 @@ class StudentPrefixRepo(BaseRepository[StudentYearPrefix]):
             self.db.query(StudentYearPrefix)
             .filter(StudentYearPrefix.prefix == prefix)
             .filter(StudentYearPrefix.is_active == True)
+            .filter(StudentYearPrefix.is_deleted == False)
             .first()
         )
 
@@ -20,6 +21,7 @@ class StudentPrefixRepo(BaseRepository[StudentYearPrefix]):
         return (
             self.db.query(StudentYearPrefix)
             .filter(StudentYearPrefix.is_active == True)
+            .filter(StudentYearPrefix.is_deleted == False)
             .order_by(StudentYearPrefix.entry_year.desc())
             .all()
         )

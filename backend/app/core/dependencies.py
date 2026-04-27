@@ -72,7 +72,9 @@ def get_current_user(
     if user is None:
         raise credentials_exception
 
-    # 5. Kullanıcı aktif mi kontrol et (soft delete kontrolü)
+    # 5. Kullanıcı silinmiş veya pasif mi kontrol et
+    if user.is_deleted:
+        raise credentials_exception
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

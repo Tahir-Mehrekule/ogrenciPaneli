@@ -28,7 +28,8 @@ class NotificationRepo(BaseRepository[Notification]):
             .filter(
                 Notification.user_id == user_id,
                 Notification.is_read == False,
-                Notification.is_active == True
+                Notification.is_active == True,
+                Notification.is_deleted == False
             )
             .count()
         )
@@ -40,7 +41,8 @@ class NotificationRepo(BaseRepository[Notification]):
             .filter(
                 Notification.user_id == user_id,
                 Notification.is_read == False,
-                Notification.is_active == True
+                Notification.is_active == True,
+                Notification.is_deleted == False
             )
             .update({"is_read": True}, synchronize_session=False)
         )
@@ -54,7 +56,8 @@ class NotificationRepo(BaseRepository[Notification]):
             .filter(
                 Notification.id == notification_id,
                 Notification.user_id == user_id,
-                Notification.is_active == True
+                Notification.is_active == True,
+                Notification.is_deleted == False
             )
             .first()
         )

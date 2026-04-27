@@ -39,6 +39,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.project_id == project_id)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .all()
         )
 
@@ -50,6 +51,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.project_id == project_id)
             .filter(ProjectMember.status.in_([MemberStatus.INVITED, MemberStatus.JOIN_REQUESTED]))
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .all()
         )
 
@@ -60,6 +62,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.project_id == project_id)
             .filter(ProjectMember.user_id == user_id)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         )
 
@@ -70,6 +73,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .options(joinedload(ProjectMember.user))
             .filter(ProjectMember.id == member_id)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         )
 
@@ -81,6 +85,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.user_id == user_id)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         ) is not None
 
@@ -92,6 +97,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.user_id == user_id)
             .filter(ProjectMember.status.in_([MemberStatus.INVITED, MemberStatus.JOIN_REQUESTED]))
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         ) is not None
 
@@ -103,6 +109,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.role == MemberRole.MANAGER)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         )
 
@@ -115,6 +122,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.role == MemberRole.MANAGER)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .first()
         ) is not None
 
@@ -125,6 +133,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.project_id == project_id)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .count()
         )
 
@@ -135,6 +144,7 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .filter(ProjectMember.user_id == user_id)
             .filter(ProjectMember.status == MemberStatus.ACTIVE)
             .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
             .all()
         )
         return [row.project_id for row in rows]

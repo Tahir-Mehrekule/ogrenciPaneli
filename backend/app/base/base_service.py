@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from app.base.base_repo import BaseRepository
 from app.base.base_dto import PaginatedResponse, FilterParams
 
-# Generic tipler
 ModelType = TypeVar("ModelType")
 RepoType = TypeVar("RepoType", bound=BaseRepository)
 
@@ -29,13 +28,6 @@ class BaseService(Generic[ModelType, RepoType]):
         class ProjectService(BaseService[Project, ProjectRepo]):
             def __init__(self, db: Session):
                 super().__init__(ProjectRepo, db)
-
-            def approve_project(self, project_id: UUID):
-                # Özel iş mantığı...
-
-    Args:
-        repo_class: Repository sınıfı (AuthRepo, ProjectRepo vb.)
-        db: Veritabanı oturumu
     """
 
     def __init__(self, repo_class: Type[RepoType], db: Session):
@@ -43,48 +35,17 @@ class BaseService(Generic[ModelType, RepoType]):
         self.repo: RepoType = repo_class(db)
 
     def create(self, data: dict) -> ModelType:
-        """
-        Yeni kayıt oluşturur.
-        Alt sınıflar bu metodu override ederek ek validasyon ekleyebilir.
-
-        Args:
-            data: Kayıt verileri
-
-        Returns:
-            Oluşturulan kayıt
-        """
+        """Yeni kayıt oluşturur."""
         return self.repo.create(data)
 
     def get(self, id: UUID) -> ModelType:
-        """
-        ID ile kayıt getirir. Bulunamazsa 404 hatası fırlatır.
-
-        Args:
-            id: Kayıt UUID'si
-
-        Returns:
-            Kayıt objesi
-
-        Raises:
-            NotFoundException: Kayıt bulunamazsa
-        """
+        """ID ile kayıt getirir. Bulunamazsa 404 fırlatır."""
         return self.repo.get_by_id_or_404(id)
 
     def list(self, filters: FilterParams) -> PaginatedResponse:
-        """
-        Sayfalanmış, sıralı, filtreli liste döner.
-        PaginatedResponse formatında: items, total, page, size, pages.
-
-        Args:
-            filters: Sayfalama/sıralama parametreleri
-
-        Returns:
-            PaginatedResponse: Sayfalanmış kayıt listesi
-        """
-        # Sayfalama hesaplaması
+        """Sayfalanmış, sıralı, filtreli liste döner."""
         skip = (filters.page - 1) * filters.size
 
-        # Verileri getir
         items = self.repo.get_all(
             skip=skip,
             limit=filters.size,
@@ -102,35 +63,18 @@ class BaseService(Generic[ModelType, RepoType]):
         )
 
     def update(self, id: UUID, data: dict) -> ModelType:
-        """
-        Kayıt güncelleme (kısmi — PATCH).
-        None olan alanlar güncellenmez, sadece gönderilen değerler değişir.
-
-        Args:
-            id: Güncellenecek kayıt UUID'si
-            data: Güncellenecek alanlar
-
-        Returns:
-            Güncellenmiş kayıt
-
-        Raises:
-            NotFoundException: Kayıt bulunamazsa
-        """
-        # None olan alanları filtrele (sadece gönderilen alanlar güncellenir)
+        """Kısmi güncelleme (PATCH). None alanlar güncellenmez."""
         update_data = {k: v for k, v in data.items() if v is not None}
         return self.repo.update(id, update_data)
 
-    def delete(self, id: UUID) -> ModelType:
-        """
-        Soft delete — kaydı pasif yapar.
+    def delete(self, id: UUID, cascade: bool = True) -> ModelType:
+        """Soft delete — is_deleted=True, is_active=False yapar. Cascade ile child'ları da siler."""
+        return self.repo.delete(id, cascade=cascade)
 
-        Args:
-            id: Silinecek kayıt UUID'si
+    def hard_delete(self, id: UUID, cascade: bool = True) -> None:
+        """Kalıcı silme — DB'den tamamen kaldırır. Geri alınamaz."""
+        return self.repo.hard_delete(id, cascade=cascade)
 
-        Returns:
-            Silinen kayıt
-
-        Raises:
-            NotFoundException: Kayıt bulunamazsa
-        """
-        return self.repo.delete(id)
+    def restore(self, id: UUID) -> ModelType:
+        """Soft delete yapılmış kaydı geri getirir."""
+        return self.repo.restore(id)

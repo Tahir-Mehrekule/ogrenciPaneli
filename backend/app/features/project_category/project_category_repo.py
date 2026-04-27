@@ -21,6 +21,7 @@ class ProjectCategoryRepo(BaseRepository[ProjectCategory]):
             self.db.query(ProjectCategory)
             .filter(ProjectCategory.course_id == course_id)
             .filter(ProjectCategory.is_active == True)
+            .filter(ProjectCategory.is_deleted == False)
             .order_by(ProjectCategory.name)
             .all()
         )
@@ -31,6 +32,7 @@ class ProjectCategoryRepo(BaseRepository[ProjectCategory]):
             .filter(ProjectCategory.course_id == course_id)
             .filter(ProjectCategory.name == name)
             .filter(ProjectCategory.is_active == True)
+            .filter(ProjectCategory.is_deleted == False)
         )
         if exclude_id:
             q = q.filter(ProjectCategory.id != exclude_id)
@@ -43,5 +45,6 @@ class ProjectCategoryRepo(BaseRepository[ProjectCategory]):
             .filter(Project.category_id == category_id)
             .filter(Project.is_archived == False)
             .filter(Project.is_active == True)
+            .filter(Project.is_deleted == False)
             .first()
         ) is not None

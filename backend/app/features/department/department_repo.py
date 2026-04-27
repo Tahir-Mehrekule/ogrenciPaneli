@@ -22,6 +22,7 @@ class DepartmentRepo(BaseRepository[Department]):
             self.db.query(Department)
             .filter(Department.name == name.strip())
             .filter(Department.is_active == True)
+            .filter(Department.is_deleted == False)
             .first()
         )
 

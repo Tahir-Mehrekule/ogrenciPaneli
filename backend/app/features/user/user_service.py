@@ -106,7 +106,7 @@ class UserService:
         Öğretmenin bölümlerindeki öğrencileri listeler.
         Öğretmenin user_departments'ından bölüm ID'leri alınır.
         """
-        dept_ids = [ud.department_id for ud in teacher.user_departments if ud.is_active]
+        dept_ids = [ud.department_id for ud in teacher.user_departments if ud.is_active and not ud.is_deleted]
         if not dept_ids:
             return PaginatedResponse(items=[], total=0, page=params.page, size=params.size, pages=0)
 
@@ -192,8 +192,8 @@ class UserService:
 
         # Öğretmen sadece kendi bölümündeki öğrencileri güncelleyebilir
         if current_user.role == UserRole.TEACHER:
-            teacher_dept_ids = {str(ud.department_id) for ud in current_user.user_departments if ud.is_active}
-            student_dept_ids = {str(ud.department_id) for ud in target_user.user_departments if ud.is_active}
+            teacher_dept_ids = {str(ud.department_id) for ud in current_user.user_departments if ud.is_active and not ud.is_deleted}
+            student_dept_ids = {str(ud.department_id) for ud in target_user.user_departments if ud.is_active and not ud.is_deleted}
             if not teacher_dept_ids.intersection(student_dept_ids):
                 raise ForbiddenException("Sadece kendi bölümünüzdeki öğrencilerin bilgilerini güncelleyebilirsiniz")
 
@@ -228,7 +228,7 @@ class UserService:
         return UserListResponse.model_validate(target_user)
 
     def delete_user(self, user_id: UUID, current_user: User) -> dict:
-        """Kullanıcıyı soft delete ile siler (is_active=False)."""
+        """Kullanıcıyı soft delete ile siler (is_deleted=True, is_active=False)."""
         target_user = self.repo.get_by_id_or_404(user_id)
         validate_self_delete(current_user, target_user)
         self.repo.delete(user_id)

@@ -35,7 +35,7 @@ class CourseRepo(BaseRepository[Course]):
         """Ders koduna göre getir (unique alan)."""
         return (
             self.db.query(Course)
-            .filter(Course.code == code, Course.is_active == True)
+            .filter(Course.code == code, Course.is_active == True, Course.is_deleted == False)
             .first()
         )
 
@@ -54,6 +54,7 @@ class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):
                 CourseEnrollment.course_id == course_id,
                 CourseEnrollment.student_id == student_id,
                 CourseEnrollment.is_active == True,
+                CourseEnrollment.is_deleted == False,
             )
             .first()
             is not None
@@ -67,6 +68,7 @@ class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):
                 CourseEnrollment.course_id == course_id,
                 CourseEnrollment.student_id == student_id,
                 CourseEnrollment.is_active == True,
+                CourseEnrollment.is_deleted == False,
             )
             .first()
         )
@@ -78,6 +80,7 @@ class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):
             .filter(
                 CourseEnrollment.course_id == course_id,
                 CourseEnrollment.is_active == True,
+                CourseEnrollment.is_deleted == False,
             )
             .all()
         )
@@ -89,6 +92,7 @@ class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):
             .filter(
                 CourseEnrollment.student_id == student_id,
                 CourseEnrollment.is_active == True,
+                CourseEnrollment.is_deleted == False,
             )
             .all()
         )
@@ -100,6 +104,7 @@ class CourseEnrollmentRepo(BaseRepository[CourseEnrollment]):
             .filter(
                 CourseEnrollment.course_id == course_id,
                 CourseEnrollment.is_active == True,
+                CourseEnrollment.is_deleted == False,
             )
             .count()
         )

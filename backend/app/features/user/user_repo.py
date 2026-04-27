@@ -42,6 +42,7 @@ class UserRepo(BaseRepository[User]):
             .filter(User.role == UserRole.STUDENT)
             .filter(User.approval_status == ApprovalStatus.APPROVED)
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .filter(
                 or_(
                     User.first_name.ilike(f"%{q}%"),
@@ -91,8 +92,10 @@ class UserRepo(BaseRepository[User]):
             .join(UserDepartment, UserDepartment.user_id == User.id)
             .filter(UserDepartment.department_id.in_(department_ids))
             .filter(UserDepartment.is_active == True)
+            .filter(UserDepartment.is_deleted == False)
             .filter(User.role == UserRole.STUDENT)
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .distinct()
         )
 

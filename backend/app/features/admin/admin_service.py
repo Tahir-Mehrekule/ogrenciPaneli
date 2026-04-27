@@ -24,6 +24,11 @@ from app.common.enums import UserRole, ProjectStatus, TaskStatus, ReportStatus, 
 from app.common.exceptions import NotFoundException, BadRequestException
 
 
+def _alive(model):
+    """Silinmemiş ve aktif kayıt filtresi döner (DRY helper)."""
+    return (model.is_active == True, model.is_deleted == False)
+
+
 class AdminService:
     """Admin rolüne özel sistem genel operasyonları."""
 
@@ -43,7 +48,7 @@ class AdminService:
                 last_name=s.last_name,
                 full_name=s.full_name,
                 student_no=s.student_no,
-                departments=[ud.department.name for ud in s.user_departments if ud.is_active and ud.department],
+                departments=[ud.department.name for ud in s.user_departments if ud.is_active and not ud.is_deleted and ud.department],
                 created_at=s.created_at.isoformat(),
             )
             for s in students
@@ -54,7 +59,7 @@ class AdminService:
         from uuid import UUID
         student = self.db.query(User).filter(
             User.id == UUID(user_id),
-            User.is_active == True,
+            *_alive(User),
         ).first()
         if student is None:
             raise NotFoundException("Öğrenci bulunamadı")
@@ -69,7 +74,7 @@ class AdminService:
         from uuid import UUID
         student = self.db.query(User).filter(
             User.id == UUID(user_id),
-            User.is_active == True,
+            *_alive(User),
         ).first()
         if student is None:
             raise NotFoundException("Öğrenci bulunamadı")
@@ -82,24 +87,23 @@ class AdminService:
     def get_system_stats(self) -> SystemStatsResponse:
         """Tüm tablolardan sistem istatistiklerini hesaplar."""
         total_users = self.db.query(User).count()
-        total_projects = self.db.query(Project).filter(Project.is_active == True).count()
-        total_courses = self.db.query(Course).filter(Course.is_active == True).count()
-        total_tasks = self.db.query(Task).filter(Task.is_active == True).count()
+        total_projects = self.db.query(Project).filter(*_alive(Project)).count()
+        total_courses = self.db.query(Course).filter(*_alive(Course)).count()
+        total_tasks = self.db.query(Task).filter(*_alive(Task)).count()
         completed_tasks = self.db.query(Task).filter(
             Task.status == TaskStatus.DONE,
-            Task.is_active == True
+            *_alive(Task),
         ).count()
-        total_reports = self.db.query(Report).filter(Report.is_active == True).count()
-        total_files = self.db.query(FileUpload).filter(FileUpload.is_active == True).count()
+        total_reports = self.db.query(Report).filter(*_alive(Report)).count()
+        total_files = self.db.query(FileUpload).filter(*_alive(FileUpload)).count()
 
-        # Frontend'in beklediği ek alanlar
         total_active_tasks = self.db.query(Task).filter(
             Task.status != TaskStatus.DONE,
-            Task.is_active == True
+            *_alive(Task),
         ).count()
         total_open_reports = self.db.query(Report).filter(
             Report.status != ReportStatus.REVIEWED,
-            Report.is_active == True
+            *_alive(Report),
         ).count()
 
         return SystemStatsResponse(
@@ -115,23 +119,16 @@ class AdminService:
         )
 
     def get_detailed_stats(self) -> DetailedStatsResponse:
-        """
-        Detaylı sistem istatistikleri — GROUP BY sorgularıyla dağılımları hesaplar.
-
-        Dönüş:
-            - Rol, proje, görev, rapor dağılımları
-            - Görev tamamlanma ve rapor inceleme oranları
-            - Toplam kayıt (enrollment) ve dosya sayıları
-        """
+        """Detaylı sistem istatistikleri — GROUP BY sorgularıyla dağılımları hesaplar."""
         # ── Toplam sayılar ──
         total_users = self.db.query(User).count()
-        total_projects = self.db.query(Project).filter(Project.is_active == True).count()
-        total_courses = self.db.query(Course).filter(Course.is_active == True).count()
-        total_tasks = self.db.query(Task).filter(Task.is_active == True).count()
-        total_reports = self.db.query(Report).filter(Report.is_active == True).count()
-        total_files = self.db.query(FileUpload).filter(FileUpload.is_active == True).count()
+        total_projects = self.db.query(Project).filter(*_alive(Project)).count()
+        total_courses = self.db.query(Course).filter(*_alive(Course)).count()
+        total_tasks = self.db.query(Task).filter(*_alive(Task)).count()
+        total_reports = self.db.query(Report).filter(*_alive(Report)).count()
+        total_files = self.db.query(FileUpload).filter(*_alive(FileUpload)).count()
         total_enrollments = self.db.query(CourseEnrollment).filter(
-            CourseEnrollment.is_active == True
+            *_alive(CourseEnrollment),
         ).count()
 
         # ── Kullanıcı rol dağılımı ──
@@ -150,7 +147,7 @@ class AdminService:
         # ── Proje durum dağılımı ──
         project_rows = (
             self.db.query(Project.status, func.count())
-            .filter(Project.is_active == True)
+            .filter(*_alive(Project))
             .group_by(Project.status)
             .all()
         )
@@ -167,7 +164,7 @@ class AdminService:
         # ── Görev durum dağılımı ──
         task_rows = (
             self.db.query(Task.status, func.count())
-            .filter(Task.is_active == True)
+            .filter(*_alive(Task))
             .group_by(Task.status)
             .all()
         )
@@ -182,7 +179,7 @@ class AdminService:
         # ── Rapor durum dağılımı ──
         report_rows = (
             self.db.query(Report.status, func.count())
-            .filter(Report.is_active == True)
+            .filter(*_alive(Report))
             .group_by(Report.status)
             .all()
         )
@@ -193,7 +190,7 @@ class AdminService:
             reviewed=report_map.get(ReportStatus.REVIEWED.value, 0),
         )
 
-        # ── Oranlar (sıfıra bölme koruması) ──
+        # ── Oranlar ──
         task_completion_rate = round(
             (task_breakdown.done / total_tasks * 100) if total_tasks > 0 else 0, 1
         )

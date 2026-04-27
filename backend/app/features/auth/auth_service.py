@@ -135,7 +135,7 @@ class AuthService:
 
         # 2. Kullanıcı hâlâ aktif mi kontrol et
         user = self.repo.get_by_id(user_id)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or user.is_deleted:
             raise NotFoundException("Kullanıcı bulunamadı veya hesap devre dışı")
 
         # 3. Yeni token çifti oluştur

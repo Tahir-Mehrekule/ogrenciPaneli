@@ -31,5 +31,6 @@ class ProjectRepo(BaseRepository[Project]):
             self.db.query(Project)
             .filter(Project.share_code == share_code)
             .filter(Project.is_active == True)
+            .filter(Project.is_deleted == False)
             .first()
         )

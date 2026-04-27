@@ -18,6 +18,7 @@ class AuthRepo(BaseRepository[User]):
             self.db.query(User)
             .filter(User.email == email.lower().strip())
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .first()
         )
 
@@ -26,6 +27,7 @@ class AuthRepo(BaseRepository[User]):
             self.db.query(User)
             .filter(User.role == role)
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .all()
         )
 
@@ -52,6 +54,7 @@ class AuthRepo(BaseRepository[User]):
             self.db.query(User)
             .filter(User.student_no == student_no)
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .first()
         )
 
@@ -62,6 +65,7 @@ class AuthRepo(BaseRepository[User]):
             .filter(User.approval_status == ApprovalStatus.PENDING)
             .filter(User.role == UserRole.STUDENT)
             .filter(User.is_active == True)
+            .filter(User.is_deleted == False)
             .order_by(User.created_at.asc())
             .all()
         )

@@ -29,7 +29,22 @@
       "Bash(node /c/Users/Tahir/Documents/GitHub/ogrenciPaneli/mobile/node_modules/typescript/bin/tsc --noEmit --project /c/Users/Tahir/Documents/GitHub/ogrenciPaneli/mobile/tsconfig.json)",
       "Bash(echo \"Exit: $?\")",
       "Bash(mkdir -p \"C:/Users/Tahir/Documents/GitHub/ogrenciPaneli/backend/app/features/user_department\")",
-      "Bash(touch \"C:/Users/Tahir/Documents/GitHub/ogrenciPaneli/backend/app/features/user_department/__init__.py\")"
+      "Bash(touch \"C:/Users/Tahir/Documents/GitHub/ogrenciPaneli/backend/app/features/user_department/__init__.py\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(rtk init *)",
+      "Read(//c/Users/Tahir/.local/bin/**)",
+      "Bash(~/.local/bin/rtk init *)",
+      "Bash(curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh)",
+      "Bash(sh)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl *)",
+      "Bash(mkdir -p ~/.local/bin)",
+      "Bash(unzip -o /tmp/rtk-windows.zip -d /tmp/rtk-extract)",
+      "Read(//tmp/**)",
+      "Bash(cp /tmp/rtk-extract/rtk.exe ~/.local/bin/rtk.exe)",
+      "Bash(~/.local/bin/rtk.exe --version)",
+      "Bash(~/.local/bin/rtk.exe init *)",
+      "Bash(rtk git *)"
     ]
   }
 }

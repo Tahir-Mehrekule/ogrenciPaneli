@@ -28,6 +28,9 @@ from app.features.department.department_controller import router as department_r
 from app.features.project_category.project_category_controller import router as project_category_router
 from app.features.student_prefix.student_prefix_controller import router as student_prefix_router
 
+# Router'ı olmayan ama SQLAlchemy mapper'ın tanıması gereken modeller
+from app.features.user_department.user_department_model import UserDepartment  # noqa: F401
+
 
 # --- Uygulama Oluşturma ---
 app = FastAPI(

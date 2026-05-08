@@ -2,23 +2,24 @@
 Department Service (iş mantığı) modülü.
 
 CRUD işlemleri + duplicate kontrolü.
+BaseService'den türer — create/get/delete/hard_delete/restore ücretsiz gelir.
 """
 
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ConflictException, NotFoundException
+from app.common.base_service import BaseService
+from app.common.exceptions import ConflictException
 from app.features.department.department_model import Department
 from app.features.department.department_repo import DepartmentRepo
 from app.features.department.department_dto import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 
 
-class DepartmentService:
+class DepartmentService(BaseService[Department, DepartmentRepo]):
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = DepartmentRepo(db)
+        super().__init__(DepartmentRepo, db)
 
     def create(self, data: DepartmentCreate) -> DepartmentResponse:
         """Yeni bölüm oluşturur. Aynı isimde bölüm varsa hata fırlatır."""

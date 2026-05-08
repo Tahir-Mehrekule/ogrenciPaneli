@@ -3,7 +3,7 @@ Dosya yükleme veritabanı repository'si.
 """
 
 from sqlalchemy.orm import Session
-from app.base.base_repo import BaseRepository
+from app.common.base_repo import BaseRepository
 from app.features.file.file_model import FileUpload
 
 class FileRepo(BaseRepository[FileUpload]):

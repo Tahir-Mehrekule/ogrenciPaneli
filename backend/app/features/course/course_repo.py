@@ -10,7 +10,7 @@ from typing import Optional
 from sqlalchemy import desc, asc, func
 from sqlalchemy.orm import Session
 
-from app.base.base_repo import BaseRepository
+from app.common.base_repo import BaseRepository
 from app.features.course.course_model import Course, CourseEnrollment
 
 

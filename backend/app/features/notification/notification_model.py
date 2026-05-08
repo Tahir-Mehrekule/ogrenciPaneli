@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.base.base_model import BaseModel
+from app.common.base_model import BaseModel
 from app.common.enums import NotificationType
 
 

@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import desc, asc
 from sqlalchemy.orm import Session
 
-from app.base.base_repo import BaseRepository
+from app.common.base_repo import BaseRepository
 from app.features.notification.notification_model import Notification
 from app.features.notification.notification_dto import NotificationFilterParams
 

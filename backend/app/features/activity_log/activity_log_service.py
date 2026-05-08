@@ -7,16 +7,17 @@ import math
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
+from app.features.activity_log.activity_log_model import ActivityLog
 from app.features.activity_log.activity_log_repo import ActivityLogRepo
 from app.features.activity_log.activity_log_dto import ActivityLogResponse, ActivityLogFilterParams
 
 
-class ActivityLogService:
+class ActivityLogService(BaseService[ActivityLog, ActivityLogRepo]):
     """Aktivite log yönetimi servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = ActivityLogRepo(db)
+        super().__init__(ActivityLogRepo, db)
 
     def list_logs(self, params: ActivityLogFilterParams) -> PaginatedResponse:
         """Filtreli aktivite log listesi (sadece ADMIN)."""

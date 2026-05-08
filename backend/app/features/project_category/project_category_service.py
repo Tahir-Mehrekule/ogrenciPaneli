@@ -10,6 +10,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.common.base_service import BaseService
 from app.common.enums import UserRole
 from app.common.exceptions import (
     ConflictException,
@@ -21,16 +22,16 @@ from app.features.project_category.project_category_dto import (
     CategoryResponse,
     CategoryUpdate,
 )
+from app.features.project_category.project_category_model import ProjectCategory
 from app.features.project_category.project_category_repo import ProjectCategoryRepo
 from app.features.course.course_repo import CourseRepo
 from app.features.auth.auth_model import User
 
 
-class ProjectCategoryService:
+class ProjectCategoryService(BaseService[ProjectCategory, ProjectCategoryRepo]):
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = ProjectCategoryRepo(db)
+        super().__init__(ProjectCategoryRepo, db)
         self.course_repo = CourseRepo(db)
 
     def list_by_course(self, course_id: UUID) -> list[CategoryResponse]:

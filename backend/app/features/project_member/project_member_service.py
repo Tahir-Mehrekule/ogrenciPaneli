@@ -19,6 +19,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.common.base_service import BaseService
 from app.common.enums import MemberRole, MemberStatus, UserRole
 from app.common.exceptions import (
     BadRequestException,
@@ -49,12 +50,11 @@ def _generate_share_code(length: int = 8) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-class ProjectMemberService:
+class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
     """Proje üyesi yönetimi iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = ProjectMemberRepo(db)
+        super().__init__(ProjectMemberRepo, db)
         self.project_repo = ProjectRepo(db)
         self.auth_repo = AuthRepo(db)
 

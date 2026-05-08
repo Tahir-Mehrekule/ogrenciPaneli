@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.enums import UserRole
 from app.common.exceptions import NotFoundException, BadRequestException, ForbiddenException, ConflictException
 from app.features.auth.auth_model import User
@@ -24,7 +25,7 @@ from app.features.user.user_dto import (
 )
 
 
-class UserService:
+class UserService(BaseService[User, UserRepo]):
     """
     Kullanıcı yönetimi iş mantığı servisi.
 
@@ -38,8 +39,7 @@ class UserService:
     """
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = UserRepo(db)
+        super().__init__(UserRepo, db)
 
     def list_users(self, params: UserFilterParams) -> PaginatedResponse:
         """

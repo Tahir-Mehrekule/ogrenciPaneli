@@ -12,6 +12,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.enums import ProjectStatus, UserRole, NotificationType, ActivityAction, EntityType
 from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
@@ -31,12 +32,11 @@ from app.features.project.project_dto import (
 from app.features.auth.auth_model import User
 
 
-class ProjectService:
+class ProjectService(BaseService[Project, ProjectRepo]):
     """Proje yönetimi iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = ProjectRepo(db)
+        super().__init__(ProjectRepo, db)
 
     def _enrich_with_course(self, project, response: ProjectResponse) -> ProjectResponse:
         """Proje response'una ders bilgisini ekler (project → course)."""

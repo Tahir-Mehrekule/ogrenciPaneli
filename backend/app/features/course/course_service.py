@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.enums import UserRole, ActivityAction, EntityType
 from app.common.exceptions import NotFoundException
 from app.common.activity_log_helper import log_activity
@@ -33,12 +34,11 @@ from app.features.course.course_dto import (
 from app.features.auth.auth_model import User
 
 
-class CourseService:
+class CourseService(BaseService[Course, CourseRepo]):
     """Ders yönetimi iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = CourseRepo(db)
+        super().__init__(CourseRepo, db)
         self.enrollment_repo = CourseEnrollmentRepo(db)
 
     def create_course(self, data: CourseCreate, current_user: User) -> CourseResponse:

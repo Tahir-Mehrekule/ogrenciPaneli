@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.exceptions import NotFoundException
 from app.features.notification.notification_model import Notification
 from app.features.notification.notification_repo import NotificationRepo
@@ -18,12 +19,11 @@ from app.features.notification.notification_dto import (
 from app.features.auth.auth_model import User
 
 
-class NotificationService:
+class NotificationService(BaseService[Notification, NotificationRepo]):
     """Bildirim iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = NotificationRepo(db)
+        super().__init__(NotificationRepo, db)
 
     def list_notifications(
         self, params: NotificationFilterParams, current_user: User

@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.enums import ReportStatus, UserRole, NotificationType, ActivityAction, EntityType
 from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
@@ -32,12 +33,11 @@ from app.features.course.course_model import Course
 from app.features.file.file_repo import FileRepo
 
 
-class ReportService:
+class ReportService(BaseService[Report, ReportRepo]):
     """Haftalık rapor yönetimi iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = ReportRepo(db)
+        super().__init__(ReportRepo, db)
 
     def _enrich_with_course(self, report, response: ReportResponse) -> ReportResponse:
         """Rapor response'una ders bilgisini ekler (report → project → course)."""

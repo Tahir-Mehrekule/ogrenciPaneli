@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.common.base_dto import PaginatedResponse
+from app.common.base_service import BaseService
 from app.common.enums import TaskStatus, UserRole, NotificationType
 from app.common.notification_helper import send_notification
 from app.common.exceptions import ForbiddenException
@@ -24,12 +25,11 @@ from app.features.project_member.project_member_repo import ProjectMemberRepo
 from app.features.auth.auth_model import User
 
 
-class TaskService:
+class TaskService(BaseService[Task, TaskRepo]):
     """Görev yönetimi iş mantığı servisi."""
 
     def __init__(self, db: Session):
-        self.db = db
-        self.repo = TaskRepo(db)
+        super().__init__(TaskRepo, db)
         self.project_repo = ProjectRepo(db)
         self.member_repo = ProjectMemberRepo(db)
 

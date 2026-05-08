@@ -16,7 +16,7 @@ from app.common.enums import UserRole
 from app.common.exceptions import NotFoundException, BadRequestException, ForbiddenException, ConflictException
 from app.features.auth.auth_model import User
 from app.features.user.user_repo import UserRepo
-from app.features.user.user_manager import validate_role_change, validate_self_delete
+from app.features.user.user_manager import UserManager
 from app.features.user.user_dto import (
     UserListResponse,
     UserUpdateRequest,
@@ -40,6 +40,7 @@ class UserService(BaseService[User, UserRepo]):
 
     def __init__(self, db: Session):
         super().__init__(UserRepo, db)
+        self.manager = UserManager(db)
 
     def list_users(self, params: UserFilterParams) -> PaginatedResponse:
         """
@@ -150,7 +151,7 @@ class UserService(BaseService[User, UserRepo]):
         # Rol değişikliği validasyonu
         if data.role is not None and data.role != target_user.role:
             admins, _ = self.repo.get_many(filters={"role": "admin"}, active_only=True)
-            validate_role_change(current_user, target_user, data.role, len(admins))
+            self.manager.validate_role_change(current_user, target_user, data.role, len(admins))
 
         # department_ids ayrı işlenir
         update_data = {}
@@ -230,7 +231,7 @@ class UserService(BaseService[User, UserRepo]):
     def delete_user(self, user_id: UUID, current_user: User) -> dict:
         """Kullanıcıyı soft delete ile siler (is_deleted=True, is_active=False)."""
         target_user = self.repo.get_by_id_or_404(user_id)
-        validate_self_delete(current_user, target_user)
+        self.manager.validate_self_delete(current_user, target_user)
         self.repo.delete(user_id)
         return {"message": f"Kullanıcı başarıyla silindi: {target_user.full_name}"}
 

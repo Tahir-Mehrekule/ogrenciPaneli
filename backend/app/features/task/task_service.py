@@ -16,7 +16,7 @@ from app.common.notification_helper import send_notification
 from app.common.exceptions import ForbiddenException
 from app.features.task.task_model import Task
 from app.features.task.task_repo import TaskRepo
-from app.features.task.task_manager import validate_task_status_transition, validate_assignee_is_member
+from app.features.task.task_manager import TaskManager
 from app.features.task.task_dto import (
     TaskCreate, TaskUpdate, TaskStatusUpdate, TaskResponse, TaskFilterParams,
 )
@@ -30,6 +30,7 @@ class TaskService(BaseService[Task, TaskRepo]):
 
     def __init__(self, db: Session):
         super().__init__(TaskRepo, db)
+        self.manager = TaskManager(db)
         self.project_repo = ProjectRepo(db)
         self.member_repo = ProjectMemberRepo(db)
 
@@ -51,7 +52,7 @@ class TaskService(BaseService[Task, TaskRepo]):
             raise ForbiddenException("Görev oluşturma yetkiniz yok")
 
         # Atanan kişi proje üyesi mi?
-        validate_assignee_is_member(data.assigned_to, data.project_id, self.member_repo)
+        self.manager.validate_assignee_is_member(data.assigned_to, data.project_id)
 
         task_data = {
             "title": data.title,
@@ -141,7 +142,7 @@ class TaskService(BaseService[Task, TaskRepo]):
 
         # Yeni atanan kişi proje üyesi mi?
         if data.assigned_to is not None:
-            validate_assignee_is_member(data.assigned_to, task.project_id, self.member_repo)
+            self.manager.validate_assignee_is_member(data.assigned_to, task.project_id)
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         updated = self.repo.update(task_id, update_data)
@@ -162,7 +163,7 @@ class TaskService(BaseService[Task, TaskRepo]):
     def update_status(self, task_id: UUID, data: TaskStatusUpdate, current_user: User) -> TaskResponse:
         """Görev durumunu günceller. Durum geçişi kuralları manager'da kontrol edilir."""
         task = self.repo.get_by_id_or_404(task_id)
-        validate_task_status_transition(task, data.status, current_user)
+        self.manager.validate_task_status_transition(task, data.status, current_user)
         updated = self.repo.update(task_id, {"status": data.status})
         return TaskResponse.model_validate(updated)
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.common.enums import ProjectStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_repo import ProjectRepo
-from app.features.ai.ai_manager import call_openrouter
+from app.features.ai.ai_manager import AIManager
 from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse, ReportAnalysisRequest, ReportAnalysisResponse
 from app.features.ai.ai_config import DEFAULT_MODEL
 from app.features.auth.auth_model import User
@@ -25,6 +25,7 @@ class AIService:
     def __init__(self, db: Session):
         self.db = db
         self.project_repo = ProjectRepo(db)
+        self.manager = AIManager()
 
     def suggest_tasks(self, data: AISuggestRequest, current_user: User) -> AISuggestResponse:
         """
@@ -69,7 +70,7 @@ class AIService:
             raise ForbiddenException("Bu proje için AI önerisi üretme yetkiniz yok")
 
         # 4. OpenRouter API çağrısı
-        task_suggestions = call_openrouter(project.title, project.description)
+        task_suggestions = self.manager.call_openrouter(project.title, project.description)
 
         # 5. Sonucu projeye kaydet (JSON olarak referans tutmak için)
         ai_plan_data = {
@@ -146,11 +147,9 @@ class AIService:
         Öğrenci raporunu AI ile analiz eder.
         """
         from app.features.report.report_repo import ReportRepo
-        from app.features.ai.ai_manager import call_openrouter_for_report
-        
         report_repo = ReportRepo(self.db)
         report = report_repo.get_by_id_or_404(data.report_id)
-        
+
         # Yetki kontrolü (Öğrenci ise sadece kendi raporu; değilse öğretmen/admin)
         is_owner = str(report.submitted_by) == str(current_user.id)
         is_privileged = current_user.role in [UserRole.TEACHER, UserRole.ADMIN]
@@ -158,7 +157,7 @@ class AIService:
             raise ForbiddenException("Bu raporu analiz etme yetkiniz yok")
 
         # OpenRouter'ı çağır
-        analysis_result = call_openrouter_for_report(report.project.title, report.content)
+        analysis_result = self.manager.call_openrouter_for_report(report.project.title, report.content)
 
         # Yanıtı hazırla
         return ReportAnalysisResponse(

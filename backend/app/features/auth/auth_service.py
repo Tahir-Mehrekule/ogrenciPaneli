@@ -15,11 +15,7 @@ from app.features.auth.auth_dto import (
     RefreshTokenRequest,
     UserResponse,
 )
-from app.features.auth.auth_manager import (
-    validate_register_data,
-    verify_login,
-    validate_refresh_token,
-)
+from app.features.auth.auth_manager import AuthManager
 
 
 class AuthService:
@@ -27,6 +23,7 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = AuthRepo(db)
+        self.manager = AuthManager(db)
 
     def register(self, data: RegisterRequest) -> RegisterResponse:
         """
@@ -36,7 +33,7 @@ class AuthService:
         Öğretmen/Admin: APPROVED statüsünde oluşturulur, token ile birlikte döner.
         """
         # 1. Validasyon ve rol belirleme (student_no da bu aşamada doğrulanır)
-        role = validate_register_data(data.email, data.student_no, self.repo, data.role)
+        role = self.manager.validate_register_data(data.email, data.student_no, data.role)
 
         # 2. Şifreyi hashle
         hashed_password = hash_password(data.password)
@@ -116,7 +113,7 @@ class AuthService:
     def login(self, data: LoginRequest) -> TokenResponse:
 
         # 1. Doğrulama
-        user = verify_login(data.email, data.password, self.repo)
+        user = self.manager.verify_login(data.email, data.password)
 
         # 2. Token oluştur
         token_data = {"sub": str(user.id)}
@@ -131,7 +128,7 @@ class AuthService:
     def refresh(self, data: RefreshTokenRequest) -> TokenResponse:
        
         # 1. Refresh token doğrula → user_id çıkar
-        user_id = validate_refresh_token(data.refresh_token)
+        user_id = self.manager.validate_refresh_token(data.refresh_token)
 
         # 2. Kullanıcı hâlâ aktif mi kontrol et
         user = self.repo.get_by_id(user_id)

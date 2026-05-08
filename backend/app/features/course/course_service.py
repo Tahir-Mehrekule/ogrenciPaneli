@@ -16,13 +16,7 @@ from app.common.exceptions import NotFoundException
 from app.common.activity_log_helper import log_activity
 from app.features.course.course_model import Course, CourseEnrollment
 from app.features.course.course_repo import CourseRepo, CourseEnrollmentRepo
-from app.features.course.course_manager import (
-    validate_course_code_unique,
-    validate_teacher_owns_course,
-    validate_can_create_course,
-    validate_enrollment,
-    validate_unenrollment,
-)
+from app.features.course.course_manager import CourseManager
 from app.features.course.course_dto import (
     CourseCreate,
     CourseUpdate,
@@ -40,6 +34,7 @@ class CourseService(BaseService[Course, CourseRepo]):
     def __init__(self, db: Session):
         super().__init__(CourseRepo, db)
         self.enrollment_repo = CourseEnrollmentRepo(db)
+        self.manager = CourseManager(db)
 
     def create_course(self, data: CourseCreate, current_user: User) -> CourseResponse:
         """
@@ -47,8 +42,8 @@ class CourseService(BaseService[Course, CourseRepo]):
         Sadece TEACHER/ADMIN oluşturabilir.
         Ders kodu büyük harfe dönüştürülür ve benzersiz olmalıdır.
         """
-        validate_can_create_course(current_user)
-        validate_course_code_unique(data.code, self.repo)
+        self.manager.validate_can_create_course(current_user)
+        self.manager.validate_course_code_unique(data.code)
 
         course_data = {
             "name": data.name,
@@ -115,7 +110,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         code alanı güncellenemez (DTO'da yok).
         """
         course = self.repo.get_by_id_or_404(course_id)
-        validate_teacher_owns_course(course, current_user)
+        self.manager.validate_teacher_owns_course(course, current_user)
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         updated = self.repo.update(course_id, update_data)
@@ -127,7 +122,7 @@ class CourseService(BaseService[Course, CourseRepo]):
     def delete_course(self, course_id: UUID, current_user: User) -> dict:
         """Dersi pasife al (soft delete). Sadece öğretmeni veya ADMIN."""
         course = self.repo.get_by_id_or_404(course_id)
-        validate_teacher_owns_course(course, current_user)
+        self.manager.validate_teacher_owns_course(course, current_user)
         self.repo.delete(course_id)
         log_activity(self.db, ActivityAction.COURSE_DELETE, user_id=current_user.id,
                      entity_type=EntityType.COURSE, entity_id=course_id,
@@ -142,7 +137,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         Sadece STUDENT kaydolabilir, aynı derse iki kez kaydolunamaz.
         """
         course = self.repo.get_by_id_or_404(course_id)
-        validate_enrollment(course, current_user, self.enrollment_repo)
+        self.manager.validate_enrollment(course, current_user)
 
         enrollment = self.enrollment_repo.create({
             "course_id": course_id,
@@ -158,7 +153,7 @@ class CourseService(BaseService[Course, CourseRepo]):
 
     def unenroll_student(self, course_id: UUID, current_user: User) -> dict:
         """Öğrenciyi dersten çıkarır (soft delete)."""
-        validate_unenrollment(course_id, current_user, self.enrollment_repo)
+        self.manager.validate_unenrollment(course_id, current_user)
 
         enrollment = self.enrollment_repo.get_enrollment(course_id, current_user.id)
         if enrollment is None:
@@ -173,7 +168,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         Sadece dersin öğretmeni veya ADMIN görebilir.
         """
         course = self.repo.get_by_id_or_404(course_id)
-        validate_teacher_owns_course(course, current_user)
+        self.manager.validate_teacher_owns_course(course, current_user)
 
         enrollments = self.enrollment_repo.get_students_by_course(course_id)
         return [

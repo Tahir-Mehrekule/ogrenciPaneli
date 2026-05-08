@@ -17,13 +17,7 @@ from app.common.activity_log_helper import log_activity
 from app.common.exceptions import ForbiddenException, NotFoundException
 from app.common.validators import validate_youtube_url
 from app.features.report.report_repo import ReportRepo
-from app.features.report.report_manager import (
-    get_current_week_and_year,
-    validate_weekly_uniqueness,
-    validate_report_editable,
-    validate_report_submittable,
-    validate_report_owner,
-)
+from app.features.report.report_manager import ReportManager
 from app.features.report.report_dto import (
     ReportCreate, ReportUpdate, ReviewRequest, ReportResponse, ReportFilterParams,
 )
@@ -38,6 +32,7 @@ class ReportService(BaseService[Report, ReportRepo]):
 
     def __init__(self, db: Session):
         super().__init__(ReportRepo, db)
+        self.manager = ReportManager(db)
 
     def _enrich_with_course(self, report, response: ReportResponse) -> ReportResponse:
         """Rapor response'una ders bilgisini ekler (report → project → course)."""
@@ -68,9 +63,9 @@ class ReportService(BaseService[Report, ReportRepo]):
         if data.youtube_url:
             validate_youtube_url(data.youtube_url)
 
-        week_number, year = get_current_week_and_year()
-        validate_weekly_uniqueness(
-            data.project_id, current_user.id, week_number, year, self.repo
+        week_number, year = self.manager.get_current_week_and_year()
+        self.manager.validate_weekly_uniqueness(
+            data.project_id, current_user.id, week_number, year
         )
 
         report = self.repo.create({
@@ -137,8 +132,8 @@ class ReportService(BaseService[Report, ReportRepo]):
     def update_report(self, report_id: UUID, data: ReportUpdate, current_user: User) -> ReportResponse:
         """Raporu günceller. Sadece DRAFT raporlar ve sadece sahip güncelleyebilir."""
         report = self.repo.get_by_id_or_404(report_id)
-        validate_report_owner(report, current_user)
-        validate_report_editable(report)
+        self.manager.validate_report_owner(report, current_user)
+        self.manager.validate_report_editable(report)
 
         if data.youtube_url:
             validate_youtube_url(data.youtube_url)
@@ -150,8 +145,8 @@ class ReportService(BaseService[Report, ReportRepo]):
     def submit_report(self, report_id: UUID, current_user: User) -> ReportResponse:
         """Raporu teslim eder: DRAFT → SUBMITTED. Ders gereksinimlerini kontrol eder."""
         report = self.repo.get_by_id_or_404(report_id)
-        validate_report_owner(report, current_user)
-        validate_report_submittable(report)
+        self.manager.validate_report_owner(report, current_user)
+        self.manager.validate_report_submittable(report)
 
         # Ders gereksinimlerini kontrol et
         self._validate_course_requirements(report)

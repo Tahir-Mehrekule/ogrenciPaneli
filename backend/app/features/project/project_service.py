@@ -18,11 +18,7 @@ from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
 from app.features.project.project_model import Project
 from app.features.project.project_repo import ProjectRepo
-from app.features.project.project_manager import (
-    validate_status_transition,
-    validate_project_owner,
-    validate_deletable,
-)
+from app.features.project.project_manager import ProjectManager
 from app.features.project.project_dto import (
     ProjectCreate,
     ProjectUpdate,
@@ -37,6 +33,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
     def __init__(self, db: Session):
         super().__init__(ProjectRepo, db)
+        self.manager = ProjectManager(db)
 
     def _enrich_with_course(self, project, response: ProjectResponse) -> ProjectResponse:
         """Proje response'una ders bilgisini ekler (project → course)."""
@@ -155,7 +152,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             NotFoundException, ForbiddenException, BadRequestException
         """
         project = self.repo.get_by_id_or_404(project_id)
-        validate_project_owner(project, current_user)
+        self.manager.validate_project_owner(project, current_user)
 
         if project.status != ProjectStatus.DRAFT:
             from app.common.exceptions import BadRequestException
@@ -168,15 +165,15 @@ class ProjectService(BaseService[Project, ProjectRepo]):
     def submit_for_approval(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """Projeyi onay için gönderir: DRAFT → PENDING."""
         project = self.repo.get_by_id_or_404(project_id)
-        validate_project_owner(project, current_user)
-        validate_status_transition(project.status, ProjectStatus.PENDING)
+        self.manager.validate_project_owner(project, current_user)
+        self.manager.validate_status_transition(project.status, ProjectStatus.PENDING)
         updated = self.repo.update(project_id, {"status": ProjectStatus.PENDING})
         return self._to_response(updated)
 
     def approve_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """Projeyi onaylar: PENDING → APPROVED. Sadece TEACHER/ADMIN."""
         project = self.repo.get_by_id_or_404(project_id)
-        validate_status_transition(project.status, ProjectStatus.APPROVED)
+        self.manager.validate_status_transition(project.status, ProjectStatus.APPROVED)
         updated = self.repo.update(project_id, {"status": ProjectStatus.APPROVED})
         log_activity(self.db, ActivityAction.PROJECT_APPROVE, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
@@ -196,7 +193,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
     def reject_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """Projeyi reddeder: PENDING → REJECTED. Sadece TEACHER/ADMIN."""
         project = self.repo.get_by_id_or_404(project_id)
-        validate_status_transition(project.status, ProjectStatus.REJECTED)
+        self.manager.validate_status_transition(project.status, ProjectStatus.REJECTED)
         updated = self.repo.update(project_id, {"status": ProjectStatus.REJECTED})
         log_activity(self.db, ActivityAction.PROJECT_REJECT, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
@@ -216,7 +213,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
     def delete_project(self, project_id: UUID, current_user: User) -> dict:
         """Projeyi siler (soft delete). Sadece DRAFT/REJECTED projeler silinebilir."""
         project = self.repo.get_by_id_or_404(project_id)
-        validate_deletable(project, current_user)
+        self.manager.validate_deletable(project, current_user)
         self.repo.delete(project_id)
         return {"message": f"Proje başarıyla silindi: {project.title}"}
 

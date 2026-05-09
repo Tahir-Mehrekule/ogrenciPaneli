@@ -16,6 +16,7 @@ from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
 from app.common.exceptions import ForbiddenException, NotFoundException
 from app.common.validators import validate_youtube_url
+from app.features.report.report_model import Report
 from app.features.report.report_repo import ReportRepo
 from app.features.report.report_manager import ReportManager
 from app.features.report.report_dto import (

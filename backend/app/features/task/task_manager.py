@@ -57,5 +57,5 @@ class TaskManager(BaseManager):
         """Atanan kullanıcının projede üye olduğunu kontrol eder."""
         if assigned_to is None:
             return
-        if not self.member_repo.is_member(project_id, assigned_to):
+        if not self.member_repo.is_active_member(project_id, assigned_to):
             raise BadRequestException("Görev sadece projede üye olan kullanıcılara atanabilir")

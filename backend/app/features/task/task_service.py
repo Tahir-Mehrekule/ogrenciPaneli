@@ -98,7 +98,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         # STUDENT için proje kısıtlaması (IN filtresi)
         in_filters = {}
         if current_user.role == UserRole.STUDENT:
-            project_ids = self.member_repo.get_user_projects(current_user.id)
+            project_ids = self.member_repo.get_user_project_ids(current_user.id)
             in_filters["project_id"] = project_ids
 
         tasks, total = self.repo.get_many(

@@ -84,12 +84,12 @@ class TestAssigneeIsMember:
 
     def test_üye_olan_kişiye_atanabilir(self):
         """Proje üyesi olan kişiye görev atanabilir."""
-        self.manager.member_repo.is_member.return_value = True
+        self.manager.member_repo.is_active_member.return_value = True
         self.manager.validate_assignee_is_member("user-uuid", "project-uuid")  # Hata yok
 
     def test_üye_olmayan_kişiye_atanamaz(self):
         """Proje üyesi olmayan kişiye görev atanamaz → BadRequestException."""
-        self.manager.member_repo.is_member.return_value = False
+        self.manager.member_repo.is_active_member.return_value = False
 
         with pytest.raises(BadRequestException):
             self.manager.validate_assignee_is_member("user-uuid", "project-uuid")

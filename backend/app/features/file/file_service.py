@@ -39,6 +39,9 @@ class FileService(BaseService[FileUpload, FileRepo]):
         if str(report.submitted_by) != str(current_user.id):
             raise ForbiddenException("Sadece kendi raporunuza dosya yükleyebilirsiniz")
 
+        if report.status != ReportStatus.DRAFT:
+            raise BadRequestException("Dosya sadece DRAFT durumundaki raporlara yüklenebilir")
+
         safe_filename = file.filename.replace(" ", "_")
         storage_key = f"reports/{report_id}/{uuid4().hex}_{safe_filename}"
 

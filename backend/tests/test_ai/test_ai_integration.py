@@ -45,7 +45,7 @@ def test_analyze_report(client, teacher_token, teacher_user, student_user, db, m
         "recommendations": ["SQLAlchemy dökümanlarını oku", "Hata loglarını kontrol et"]
     }
 
-    mock_service = mocker.patch("app.features.ai.ai_manager.call_openrouter_for_report")
+    mock_service = mocker.patch("app.features.ai.ai_manager.AIManager.call_openrouter_for_report")
     mock_service.return_value = fake_parsed_response
 
     # Öğretmen olarak API'ye istek at

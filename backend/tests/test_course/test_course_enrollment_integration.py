@@ -64,4 +64,4 @@ def test_list_enrolled_students(client, teacher_token, student_token, a_course):
     list_resp = client.get(f"/api/v1/courses/{a_course}/students", headers=t_headers)
     assert list_resp.status_code == 200
     assert len(list_resp.json()) >= 1
-    assert list_resp.json()[0]["email"] == "student@stu.edu.tr"
+    assert list_resp.json()[0]["email"] == "student@ogr.uni.edu.tr"

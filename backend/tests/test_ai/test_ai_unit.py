@@ -8,8 +8,10 @@ Gerçek API çağrısı yapmaz — saf iş mantığı testleri.
 import pytest
 import json
 
+pytestmark = pytest.mark.unit
+
 from app.features.ai.ai_config import build_user_prompt
-from app.features.ai.ai_manager import _parse_response
+from app.features.ai.ai_manager import AIManager
 from app.common.exceptions import AppException
 
 
@@ -31,6 +33,9 @@ class TestBuildUserPrompt:
 class TestParseResponse:
     """OpenRouter API yanıtı parse etme testleri."""
 
+    def setup_method(self):
+        self.manager = AIManager()
+
     def test_geçerli_json_parse_edilir(self):
         """Geçerli JSON yanıt başarıyla parse edilir."""
         raw = {
@@ -49,7 +54,7 @@ class TestParseResponse:
                 }
             }]
         }
-        tasks = _parse_response(raw)
+        tasks = self.manager._parse_response(raw)
         assert len(tasks) == 1
         assert tasks[0].title == "Veritabanı tasarımı"
         assert tasks[0].priority == "high"
@@ -58,7 +63,7 @@ class TestParseResponse:
         """```json blokları otomatik temizlenir."""
         content = '```json\n{"tasks": [{"title": "Görev", "description": "Açıklama", "estimated_days": 2, "priority": "medium"}]}\n```'
         raw = {"choices": [{"message": {"content": content}}]}
-        tasks = _parse_response(raw)
+        tasks = self.manager._parse_response(raw)
         assert len(tasks) == 1
         assert tasks[0].title == "Görev"
 
@@ -72,10 +77,10 @@ class TestParseResponse:
             }]
         }
         with pytest.raises(AppException):
-            _parse_response(raw)
+            self.manager._parse_response(raw)
 
     def test_eksik_choices_hata_fırlatır(self):
         """Beklenen yapı yoksa → AppException."""
         raw = {"unexpected_key": "value"}
         with pytest.raises(AppException):
-            _parse_response(raw)
+            self.manager._parse_response(raw)

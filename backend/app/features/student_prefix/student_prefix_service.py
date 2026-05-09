@@ -5,7 +5,7 @@ from app.common.base_service import BaseService
 from app.common.exceptions import ConflictException
 from app.features.student_prefix.student_prefix_dto import PrefixCreate, PrefixResponse, PrefixUpdate
 from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
-from app.features.student_prefix.student_prefix_model import StudentPrefix
+from app.features.student_prefix.student_prefix_model import StudentYearPrefix as StudentPrefix
 
 
 class StudentPrefixService(BaseService[StudentPrefix, StudentPrefixRepo]):

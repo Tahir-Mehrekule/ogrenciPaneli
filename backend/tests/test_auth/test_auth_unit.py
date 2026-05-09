@@ -8,10 +8,12 @@ DB gerekmez — saf iş mantığı testleri.
 import pytest
 from unittest.mock import MagicMock
 
+pytestmark = pytest.mark.unit
+
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.common.enums import UserRole
 from app.common.validators import validate_school_email
-from app.features.user.user_manager import validate_role_change, validate_self_delete
+from app.features.user.user_manager import UserManager
 
 
 class TestValidateSchoolEmail:
@@ -22,7 +24,6 @@ class TestValidateSchoolEmail:
     def test_gecerli_ogretmen_email(self):
         """Normal okul email'i kabul edilir."""
         validate_school_email("hoca@uni.edu.tr")  # Hata fırlatmaz
-
 
     def test_gecersiz_gmail(self):
         """Gmail adresi reddedilir."""
@@ -36,6 +37,9 @@ class TestValidateSchoolEmail:
 
 
 class TestValidateRoleChange:
+    def setup_method(self):
+        self.manager = UserManager(db=None)
+
     def test_son_admin_rolü_değiştirilemez(self):
         """Sistemdeki son admin'in rolü değiştirilemez."""
         current_admin = MagicMock()
@@ -46,7 +50,7 @@ class TestValidateRoleChange:
         target_admin.role = UserRole.ADMIN
 
         with pytest.raises(BadRequestException):
-            validate_role_change(current_admin, target_admin, UserRole.STUDENT, admin_count=1)
+            self.manager.validate_role_change(current_admin, target_admin, UserRole.STUDENT, admin_count=1)
 
     def test_birden_fazla_admin_varsa_değiştirilebilir(self):
         """2+ admin varsa rol değiştirme serbesttir."""
@@ -57,7 +61,7 @@ class TestValidateRoleChange:
         target_admin.id = "target-uuid"
         target_admin.role = UserRole.ADMIN
 
-        validate_role_change(current_admin, target_admin, UserRole.TEACHER, admin_count=2)  # Hata yok
+        self.manager.validate_role_change(current_admin, target_admin, UserRole.TEACHER, admin_count=2)  # Hata yok
 
     def test_kullanici_kendi_rolünü_değiştiremez(self):
         """Kendi rolünü değiştirme → ForbiddenException."""
@@ -69,10 +73,13 @@ class TestValidateRoleChange:
         target.role = UserRole.STUDENT
 
         with pytest.raises(ForbiddenException):
-            validate_role_change(user, target, UserRole.ADMIN, admin_count=5)
+            self.manager.validate_role_change(user, target, UserRole.ADMIN, admin_count=5)
 
 
 class TestValidateSelfDelete:
+    def setup_method(self):
+        self.manager = UserManager(db=None)
+
     def test_kendini_silemez(self):
         """Kendi hesabını silme → ForbiddenException."""
         current = MagicMock()
@@ -82,7 +89,7 @@ class TestValidateSelfDelete:
         target.id = "same-uuid"
 
         with pytest.raises(ForbiddenException):
-            validate_self_delete(current, target)
+            self.manager.validate_self_delete(current, target)
 
     def test_baskasını_silebilir(self):
         """Başka kullanıcıyı silme serbesttir."""
@@ -92,4 +99,4 @@ class TestValidateSelfDelete:
         target = MagicMock()
         target.id = "other-uuid"
 
-        validate_self_delete(current, target)  # Hata yok
+        self.manager.validate_self_delete(current, target)  # Hata yok

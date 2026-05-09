@@ -27,8 +27,12 @@ TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_database():
-    """Her test fonksiyonu için tabloları oluştur, sonra yok et."""
+def setup_database(request):
+    """Her test fonksiyonu için tabloları oluştur, sonra yok et.
+    unit marker'lı testlerde DB kurulumu atlanır."""
+    if "unit" in request.keywords:
+        yield
+        return
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -68,9 +72,10 @@ def client(db):
 def student_user(db):
     """Kayıtlı öğrenci kullanıcısı oluşturur."""
     user = User(
-        email="student@stu.edu.tr",
+        email="student@ogr.uni.edu.tr",
         password_hash=hash_password("Test1234!"),
-        name="Test Öğrenci",
+        first_name="Test",
+        last_name="Öğrenci",
         role=UserRole.STUDENT,
     )
     db.add(user)
@@ -85,7 +90,8 @@ def teacher_user(db):
     user = User(
         email="teacher@uni.edu.tr",
         password_hash=hash_password("Test1234!"),
-        name="Test Öğretmen",
+        first_name="Test",
+        last_name="Öğretmen",
         role=UserRole.TEACHER,
     )
     db.add(user)
@@ -100,7 +106,8 @@ def admin_user(db):
     user = User(
         email="admin@uni.edu.tr",
         password_hash=hash_password("Test1234!"),
-        name="Test Admin",
+        first_name="Test",
+        last_name="Admin",
         role=UserRole.ADMIN,
     )
     db.add(user)
@@ -115,7 +122,7 @@ def admin_user(db):
 def student_token(client, student_user):
     """Öğrenci için geçerli access token döner."""
     resp = client.post("/api/v1/auth/login", json={
-        "email": "student@stu.edu.tr",
+        "email": "student@ogr.uni.edu.tr",
         "password": "Test1234!",
     })
     return resp.json()["access_token"]

@@ -44,7 +44,24 @@
       "Bash(cp /tmp/rtk-extract/rtk.exe ~/.local/bin/rtk.exe)",
       "Bash(~/.local/bin/rtk.exe --version)",
       "Bash(~/.local/bin/rtk.exe init *)",
-      "Bash(rtk git *)"
+      "Bash(rtk git *)",
+      "Bash(rtk ls *)",
+      "Bash(python3 -c ' *)",
+      "Bash(rtk pip *)",
+      "PowerShell(pip install *)",
+      "PowerShell(python -m pip install pypdf 2>&1 | Select-Object -Last 3; python -c \"from pypdf import PdfReader; reader = PdfReader\\('BACKEND MİMARİSİ.pdf'\\); print\\(f'Sayfa: {len\\(reader.pages\\)}'\\); [print\\(f'--- Sayfa {i+1} ---\\\\n{p.extract_text\\(\\)}'\\) for i, p in enumerate\\(reader.pages\\) if p.extract_text\\(\\)]\")",
+      "Bash(Remove-Item *)",
+      "Bash(Get-Item -Path \"C:\\\\Users\\\\Tahir\\\\Documents\\\\wiki\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\backend\\\\app\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(rtk grep *)",
+      "Bash(rtk read *)",
+      "Bash(Out-File -FilePath \"C:\\\\Users\\\\Tahir\\\\AppData\\\\Local\\\\Temp\\\\pdf_content.txt\" -Encoding utf8)",
+      "Bash(rtk pytest *)",
+      "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\" -ErrorAction SilentlyContinue; Start-Sleep -Seconds 5; Write-Host \"Docker Desktop başlatıldı, bekleniyor...\")",
+      "PowerShell($timeout = 90; $elapsed = 0; do { Start-Sleep -Seconds 5; $elapsed += 5; $result = docker ps 2>&1; if \\($result -notmatch \"error during connect\"\\) { Write-Host \"Docker hazır! \\($elapsed sn\\)\"; break }; Write-Host \"Bekleniyor... $elapsed/$timeout sn\" } while \\($elapsed -lt $timeout\\); if \\($elapsed -ge $timeout\\) { Write-Host \"TIMEOUT: Docker başlatılamadı\" })",
+      "PowerShell(docker exec unitrack-db *)"
     ]
   }
 }

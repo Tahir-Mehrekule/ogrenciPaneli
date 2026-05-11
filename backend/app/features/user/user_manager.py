@@ -6,7 +6,7 @@ Kullanıcı güncelleme ve silme işlemlerinin validasyon mantığını yönetir
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import UserRole
 from app.common.exceptions import ForbiddenException, BadRequestException
 from app.features.auth.auth_model import User

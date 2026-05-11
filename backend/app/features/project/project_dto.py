@@ -10,7 +10,7 @@ from typing import Optional, Any
 from pydantic import BaseModel, Field
 
 from app.common.enums import ProjectStatus
-from app.common.base_dto import BaseResponse, FilterParams
+from app.base.base_dto import BaseResponse, FilterParams
 
 
 class ProjectCreate(BaseModel):

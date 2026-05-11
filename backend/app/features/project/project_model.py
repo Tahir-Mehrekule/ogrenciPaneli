@@ -10,7 +10,7 @@ from sqlalchemy import Column, String, Text, ForeignKey, Enum, JSON, Boolean, Da
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.common.base_model import BaseModel
+from app.base.base_model import BaseModel
 from app.common.enums import ProjectStatus
 
 

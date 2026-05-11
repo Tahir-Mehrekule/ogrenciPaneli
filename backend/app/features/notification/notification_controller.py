@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.common.base_dto import PaginatedResponse, MessageResponse
+from app.base.base_dto import PaginatedResponse, MessageResponse
 from app.features.notification.notification_service import NotificationService
 from app.features.notification.notification_dto import (
     NotificationResponse,

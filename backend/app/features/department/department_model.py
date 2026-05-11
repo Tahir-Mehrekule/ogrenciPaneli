@@ -8,7 +8,7 @@ Kullanıcı-bölüm ilişkisi user_departments tablosu üzerinden çoka-çok ola
 from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
 
-from app.common.base_model import BaseModel
+from app.base.base_model import BaseModel
 
 
 class Department(BaseModel):

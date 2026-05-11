@@ -9,7 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.report.report_model import Report
 
 

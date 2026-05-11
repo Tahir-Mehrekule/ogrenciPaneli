@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
-from app.common.base_dto import MessageResponse
+from app.base.base_dto import MessageResponse
 from app.common.enums import UserRole
 from app.features.student_prefix.student_prefix_service import StudentPrefixService
 from app.features.student_prefix.student_prefix_dto import PrefixCreate, PrefixResponse, PrefixUpdate

@@ -18,7 +18,7 @@ from app.features.project_member.project_member_dto import (
     PendingMemberResponse,
     TransferManagerRequest,
 )
-from app.common.base_dto import MessageResponse
+from app.base.base_dto import MessageResponse
 
 router = APIRouter(tags=["Project Members"])
 

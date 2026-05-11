@@ -4,7 +4,7 @@ ActivityLog repository modülü.
 
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.activity_log.activity_log_model import ActivityLog
 
 

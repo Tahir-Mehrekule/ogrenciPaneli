@@ -10,7 +10,7 @@ import math
 from sqlalchemy import desc, asc, or_
 from sqlalchemy.orm import Session, Query
 
-from app.common.base_dto import PaginatedResponse, FilterParams
+from app.base.base_dto import PaginatedResponse, FilterParams
 
 
 def apply_sorting(query: Query, model, sort_by: str, order: str) -> Query:

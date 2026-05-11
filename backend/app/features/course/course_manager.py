@@ -6,7 +6,7 @@ Ders oluşturma, güncelleme ve kayıt kurallarını doğrular.
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import UserRole
 from app.common.exceptions import (
     BadRequestException,

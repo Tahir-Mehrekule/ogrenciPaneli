@@ -6,7 +6,7 @@ Proje durum geçişleri ve yetki kurallarını yönetir.
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import ProjectStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_model import Project

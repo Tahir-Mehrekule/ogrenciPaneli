@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
 from app.common.enums import UserRole
-from app.common.base_dto import PaginatedResponse
+from app.base.base_dto import PaginatedResponse
 from app.features.user.user_service import UserService
 from app.features.user.user_repo import UserRepo
 from app.features.user.user_dto import (

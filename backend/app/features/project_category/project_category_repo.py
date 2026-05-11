@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.project_category.project_category_model import ProjectCategory
 from app.features.project.project_model import Project
 

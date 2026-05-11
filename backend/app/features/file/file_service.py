@@ -8,8 +8,8 @@ from fastapi import UploadFile
 
 from sqlalchemy.orm import Session
 
-from app.common.base_dto import PaginatedResponse
-from app.common.base_service import BaseService
+from app.base.base_dto import PaginatedResponse
+from app.base.base_service import BaseService
 from app.common.enums import UserRole, ReportStatus
 from app.common.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.features.file.file_model import FileUpload

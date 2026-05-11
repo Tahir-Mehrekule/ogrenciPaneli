@@ -7,7 +7,7 @@ Bölüm oluşturma, güncelleme ve listeleme için request/response şemaları.
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from app.common.base_dto import BaseResponse
+from app.base.base_dto import BaseResponse
 
 
 class DepartmentCreate(BaseModel):

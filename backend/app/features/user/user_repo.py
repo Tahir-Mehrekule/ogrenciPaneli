@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import or_, desc, asc
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.common.enums import ApprovalStatus, UserRole
 from app.features.auth.auth_model import User
 

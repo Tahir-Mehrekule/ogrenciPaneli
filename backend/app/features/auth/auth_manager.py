@@ -2,7 +2,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import UserRole, ApprovalStatus
 from app.common.validators import validate_school_email, determine_role_from_email
 from app.common.exceptions import (

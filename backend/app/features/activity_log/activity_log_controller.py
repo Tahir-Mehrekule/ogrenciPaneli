@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import role_required
 from app.common.enums import UserRole
-from app.common.base_dto import PaginatedResponse
+from app.base.base_dto import PaginatedResponse
 from app.features.activity_log.activity_log_service import ActivityLogService
 from app.features.activity_log.activity_log_dto import ActivityLogFilterParams
 

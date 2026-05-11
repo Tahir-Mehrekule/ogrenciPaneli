@@ -7,7 +7,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, EmailStr
 
 from app.common.enums import UserRole, ApprovalStatus
-from app.common.base_dto import BaseResponse
+from app.base.base_dto import BaseResponse
 
 
 class DepartmentInfo(BaseModel):

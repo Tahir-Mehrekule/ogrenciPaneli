@@ -3,7 +3,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.auth.auth_model import User
 from app.common.enums import UserRole, ApprovalStatus
 

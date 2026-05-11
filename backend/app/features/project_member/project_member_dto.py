@@ -10,7 +10,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.base_dto import BaseResponse
+from app.base.base_dto import BaseResponse
 from app.common.enums import MemberRole, MemberStatus
 
 

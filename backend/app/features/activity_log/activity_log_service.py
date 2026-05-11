@@ -6,8 +6,8 @@ import math
 
 from sqlalchemy.orm import Session
 
-from app.common.base_dto import PaginatedResponse
-from app.common.base_service import BaseService
+from app.base.base_dto import PaginatedResponse
+from app.base.base_service import BaseService
 from app.features.activity_log.activity_log_model import ActivityLog
 from app.features.activity_log.activity_log_repo import ActivityLogRepo
 from app.features.activity_log.activity_log_dto import ActivityLogResponse, ActivityLogFilterParams

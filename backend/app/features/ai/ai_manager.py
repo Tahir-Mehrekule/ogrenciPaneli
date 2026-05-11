@@ -8,7 +8,7 @@ Prompt oluşturma, API isteği ve yanıt parse etme işlemlerini yapar.
 import json
 import httpx
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.exceptions import AppException
 from app.features.ai.ai_config import (
     OPENROUTER_ENDPOINT,

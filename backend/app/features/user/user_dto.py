@@ -10,7 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.common.enums import UserRole, ApprovalStatus
-from app.common.base_dto import FilterParams, BaseResponse
+from app.base.base_dto import FilterParams, BaseResponse
 from app.features.auth.auth_dto import DepartmentInfo
 
 

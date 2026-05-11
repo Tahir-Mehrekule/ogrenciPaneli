@@ -9,7 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.common.enums import MemberRole, MemberStatus
 from app.features.project_member.project_member_model import ProjectMember
 

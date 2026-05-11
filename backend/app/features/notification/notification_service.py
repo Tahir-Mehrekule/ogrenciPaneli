@@ -7,8 +7,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.base_dto import PaginatedResponse
-from app.common.base_service import BaseService
+from app.base.base_dto import PaginatedResponse
+from app.base.base_service import BaseService
 from app.common.exceptions import NotFoundException
 from app.features.notification.notification_model import Notification
 from app.features.notification.notification_repo import NotificationRepo

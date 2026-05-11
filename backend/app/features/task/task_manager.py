@@ -6,7 +6,7 @@ Görev durum geçişleri ve atama kurallarını yönetir.
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import TaskStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.task.task_model import Task

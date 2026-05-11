@@ -9,8 +9,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.base_dto import PaginatedResponse
-from app.common.base_service import BaseService
+from app.base.base_dto import PaginatedResponse
+from app.base.base_service import BaseService
 from app.common.enums import TaskStatus, UserRole, NotificationType
 from app.common.notification_helper import send_notification
 from app.common.exceptions import ForbiddenException

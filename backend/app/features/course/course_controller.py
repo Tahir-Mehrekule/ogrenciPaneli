@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
 from app.common.enums import UserRole
-from app.common.base_dto import PaginatedResponse, MessageResponse
+from app.base.base_dto import PaginatedResponse, MessageResponse
 from app.features.course.course_service import CourseService
 from app.features.course.course_dto import (
     CourseCreate,

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.student_prefix.student_prefix_model import StudentYearPrefix
 
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.common.base_dto import MessageResponse
+from app.base.base_dto import MessageResponse
 from app.features.project_category.project_category_service import ProjectCategoryService
 from app.features.project_category.project_category_dto import (
     CategoryCreate,

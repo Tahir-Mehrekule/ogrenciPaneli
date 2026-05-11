@@ -7,7 +7,7 @@ BaseRepository[Task]'dan türer — CRUD ve get_many otomatik gelir.
 
 from sqlalchemy.orm import Session
 
-from app.common.base_repo import BaseRepository
+from app.base.base_repo import BaseRepository
 from app.features.task.task_model import Task
 
 

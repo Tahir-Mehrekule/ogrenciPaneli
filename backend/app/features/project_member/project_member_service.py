@@ -19,7 +19,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.common.base_service import BaseService
+from app.base.base_service import BaseService
 from app.common.enums import MemberRole, MemberStatus, UserRole
 from app.common.exceptions import (
     BadRequestException,

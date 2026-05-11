@@ -2,7 +2,7 @@
 from sqlalchemy import Column, String, Enum, Integer
 from sqlalchemy.orm import relationship
 
-from app.common.base_model import BaseModel
+from app.base.base_model import BaseModel
 from app.common.enums import UserRole, ApprovalStatus
 
 

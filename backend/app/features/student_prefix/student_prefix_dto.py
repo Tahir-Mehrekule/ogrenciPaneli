@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
-from app.common.base_dto import BaseResponse
+from app.base.base_dto import BaseResponse
 
 
 class PrefixCreate(BaseModel):

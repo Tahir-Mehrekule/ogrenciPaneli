@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.common.base_manager import BaseManager
+from app.base.base_manager import BaseManager
 from app.common.enums import ReportStatus
 from app.common.exceptions import ConflictException, ForbiddenException, BadRequestException
 from app.features.report.report_model import Report

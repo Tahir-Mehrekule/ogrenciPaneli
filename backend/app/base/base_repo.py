@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from sqlalchemy import desc, asc, or_, inspect
 from sqlalchemy.orm import Session, RelationshipProperty
 
-from app.common.base_model import BaseModel
+from app.base.base_model import BaseModel
 from app.common.exceptions import NotFoundException
 
 ModelType = TypeVar("ModelType", bound=BaseModel)

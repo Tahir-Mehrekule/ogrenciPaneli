@@ -9,7 +9,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from app.common.base_dto import BaseResponse, FilterParams
+from app.base.base_dto import BaseResponse, FilterParams
 from app.common.enums import NotificationType
 
 

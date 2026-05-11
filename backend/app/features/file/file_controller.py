@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.common.base_dto import MessageResponse
+from app.base.base_dto import MessageResponse
 from app.features.file.file_service import FileService
 from app.features.file.file_dto import FileUploadResponse
 

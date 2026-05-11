@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy.orm import Session
 
-from app.common.base_service import BaseService
+from app.base.base_service import BaseService
 from app.common.exceptions import ConflictException
 from app.features.student_prefix.student_prefix_dto import PrefixCreate, PrefixResponse, PrefixUpdate
 from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo

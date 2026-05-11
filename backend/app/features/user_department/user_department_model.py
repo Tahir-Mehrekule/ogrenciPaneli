@@ -10,7 +10,7 @@ from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.common.base_model import BaseModel
+from app.base.base_model import BaseModel
 
 
 class UserDepartment(BaseModel):

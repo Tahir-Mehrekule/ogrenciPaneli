@@ -211,7 +211,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         return self._to_response(updated)
 
     def delete_project(self, project_id: UUID, current_user: User) -> dict:
-        """Projeyi siler (soft delete). Sadece DRAFT/REJECTED projeler silinebilir."""
+        """Projeyi kalıcı siler (hard delete). Sadece DRAFT/REJECTED projeler silinebilir."""
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_deletable(project, current_user)
         self.repo.delete(project_id)

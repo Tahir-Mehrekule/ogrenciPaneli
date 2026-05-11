@@ -76,7 +76,7 @@ class NotificationService(BaseService[Notification, NotificationRepo]):
         return {"message": f"{updated_count} bildirim okundu olarak işaretlendi"}
 
     def delete_notification(self, notification_id: UUID, current_user: User) -> dict:
-        """Bildirimi soft_delete ile siler (gizler)."""
+        """Bildirimi kalıcı siler (hard delete)."""
         notification = self.repo.get_by_id_and_user(notification_id, current_user.id)
         if not notification:
             raise NotFoundException("Bildirim bulunamadı veya size ait değil")

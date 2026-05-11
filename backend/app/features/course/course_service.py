@@ -120,7 +120,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         return CourseResponse.model_validate(updated)
 
     def delete_course(self, course_id: UUID, current_user: User) -> dict:
-        """Dersi pasife al (soft delete). Sadece öğretmeni veya ADMIN."""
+        """Dersi kalıcı siler (hard delete). Sadece öğretmeni veya ADMIN."""
         course = self.repo.get_by_id_or_404(course_id)
         self.manager.validate_teacher_owns_course(course, current_user)
         self.repo.delete(course_id)
@@ -152,7 +152,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         )
 
     def unenroll_student(self, course_id: UUID, current_user: User) -> dict:
-        """Öğrenciyi dersten çıkarır (soft delete)."""
+        """Öğrenciyi dersten kalıcı olarak çıkarır (hard delete)."""
         self.manager.validate_unenrollment(course_id, current_user)
 
         enrollment = self.enrollment_repo.get_enrollment(course_id, current_user.id)

@@ -33,7 +33,7 @@ class BaseRepository(Generic[ModelType]):
 
     Cascade davranışı:
         soft_delete → ilişkili child kayıtları da is_deleted=True yapar
-        hard_delete → ilişkili child kayıtları da DB'den kalıcı siler
+        delete → ilişkili child kayıtları da DB'den kalıcı siler
     """
 
     def __init__(self, model: Type[ModelType], db: Session):
@@ -216,61 +216,11 @@ class BaseRepository(Generic[ModelType]):
         self.db.refresh(db_obj)
         return db_obj
 
-    # ── DELETE (soft) ──
+    # ── DELETE ──
 
-    def delete(self, id: UUID, cascade: bool = True) -> ModelType:
+    def delete(self, id: UUID, cascade: bool = True) -> None:
         """
-        Soft delete — is_deleted=True yapar, is_active=False yapar.
-        cascade=True ise ilişkili child kayıtları da soft delete yapar.
-
-        Args:
-            id: Silinecek kayıt UUID'si
-            cascade: True ise child kayıtları da soft siler
-
-        Raises:
-            NotFoundException: Kayıt bulunamazsa
-        """
-        db_obj = self.get_by_id_or_404(id)
-        db_obj.is_deleted = True
-        db_obj.is_active = False
-
-        if cascade:
-            self._soft_cascade(db_obj)
-
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
-
-    def _soft_cascade(self, parent_obj) -> None:
-        """
-        Parent'ın tüm relationship'lerindeki child kayıtları soft delete yapar.
-        Sadece BaseModel'den türeyen (is_deleted alanı olan) child'lara uygulanır.
-        """
-        mapper = inspect(type(parent_obj))
-        for rel in mapper.relationships:
-            if not self._is_cascadable(rel):
-                continue
-
-            children = getattr(parent_obj, rel.key)
-            if children is None:
-                continue
-
-            if not isinstance(children, list):
-                children = [children]
-
-            for child in children:
-                if hasattr(child, "is_deleted") and not child.is_deleted:
-                    child.is_deleted = True
-                    child.is_active = False
-
-    # ── DELETE (hard) ──
-
-    def hard_delete(self, id: UUID, cascade: bool = True) -> None:
-        """
-        Kalıcı silme — kaydı DB'den tamamen kaldırır.
-        cascade=True ise ilişkili child kayıtları da kalıcı siler.
-
-        DİKKAT: Bu işlem geri alınamaz!
+        Kalıcı silme — kaydı ve ilişkili child kayıtları DB'den tamamen kaldırır.
 
         Args:
             id: Silinecek kayıt UUID'si
@@ -282,16 +232,13 @@ class BaseRepository(Generic[ModelType]):
         db_obj = self.get_by_id_or_404(id, active_only=False)
 
         if cascade:
-            self._hard_cascade(db_obj)
+            self._cascade_delete(db_obj)
 
         self.db.delete(db_obj)
         self.db.commit()
 
-    def _hard_cascade(self, parent_obj) -> None:
-        """
-        Parent'ın tüm relationship'lerindeki child kayıtları kalıcı siler.
-        Sadece BaseModel'den türeyen child'lara uygulanır.
-        """
+    def _cascade_delete(self, parent_obj) -> None:
+        """Child kayıtları kalıcı siler. Sadece BaseModel'den türeyen child'lara uygulanır."""
         mapper = inspect(type(parent_obj))
         for rel in mapper.relationships:
             if not self._is_cascadable(rel):
@@ -322,27 +269,3 @@ class BaseRepository(Generic[ModelType]):
             return False
         return True
 
-    def restore(self, id: UUID) -> ModelType:
-        """
-        Soft delete yapılmış kaydı geri getirir.
-        is_deleted=False, is_active=True yapar.
-
-        Args:
-            id: Geri getirilecek kayıt UUID'si
-
-        Raises:
-            NotFoundException: Kayıt bulunamazsa
-        """
-        query = self.db.query(self.model).filter(
-            self.model.id == id,
-            self.model.is_deleted == True,
-        )
-        db_obj = query.first()
-        if db_obj is None:
-            raise NotFoundException(f"{self.model.__name__} bulunamadı veya zaten aktif: {id}")
-
-        db_obj.is_deleted = False
-        db_obj.is_active = True
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj

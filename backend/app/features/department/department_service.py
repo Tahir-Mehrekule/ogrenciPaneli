@@ -2,7 +2,7 @@
 Department Service (iş mantığı) modülü.
 
 CRUD işlemleri + duplicate kontrolü.
-BaseService'den türer — create/get/delete/hard_delete/restore ücretsiz gelir.
+BaseService'den türer — create/get/delete ücretsiz gelir.
 """
 
 from uuid import UUID
@@ -52,5 +52,5 @@ class DepartmentService(BaseService[Department, DepartmentRepo]):
         return DepartmentResponse.model_validate(department)
 
     def delete(self, department_id: UUID) -> None:
-        """Bölümü soft-delete ile pasif yapar."""
+        """Bölümü kalıcı siler (hard delete)."""
         self.repo.delete(department_id)

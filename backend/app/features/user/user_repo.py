@@ -21,7 +21,7 @@ class UserRepo(BaseRepository[User]):
     User tablosu için repository.
 
     BaseRepository'den miras alınan işlemler:
-    - create, get_by_id, get_by_id_or_404, get_all, get_many, count, update, delete, hard_delete
+    - create, get_by_id, get_by_id_or_404, get_all, get_many, count, update, delete
     """
 
     def __init__(self, db: Session):

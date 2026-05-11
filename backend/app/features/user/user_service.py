@@ -229,7 +229,7 @@ class UserService(BaseService[User, UserRepo]):
         return UserListResponse.model_validate(target_user)
 
     def delete_user(self, user_id: UUID, current_user: User) -> dict:
-        """Kullanıcıyı soft delete ile siler (is_deleted=True, is_active=False)."""
+        """Kullanıcıyı kalıcı siler (hard delete) — tüm ilişkili verilerle birlikte."""
         target_user = self.repo.get_by_id_or_404(user_id)
         self.manager.validate_self_delete(current_user, target_user)
         self.repo.delete(user_id)

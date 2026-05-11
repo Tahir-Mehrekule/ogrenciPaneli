@@ -18,7 +18,7 @@ class ReportRepo(BaseRepository[Report]):
     Report tablosu için repository.
 
     BaseRepository'den miras alınan işlemler:
-    - create, get_by_id, get_by_id_or_404, get_all, get_many, count, update, delete, hard_delete
+    - create, get_by_id, get_by_id_or_404, get_all, get_many, count, update, delete
 
     get_many ile tüm filtreleme, arama, sayfalama ve sıralama
     işlemleri merkezi olarak yapılır — burada ayrıca yazılmaz (DRY).

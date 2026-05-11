@@ -61,14 +61,7 @@ class BaseService(Generic[ModelType, RepoType]):
         update_data = {k: v for k, v in data.items() if v is not None}
         return self.repo.update(id, update_data)
 
-    def delete(self, id: UUID, cascade: bool = True) -> ModelType:
-        """Soft delete."""
+    def delete(self, id: UUID, cascade: bool = True) -> None:
+        """Kalıcı silme — kaydı ve ilişkili tüm verilerle DB'den tamamen kaldırır."""
         return self.repo.delete(id, cascade=cascade)
 
-    def hard_delete(self, id: UUID, cascade: bool = True) -> None:
-        """Kalıcı silme."""
-        return self.repo.hard_delete(id, cascade=cascade)
-
-    def restore(self, id: UUID) -> ModelType:
-        """Soft delete yapılmış kaydı geri getirir."""
-        return self.repo.restore(id)

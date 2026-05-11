@@ -168,7 +168,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         return TaskResponse.model_validate(updated)
 
     def delete_task(self, task_id: UUID, current_user: User) -> dict:
-        """Görevi soft delete ile siler. Proje sahibi veya ADMIN yapabilir."""
+        """Görevi kalıcı siler (hard delete). Proje sahibi veya ADMIN yapabilir."""
         task = self.repo.get_by_id_or_404(task_id)
         project = self.project_repo.get_by_id_or_404(task.project_id)
 

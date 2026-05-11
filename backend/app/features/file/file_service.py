@@ -112,6 +112,6 @@ class FileService(BaseService[FileUpload, FileRepo]):
         storage_client = get_storage_client()
         storage_client.delete_file(file_record.storage_key)
 
-        self.repo.hard_delete(file_id)
+        self.repo.delete(file_id)
 
         return {"message": "Dosya başarıyla silindi"}

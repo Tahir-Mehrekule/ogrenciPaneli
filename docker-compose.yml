@@ -38,6 +38,16 @@ services:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  # Adminer (DB Web UI)
+  adminer:
+    image: adminer:latest
+    container_name: unitrack-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
   # MinIO (S3 Uyumlu Dosya Depolama)
   minio:
     image: minio/minio:latest

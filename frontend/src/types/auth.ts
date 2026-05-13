@@ -6,8 +6,8 @@
 // --- Kullanıcı Rolleri ---
 export type UserRole = "STUDENT" | "TEACHER" | "ADMIN";
 
-// --- Hesap onay durumu ---
-export type ApprovalStatus = "pending" | "approved" | "rejected";
+// --- Hesap onay durumu (Removed in Task 2) ---
+// export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 // --- Bölüm özet bilgisi ---
 export interface DepartmentInfo {
@@ -41,7 +41,6 @@ export interface TokenResponse {
 
 // --- /auth/register endpoint'inden dönen yanıt ---
 export interface RegisterResponse {
-  approval_status: ApprovalStatus;
   message: string;
   access_token?: string | null;
   refresh_token?: string | null;
@@ -60,6 +59,5 @@ export interface User {
   student_no?: string;
   grade_label?: string;
   entry_year?: number;
-  approval_status: ApprovalStatus;
   is_active: boolean;
 }

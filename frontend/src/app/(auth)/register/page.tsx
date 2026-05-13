@@ -30,7 +30,6 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [showPendingModal, setShowPendingModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<SelectedRole>("STUDENT");
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
@@ -115,12 +114,8 @@ export default function RegisterPage() {
 
       const response = await register(payload);
 
-      if (response.approval_status === "pending") {
-        setShowPendingModal(true);
-      } else {
-        toast.success("Kayıt başarılı! Panele yönlendiriliyorsunuz...");
-        router.push("/dashboard");
-      }
+      toast.success("Kayıt başarılı! Panele yönlendiriliyorsunuz...");
+      router.push("/dashboard");
     } catch (error: any) {
       toast.error(
         error.response?.data?.detail || "Kayıt sırasında bir hata oluştu."
@@ -324,16 +319,7 @@ export default function RegisterPage() {
               onChange={handleChange}
             />
 
-            {isStudent && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/40 dark:bg-amber-900/20">
-                <div className="flex items-start gap-3">
-                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Öğrenci kaydınız öğretmeninizin onayını bekleyecektir.
-                  </p>
-                </div>
-              </div>
-            )}
+
 
             <Button
               type="submit"
@@ -344,7 +330,7 @@ export default function RegisterPage() {
               }`}
               isLoading={isLoading}
             >
-              {isStudent ? "Kayıt Başvurusu Yap" : "Kayıt Ol ve Sisteme Gir"}
+              {isStudent ? "Kayıt Ol ve Sisteme Gir" : "Kayıt Ol ve Sisteme Gir"}
             </Button>
           </form>
 
@@ -360,44 +346,6 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
 
-      {/* Onay Bekleniyor Modal */}
-      {showPendingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl dark:bg-slate-900">
-              <div className="h-2 w-full bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500" />
-              <div className="px-8 py-8 text-center">
-                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40">
-                  <GraduationCap className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-                  Başvurunuz Alındı!
-                </h3>
-                <p className="mb-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                  Onay bekleniyor
-                </p>
-                <p className="mt-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                  Kaydınız öğretmeniniz veya yetkili tarafından incelenerek
-                  onaylandıktan sonra sisteme giriş yapabilirsiniz.
-                </p>
-                <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-gray-50 px-4 py-3 dark:bg-slate-800">
-                  <Mail className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Onay sonrası öğretmeninizle iletişime geçebilirsiniz.
-                  </p>
-                </div>
-                <button
-                  onClick={() => router.push("/login")}
-                  className="mt-6 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-emerald-700 hover:to-teal-700"
-                >
-                  Anladım, Giriş Sayfasına Dön
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, create_access_token, create_refresh_token
 from app.common.exceptions import NotFoundException
-from app.common.enums import ActivityAction, EntityType, UserRole, ApprovalStatus
+from app.common.enums import ActivityAction, EntityType, UserRole
 from app.common.activity_log_helper import log_activity
 from app.features.auth.auth_repo import AuthRepo
 from app.features.auth.auth_dto import (
@@ -38,11 +38,6 @@ class AuthService:
         # 2. Şifreyi hashle
         hashed_password = hash_password(data.password)
 
-        # 3. Onay durumunu belirle: öğrenciler onay bekler, diğerleri doğrudan onaylanır
-        approval_status = (
-            ApprovalStatus.PENDING if role == UserRole.STUDENT else ApprovalStatus.APPROVED
-        )
-
         # 4. Öğrenci no'sundan prefix eşleşmesi ile sınıf bilgisini belirle
         entry_year = None
         grade_label = None
@@ -62,7 +57,7 @@ class AuthService:
             "last_name": data.last_name.strip(),
             "role": role,
             "student_no": student_no_val,
-            "approval_status": approval_status,
+
             "entry_year": entry_year,
             "grade_label": grade_label,
         }
@@ -88,23 +83,12 @@ class AuthService:
         log_activity(
             self.db, ActivityAction.USER_REGISTER, user_id=user.id,
             entity_type=EntityType.USER, entity_id=user.id,
-            details={"email": user.email, "role": user.role.value, "approval_status": approval_status.value}
+            details={"email": user.email, "role": user.role.value}
         )
 
-        # 6. Öğrenci → PENDING mesajı döner (token yok)
-        if role == UserRole.STUDENT:
-            return RegisterResponse(
-                approval_status=ApprovalStatus.PENDING,
-                message=(
-                    "Kaydınız alındı. Öğretmeniniz veya yetkili tarafından onaylandıktan sonra "
-                    "giriş yapabilirsiniz. Onay durumunuz için öğretmeniniz ile iletişime geçin."
-                ),
-            )
-
-        # 7. Öğretmen/Admin → APPROVED + token döner
+        # 6. Öğrenci veya Öğretmen/Admin → doğrudan token döner
         token_data = {"sub": str(user.id)}
         return RegisterResponse(
-            approval_status=ApprovalStatus.APPROVED,
             message="Kayıt başarılı. Giriş yapabilirsiniz.",
             access_token=create_access_token(token_data),
             refresh_token=create_refresh_token(token_data),

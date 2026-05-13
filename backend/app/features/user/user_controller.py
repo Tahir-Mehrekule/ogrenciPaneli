@@ -26,6 +26,8 @@ from app.features.user.user_dto import (
     UserUpdateRequest,
     UpdateStudentInfoRequest,
     UserFilterParams,
+    ImportStudentData,
+    BulkImportResult,
 )
 
 
@@ -68,6 +70,21 @@ def list_my_students(
 ):
     service = UserService(db)
     return service.list_my_students(current_user, params)
+
+
+@router.post(
+    "/import",
+    response_model=BulkImportResult,
+    summary="Toplu Öğrenci Ekleme (Import)",
+    description="JSON formatında öğrenci listesi alır ve sisteme ekler. Sadece TEACHER ve ADMIN kullanabilir.",
+)
+def import_students(
+    data: list[ImportStudentData],
+    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    service = UserService(db)
+    return service.import_students(data)
 
 
 @router.get(
@@ -144,11 +161,16 @@ def update_student_info(
     "/{user_id}",
     status_code=status.HTTP_200_OK,
     summary="Kullanıcı silme",
-    description="Soft delete (is_active=False). Sadece ADMIN erişebilir.",
+    description=(
+        "Rol bazlı silme: "
+        "ADMIN → hard delete (kalıcı), "
+        "TEACHER → soft delete (is_active=False, pasifleştirme). "
+        "Kişi kendini silemez."
+    ),
 )
 def delete_user(
     user_id: UUID,
-    current_user=Depends(role_required([UserRole.ADMIN])),
+    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
     service = UserService(db)

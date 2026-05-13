@@ -79,28 +79,7 @@ class AdminUserResponse(BaseModel):
     created_at: str
 
 
-class PendingStudentResponse(BaseModel):
-    """Onay bekleyen öğrenci listesi için yanıt modeli."""
-    id: str
-    email: str
-    first_name: str
-    last_name: str
-    full_name: str
-    student_no: Optional[str]
-    departments: list[str] = []
-    created_at: str
 
-
-class ApproveStudentRequest(BaseModel):
-    """Öğrenci onaylama/reddetme isteği."""
-    action: str = Field(
-        description="'approve' veya 'reject' değerlerinden biri"
-    )
-    reason: Optional[str] = Field(
-        default=None,
-        max_length=500,
-        description="Red nedeni (opsiyonel, sadece reject için)"
-    )
 
 class AdminProjectResponse(BaseModel):
     """Admin proje listesi için basit yanıt modeli."""

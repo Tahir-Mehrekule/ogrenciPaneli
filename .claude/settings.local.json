@@ -64,7 +64,11 @@
       "PowerShell(docker exec unitrack-db *)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\frontend\" -Recurse -Exclude \"node_modules\",\".next\" | Where-Object { $_.FullName -notmatch \"node_modules|\\\\.next\" } | Select-Object FullName)",
       "Bash(Get-Content \"C:\\\\Users\\\\Tahir\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Tahir-Documents-GitHub-ogrenciPaneli\\\\a1d8362a-18d8-4552-b1a9-14d2fceb4e54\\\\tasks\\\\bxxny0txu.output\" -Wait)",
-      "Bash(Select-String --line-buffered \"Ready|ready|Error|error|localhost|warn|WARN\")"
+      "Bash(Select-String --line-buffered \"Ready|ready|Error|error|localhost|warn|WARN\")",
+      "Bash(rtk tsc *)",
+      "Bash(rtk npm *)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Tahir\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Tahir-Documents-GitHub-ogrenciPaneli\\\\064ab2cc-4c23-4390-944b-23fccc770782\\\\tasks\\\\bte8jj3xd.output\" -Tail 20)",
+      "Bash(rtk curl *)"
     ]
   }
 }

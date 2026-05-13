@@ -12,9 +12,9 @@ import {
   FileText,
   Settings,
   BarChart3,
-  UserCheck,
   Users,
   GraduationCap,
+  CheckSquare,
   X,
 } from "lucide-react";
 
@@ -38,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
         ...baseLinks,
         { name: "Ders Kataloğu", href: "/dashboard/courses", icon: BookOpen },
         { name: "Projelerim", href: "/dashboard/projects", icon: FolderKanban },
+        { name: "Görevlerim", href: "/dashboard/tasks", icon: CheckSquare },
         { name: "Haftalık Raporlar", href: "/dashboard/reports", icon: FileText },
       ];
     }
@@ -47,9 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
         ...baseLinks,
         { name: "Verdiğim Dersler", href: "/dashboard/courses", icon: BookOpen },
         { name: "Gelen Projeler", href: "/dashboard/projects", icon: FolderKanban },
+        { name: "Tüm Görevler", href: "/dashboard/tasks", icon: CheckSquare },
         { name: "Gelen Raporlar", href: "/dashboard/reports", icon: FileText },
         { name: "Öğrencilerim", href: "/dashboard/students", icon: GraduationCap },
-        { name: "Onay Bekleyenler", href: "/dashboard/pending-students", icon: UserCheck },
       ];
     }
 
@@ -59,10 +60,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
         { name: "Sistem İstatistikleri", href: "/dashboard/admin", icon: BarChart3 },
         { name: "Tüm Dersler", href: "/dashboard/courses", icon: BookOpen },
         { name: "Tüm Projeler", href: "/dashboard/projects", icon: FolderKanban },
+        { name: "Tüm Görevler", href: "/dashboard/tasks", icon: CheckSquare },
         { name: "Tüm Raporlar", href: "/dashboard/reports", icon: FileText },
         { name: "Öğrencilerim", href: "/dashboard/students", icon: GraduationCap },
         { name: "Tüm Kullanıcılar", href: "/dashboard/users", icon: Users },
-        { name: "Onay Bekleyenler", href: "/dashboard/pending-students", icon: UserCheck },
         { name: "Ayarlar", href: "/dashboard/settings", icon: Settings },
       ];
     }

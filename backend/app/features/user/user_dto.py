@@ -9,9 +9,29 @@ from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, Field
 
-from app.common.enums import UserRole, ApprovalStatus
+from app.common.enums import UserRole
 from app.base.base_dto import FilterParams, BaseResponse
 from app.features.auth.auth_dto import DepartmentInfo
+
+
+class BulkImportResult(BaseModel):
+    """Excel/CSV öğrenci import sonuç özeti."""
+    total_processed: int = 0
+    successful: int = 0
+    failed: int = 0
+    errors: list[str] = []
+
+
+
+
+
+class ImportStudentData(BaseModel):
+    """Frontend'den JSON olarak gelen tekil öğrenci import verisi."""
+    first_name: str = Field(min_length=2, max_length=100)
+    last_name: str = Field(min_length=2, max_length=100)
+    email: str
+    student_no: str = Field(min_length=9, max_length=9, pattern=r"^\d{9}$")
+    department_names: list[str] = Field(default=[], description="Bölüm adları (isimden eşleştirilecek)")
 
 
 class UserListResponse(BaseResponse):
@@ -30,7 +50,7 @@ class UserListResponse(BaseResponse):
     student_no: Optional[str] = None
     grade_label: Optional[str] = None
     entry_year: Optional[int] = None
-    approval_status: ApprovalStatus = ApprovalStatus.APPROVED
+
     is_active: bool
 
 
@@ -125,3 +145,9 @@ class UserFilterParams(FilterParams):
         default=None,
         description="Öğrenci numarası filtresi (kısmi eşleşme)"
     )
+
+
+class ExportFilterParams(UserFilterParams):
+    """Export için parametreler. Sayfalama devre dışı bırakılabilir."""
+    page: int = Field(default=1, description="Sayfa numarası (Tümünü indirmek için 1)")
+    size: int = Field(default=10000, description="Kayıt sayısı (Tümünü indirmek için yüksek bir sayı)")

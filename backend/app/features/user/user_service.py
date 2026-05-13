@@ -22,6 +22,8 @@ from app.features.user.user_dto import (
     UserUpdateRequest,
     UpdateStudentInfoRequest,
     UserFilterParams,
+    ImportStudentData,
+    BulkImportResult,
 )
 
 
@@ -229,11 +231,100 @@ class UserService(BaseService[User, UserRepo]):
         return UserListResponse.model_validate(target_user)
 
     def delete_user(self, user_id: UUID, current_user: User) -> dict:
-        """Kullanıcıyı kalıcı siler (hard delete) — tüm ilişkili verilerle birlikte."""
+        """
+        Rol bazlı silme:
+        - ADMIN → hard delete (kayıt DB'den tamamen kaldırılır)
+        - TEACHER → soft delete (is_active=False, kayıt erişilebilir kalır)
+        """
         target_user = self.repo.get_by_id_or_404(user_id)
         self.manager.validate_self_delete(current_user, target_user)
-        self.repo.delete(user_id)
-        return {"message": f"Kullanıcı başarıyla silindi: {target_user.full_name}"}
+
+        if current_user.role == UserRole.ADMIN:
+            self.repo.delete(user_id)
+            return {"message": f"Kullanıcı kalıcı olarak silindi: {target_user.full_name}"}
+        else:
+            # TEACHER → soft delete
+            self.repo.update(user_id, {"is_active": False})
+            return {"message": f"Kullanıcı pasifleştirildi: {target_user.full_name}"}
+
+    def import_students(self, data: list[ImportStudentData]) -> BulkImportResult:
+        """JSON formatında gelen öğrencileri toplu olarak ekler."""
+        from app.core.security import hash_password
+        from app.features.department.department_repo import DepartmentRepo
+        from app.features.department.department_model import Department
+        from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
+        from app.features.user_department.user_department_model import UserDepartment
+
+        result = BulkImportResult(total_processed=len(data))
+        dept_repo = DepartmentRepo(self.db)
+        prefix_repo = StudentPrefixRepo(self.db)
+
+        # Cache existing departments to avoid repetitive DB calls
+        all_depts = dept_repo.get_all()
+        dept_map = {d.name.lower().strip(): d for d in all_depts}
+        
+        # Default password for imported users
+        default_pw_hash = hash_password("Ogrenci123!")
+
+        for student_data in data:
+            try:
+                email = student_data.email.lower().strip()
+                student_no = student_data.student_no.strip()
+
+                # Check duplicates
+                if self.repo.email_exists(email):
+                    result.failed += 1
+                    result.errors.append(f"{email}: Bu email adresi zaten kayıtlı.")
+                    continue
+                if self.repo.student_no_exists(student_no):
+                    result.failed += 1
+                    result.errors.append(f"{student_no}: Bu öğrenci numarası zaten kayıtlı.")
+                    continue
+
+                # Get prefix info
+                entry_year = None
+                grade_label = None
+                match = prefix_repo.match_student_no(student_no)
+                if match:
+                    entry_year = match.entry_year
+                    grade_label = match.label
+
+                # Create User
+                user_dict = {
+                    "email": email,
+                    "password_hash": default_pw_hash,
+                    "first_name": student_data.first_name.strip(),
+                    "last_name": student_data.last_name.strip(),
+                    "role": UserRole.STUDENT,
+                    "student_no": student_no,
+                    "entry_year": entry_year,
+                    "grade_label": grade_label,
+                }
+                user = self.repo.create(user_dict)
+
+                # Process Departments
+                for d_name in student_data.department_names:
+                    d_name_clean = d_name.strip()
+                    d_key = d_name_clean.lower()
+                    
+                    if d_key not in dept_map:
+                        # Create new department if it doesn't exist
+                        new_dept = dept_repo.create({"name": d_name_clean})
+                        dept_map[d_key] = new_dept
+                    
+                    dept = dept_map[d_key]
+                    ud = UserDepartment(user_id=user.id, department_id=dept.id)
+                    self.db.add(ud)
+
+                self.db.commit()
+                result.successful += 1
+
+            except Exception as e:
+                self.db.rollback()
+                result.failed += 1
+                result.errors.append(f"{student_data.email}: Beklenmeyen hata ({str(e)})")
+
+        return result
 
     # ── İç yardımcı ──────────────────────────────────────────────────────────
 

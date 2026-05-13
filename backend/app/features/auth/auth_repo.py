@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_repo import BaseRepository
 from app.features.auth.auth_model import User
-from app.common.enums import UserRole, ApprovalStatus
+from app.common.enums import UserRole
 
 
 class AuthRepo(BaseRepository[User]):
@@ -58,14 +58,4 @@ class AuthRepo(BaseRepository[User]):
             .first()
         )
 
-    def get_pending_students(self) -> list[User]:
-        """Onay bekleyen (PENDING) öğrencileri listeler."""
-        return (
-            self.db.query(User)
-            .filter(User.approval_status == ApprovalStatus.PENDING)
-            .filter(User.role == UserRole.STUDENT)
-            .filter(User.is_active == True)
-            .filter(User.is_deleted == False)
-            .order_by(User.created_at.asc())
-            .all()
-        )
+

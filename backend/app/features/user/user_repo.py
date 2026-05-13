@@ -12,7 +12,7 @@ from sqlalchemy import or_, desc, asc
 from sqlalchemy.orm import Session
 
 from app.base.base_repo import BaseRepository
-from app.common.enums import ApprovalStatus, UserRole
+from app.common.enums import UserRole
 from app.features.auth.auth_model import User
 
 
@@ -40,7 +40,7 @@ class UserRepo(BaseRepository[User]):
         query = (
             self.db.query(User)
             .filter(User.role == UserRole.STUDENT)
-            .filter(User.approval_status == ApprovalStatus.APPROVED)
+
             .filter(User.is_active == True)
             .filter(User.is_deleted == False)
             .filter(

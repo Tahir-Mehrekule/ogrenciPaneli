@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.base.base_manager import BaseManager
-from app.common.enums import UserRole, ApprovalStatus
+from app.common.enums import UserRole
 from app.common.validators import validate_school_email, determine_role_from_email
 from app.common.exceptions import (
     BadRequestException,
@@ -83,15 +83,7 @@ class AuthManager(BaseManager):
         if not verify_password(password, user.password_hash):
             raise UnauthorizedException("Email veya şifre hatalı")
 
-        if user.approval_status == ApprovalStatus.PENDING:
-            raise ForbiddenException(
-                "Hesabınız henüz onaylanmadı. Öğretmeniniz veya yetkili tarafından "
-                "onaylandıktan sonra giriş yapabilirsiniz."
-            )
-        if user.approval_status == ApprovalStatus.REJECTED:
-            raise ForbiddenException(
-                "Hesabınız reddedildi. Daha fazla bilgi için öğretmeniniz ile iletişime geçin."
-            )
+
 
         return user
 

@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, EmailStr
 
-from app.common.enums import UserRole, ApprovalStatus
+from app.common.enums import UserRole
 from app.base.base_dto import BaseResponse
 
 
@@ -69,13 +69,10 @@ class TokenResponse(BaseModel):
 class RegisterResponse(BaseModel):
     """
     Kayıt endpoint'inin yanıtı.
-    - Öğrenci: approval_status=PENDING, token alanları null (giriş yapamaz)
-    - Öğretmen/Admin: approval_status=APPROVED, token alanları dolu
     """
-    approval_status: ApprovalStatus = Field(description="Hesap onay durumu")
     message: str = Field(description="Kullanıcıya gösterilecek bilgilendirme mesajı")
-    access_token: Optional[str] = Field(default=None, description="JWT Access Token (sadece APPROVED hesaplar için)")
-    refresh_token: Optional[str] = Field(default=None, description="JWT Refresh Token (sadece APPROVED hesaplar için)")
+    access_token: Optional[str] = Field(default=None, description="JWT Access Token")
+    refresh_token: Optional[str] = Field(default=None, description="JWT Refresh Token")
     token_type: str = Field(default="bearer", description="Token tipi")
 
 
@@ -93,7 +90,7 @@ class UserResponse(BaseResponse):
     role: UserRole
     departments: list[DepartmentInfo] = []
     student_no: Optional[str] = None
-    approval_status: ApprovalStatus = ApprovalStatus.APPROVED
+
     grade_label: Optional[str] = None
     entry_year: Optional[int] = None
     is_active: bool

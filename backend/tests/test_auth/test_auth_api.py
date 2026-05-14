@@ -23,8 +23,12 @@ class TestRegister:
         assert data["access_token"] is not None
         assert data["refresh_token"] is not None
 
-    def test_öğrenci_kayıt_pending_döner(self, client):
-        """@ogr. email ile kayıt → STUDENT, 201 + PENDING (token yok)."""
+    def test_öğrenci_kayıt_token_alır(self, client):
+        """@ogr. email ile kayıt → STUDENT, 201 + access+refresh token döner.
+
+        Not: approval_status kolonu kaldırıldı (migration 66a68fb2ca31).
+        Öğrenciler artık direkt token alır; ayrı onay akışı yok.
+        """
         resp = client.post("/api/v1/auth/register", json={
             "email": "yeni@ogr.uni.edu.tr",
             "password": "Test1234!",
@@ -35,8 +39,9 @@ class TestRegister:
         })
         assert resp.status_code == 201
         data = resp.json()
-        assert data["approval_status"] == "pending"
-        assert data.get("access_token") is None
+        assert data["access_token"] is not None
+        assert data["refresh_token"] is not None
+        assert data["message"] == "Kayıt başarılı. Giriş yapabilirsiniz."
 
     def test_tekrar_aynı_email(self, client, student_user):
         """Aynı email ile ikinci kayıt → 409 Conflict."""
@@ -96,6 +101,46 @@ class TestLogin:
         resp = client.post("/api/v1/auth/login", json={
             "email": "yok@uni.edu.tr",
             "password": "Test1234!",
+        })
+        assert resp.status_code == 401
+
+
+class TestRefresh:
+    """T-1 — Refresh token endpoint testleri (G-5: token rotation + revocation)."""
+
+    def test_geçerli_refresh_token_yeni_çift_döner(self, client, student_refresh_token):
+        """Geçerli refresh token → 200 + yeni access + refresh token çifti."""
+        resp = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": student_refresh_token,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["access_token"] is not None
+        assert data["refresh_token"] is not None
+        # Yeni token eski token ile aynı olmamalı (rotation)
+        assert data["refresh_token"] != student_refresh_token
+
+    def test_aynı_refresh_token_iki_kez_kullanılamaz(self, client, student_refresh_token):
+        """Kullanılmış refresh token → 401 Unauthorized (revocation kontrolü)."""
+        # İlk kullanım başarılı
+        resp1 = client.post("/api/v1/auth/refresh", json={"refresh_token": student_refresh_token})
+        assert resp1.status_code == 200
+
+        # İkinci kullanım → token revoke edilmiş
+        resp2 = client.post("/api/v1/auth/refresh", json={"refresh_token": student_refresh_token})
+        assert resp2.status_code == 401
+
+    def test_access_token_ile_refresh_çağrısı_401(self, client, student_token):
+        """Access token'ı refresh endpoint'ine göndermek → 401 (tip kontrolü)."""
+        resp = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": student_token,
+        })
+        assert resp.status_code == 401
+
+    def test_sahte_refresh_token_401(self, client):
+        """Sahte / imzasız token → 401."""
+        resp = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": "sahte.jwt.token",
         })
         assert resp.status_code == 401
 

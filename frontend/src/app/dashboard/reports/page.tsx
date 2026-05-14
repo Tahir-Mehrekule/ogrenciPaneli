@@ -4,10 +4,13 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
-import { FileText, Plus, Paperclip, Search, X, Eye, Send, Sparkles } from "lucide-react";
+import { FileText, Plus, Paperclip, Search, X, Eye, Send, Sparkles, Pencil, CheckCircle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import toast from "react-hot-toast";
 
 type ReportStatus = "DRAFT" | "SUBMITTED" | "REVIEWED";
@@ -29,11 +32,11 @@ interface Report {
 
 const STATUS_CONFIG: Record<
   ReportStatus,
-  { label: string; className: string; dot: string }
+  { label: string; className: string; icon: LucideIcon }
 > = {
-  DRAFT:     { label: "Taslak",        className: "border-slate-600/60 bg-slate-800/60 text-slate-300",         dot: "bg-slate-400" },
-  SUBMITTED: { label: "Teslim Edildi", className: "border-amber-500/30 bg-amber-500/10 text-amber-400",          dot: "bg-amber-400" },
-  REVIEWED:  { label: "İncelendi",     className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",    dot: "bg-emerald-400" },
+  DRAFT:     { label: "Taslak",        className: "border-slate-600/60 bg-slate-800/60 text-slate-300",         icon: FileText    },
+  SUBMITTED: { label: "Teslim Edildi", className: "border-amber-500/30 bg-amber-500/10 text-amber-400",          icon: Send        },
+  REVIEWED:  { label: "İncelendi",     className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",    icon: CheckCircle },
 };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -43,6 +46,118 @@ const SORT_OPTIONS: SortOption[] = [
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
+
+/* ───────────────── Edit Report Modal ───────────────── */
+function EditReportModal({
+  report,
+  onClose,
+  onUpdated,
+}: {
+  report: Report;
+  onClose: () => void;
+  onUpdated: (updated: Report) => void;
+}) {
+  const [content, setContent] = useState(report.content);
+  const [youtubeUrl, setYoutubeUrl] = useState(report.youtube_url || "");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const handleSave = async () => {
+    if (!content.trim()) {
+      setFormError("Rapor içeriği boş bırakılamaz.");
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      const { data } = await apiClient.patch(`/api/v1/reports/${report.id}`, {
+        content: content.trim(),
+        youtube_url: youtubeUrl.trim() || null,
+      });
+      toast.success("Rapor güncellendi.");
+      onUpdated(data);
+      onClose();
+    } catch (err: any) {
+      setFormError(err.response?.data?.detail || "Güncelleme başarısız.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Raporu Düzenle">
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <FocusTrapContainer className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col gap-5 p-6 animate-in fade-in zoom-in-95 duration-200">
+        {/* Başlık */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Raporu Düzenle</h3>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {report.year} Yılı — {report.week_number}. Hafta
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Hata */}
+        {formError && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm text-red-400">
+            {formError}
+          </div>
+        )}
+
+        {/* İçerik */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-300">
+            Rapor İçeriği <span className="text-red-400">*</span>
+          </label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={8}
+            maxLength={5000}
+            placeholder="Bu hafta yapılan çalışmaları açıklayın..."
+            className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-none"
+          />
+          <p className="text-xs text-gray-500 text-right">{content.length}/5000</p>
+        </div>
+
+        {/* YouTube */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-300">
+            YouTube Video Linki
+            <span className="text-gray-500 font-normal ml-1">(opsiyonel)</span>
+          </label>
+          <input
+            type="url"
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+            placeholder="https://youtube.com/watch?v=..."
+            className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-gray-200 outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Eylemler */}
+        <div className="flex justify-end gap-3 pt-1">
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Vazgeç
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </Button>
+        </div>
+      </FocusTrapContainer>
+    </div>
+  );
+}
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -70,6 +185,8 @@ export default function ReportsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const [viewModal, setViewModal] = useState<Report | null>(null);
+  const [editModal, setEditModal] = useState<Report | null>(null);
+  const [submitConfirm, setSubmitConfirm] = useState<string | null>(null); // report id
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -101,15 +218,17 @@ export default function ReportsPage() {
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   const handleSubmit = async (reportId: string) => {
-    if (!confirm("Raporu teslim etmek istediğinize emin misiniz?")) return;
     try {
       await apiClient.post(`/api/v1/reports/${reportId}/submit`);
       fetchReports();
       if (viewModal && viewModal.id === reportId) {
         setViewModal({ ...viewModal, status: "SUBMITTED" });
       }
+      toast.success("Rapor teslim edildi.");
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Teslim başarısız.");
+      toast.error(err.response?.data?.detail || "Teslim başarısız.");
+    } finally {
+      setSubmitConfirm(null);
     }
   };
 
@@ -185,13 +304,14 @@ export default function ReportsPage() {
       key: "status",
       header: "Durum",
       render: (r) => {
-        const status = STATUS_CONFIG[r.status] || STATUS_CONFIG.DRAFT;
+        const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.DRAFT;
+        const Icon = cfg.icon;
         return (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border ${status.className}`}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border ${cfg.className}`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-            {status.label}
+            <Icon className="h-3 w-3" aria-hidden="true" />
+            {cfg.label}
           </span>
         );
       },
@@ -216,9 +336,10 @@ export default function ReportsPage() {
         <div className="flex items-center justify-end gap-2">
           {role === "STUDENT" && r.status === "DRAFT" && (
             <button
-              onClick={() => handleSubmit(r.id)}
+              onClick={() => setSubmitConfirm(r.id)}
               className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-900/20 hover:text-amber-300 transition-colors"
               title="Teslim Et"
+              aria-label="Teslim Et"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -227,6 +348,7 @@ export default function ReportsPage() {
             onClick={() => setViewModal(r)}
             className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-900/20 hover:text-blue-300 transition-colors"
             title="Detayları Görüntüle"
+            aria-label="Detayları Görüntüle"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -379,12 +501,12 @@ export default function ReportsPage() {
 
       {/* Rapor Detay Modalı */}
       {viewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rapor Detayı">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setViewModal(null)}
           />
-          <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <FocusTrapContainer className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Üst bar */}
             <div
               className={`h-1 w-full ${
@@ -582,13 +704,49 @@ export default function ReportsPage() {
                 Kapat
               </Button>
               {role === "STUDENT" && viewModal.status === "DRAFT" && (
-                <Button onClick={() => handleSubmit(viewModal.id)}>
-                  Teslim Et
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditModal(viewModal)}
+                    className="flex items-center gap-2 text-indigo-400 border-indigo-900/40 hover:bg-indigo-900/20 hover:text-indigo-300"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Düzenle
+                  </Button>
+                  <Button onClick={() => setSubmitConfirm(viewModal.id)}>
+                    Teslim Et
+                  </Button>
+                </>
               )}
             </div>
-          </div>
+          </FocusTrapContainer>
         </div>
+      )}
+
+      {/* Rapor Teslim Onayı */}
+      <ConfirmDialog
+        isOpen={!!submitConfirm}
+        onClose={() => setSubmitConfirm(null)}
+        onConfirm={() => submitConfirm && handleSubmit(submitConfirm)}
+        title="Raporu Teslim Et"
+        description="Raporu teslim ettiğinizde artık düzenleyemezsiniz. Onaylıyor musunuz?"
+        confirmText="Evet, Teslim Et"
+        cancelText="Vazgeç"
+      />
+
+      {/* Rapor Düzenleme Modalı */}
+      {editModal && (
+        <EditReportModal
+          report={editModal}
+          onClose={() => setEditModal(null)}
+          onUpdated={(updated) => {
+            fetchReports();
+            // viewModal açıksa içeriğini de güncelle
+            if (viewModal && viewModal.id === updated.id) {
+              setViewModal(updated);
+            }
+          }}
+        />
       )}
     </div>
   );

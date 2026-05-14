@@ -6,12 +6,12 @@ Durum akışı: DRAFT → PENDING → APPROVED/REJECTED → IN_PROGRESS → COMP
 """
 
 import uuid
-from sqlalchemy import Column, String, Text, ForeignKey, Enum, JSON, Boolean, DateTime
+from sqlalchemy import Column, String, Text, ForeignKey, Enum as SAEnum, JSON, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.base.base_model import BaseModel
-from app.common.enums import ProjectStatus
+from app.common.enums import ProjectStatus, ProjectType
 
 
 class Project(BaseModel):
@@ -53,7 +53,7 @@ class Project(BaseModel):
 
 
     status = Column(
-        Enum(ProjectStatus, name="project_status"),
+        SAEnum(ProjectStatus, name="project_status"),
         nullable=False,
         default=ProjectStatus.DRAFT,
         index=True,
@@ -109,6 +109,22 @@ class Project(BaseModel):
         DateTime(timezone=True),
         nullable=True,
         comment="Arşivlenme zamanı"
+    )
+
+    rejected_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment=(
+            "Reddetme zamanı. REJECTED durumuna geçince set edilir. "
+            "İçerik değişikliği (PATCH) sonrası None'a çekilir. "
+            "None ise = içerik değiştirilmiş veya hiç reddedilmemiş → submit edilebilir."
+        )
+    )
+
+    project_type = Column(
+        SAEnum(ProjectType, name="project_type"),
+        nullable=True,
+        comment="Bireysel mi ekip mi? Ders ayarından miras alınır; null = eski proje (bölüm yok)"
     )
 
     # İlişkiler

@@ -24,6 +24,7 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<RegisterResponse>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 // ─── Context Oluşturma ───
@@ -33,6 +34,7 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => { },
   register: async () => ({ message: "", token_type: "bearer" } as RegisterResponse),
   logout: () => { },
+  refreshUser: async () => { },
 });
 
 // ─── Provider Bileşeni ───
@@ -109,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser: fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

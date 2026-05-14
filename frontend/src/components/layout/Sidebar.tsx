@@ -23,6 +23,12 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  STUDENT: "Öğrenci",
+  TEACHER: "Öğretmen",
+  ADMIN: "Admin",
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
   const { user } = useAuth();
   const pathname = usePathname();
@@ -48,7 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
         ...baseLinks,
         { name: "Verdiğim Dersler", href: "/dashboard/courses", icon: BookOpen },
         { name: "Gelen Projeler", href: "/dashboard/projects", icon: FolderKanban },
-        { name: "Tüm Görevler", href: "/dashboard/tasks", icon: CheckSquare },
         { name: "Gelen Raporlar", href: "/dashboard/reports", icon: FileText },
         { name: "Öğrencilerim", href: "/dashboard/students", icon: GraduationCap },
       ];
@@ -131,7 +136,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
       <div className="border-t border-gray-200 p-4 dark:border-slate-700">
         <div className="rounded-xl bg-gray-50 p-4 dark:bg-slate-800">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Giriş Yapılan Rol</p>
-          <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">{user?.role}</p>
+          <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
+            {ROLE_LABEL[role ?? ""] ?? user?.role ?? "—"}
+          </p>
         </div>
       </div>
     </div>

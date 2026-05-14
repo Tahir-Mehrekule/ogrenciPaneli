@@ -19,6 +19,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from sqlalchemy.exc import IntegrityError
+
 from app.base.base_service import BaseService
 from app.common.enums import MemberRole, MemberStatus, UserRole
 from app.common.exceptions import (
@@ -122,13 +124,19 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         if self.repo.has_pending_record(project_id, data.user_id):
             raise ConflictException("Bu kullanıcı için zaten bekleyen bir davet veya katılım isteği var")
 
-        member = self.repo.create({
-            "project_id": project_id,
-            "user_id": data.user_id,
-            "role": MemberRole.MEMBER,
-            "status": MemberStatus.INVITED,
-            "invited_by": current_user.id,
-        })
+        # Race condition koruması: eş zamanlı iki istek DB unique constraint'i tetikler.
+        # uq_project_member → IntegrityError → ConflictException (409) dönüştürülür.
+        try:
+            member = self.repo.create({
+                "project_id": project_id,
+                "user_id": data.user_id,
+                "role": MemberRole.MEMBER,
+                "status": MemberStatus.INVITED,
+                "invited_by": current_user.id,
+            })
+        except IntegrityError:
+            self.db.rollback()
+            raise ConflictException("Bu kullanıcı için zaten bir üyelik kaydı oluşturuldu")
         return ProjectMemberResponse.model_validate(member)
 
     # ── Katılım İsteği ────────────────────────────────────────────────────────
@@ -156,12 +164,17 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         if self.repo.has_pending_record(project_id, current_user.id):
             raise ConflictException("Bu proje için zaten bekleyen bir kaydınız var")
 
-        member = self.repo.create({
-            "project_id": project_id,
-            "user_id": current_user.id,
-            "role": MemberRole.MEMBER,
-            "status": MemberStatus.JOIN_REQUESTED,
-        })
+        # Race condition koruması: uq_project_member constraint → IntegrityError → 409.
+        try:
+            member = self.repo.create({
+                "project_id": project_id,
+                "user_id": current_user.id,
+                "role": MemberRole.MEMBER,
+                "status": MemberStatus.JOIN_REQUESTED,
+            })
+        except IntegrityError:
+            self.db.rollback()
+            raise ConflictException("Bu proje için zaten bir üyelik kaydınız mevcut")
         return ProjectMemberResponse.model_validate(member)
 
     # ── Kabul / Red ───────────────────────────────────────────────────────────
@@ -225,6 +238,30 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         member.responded_at = _now()
         self.db.commit()
         return {"message": "Reddedildi"}
+
+    def cancel_invite(self, project_id: UUID, member_id: UUID, current_user: User) -> dict:
+        """
+        Gönderilen daveti iptal eder (INVITED → hard delete).
+
+        Sadece projenin MANAGER'ı veya Admin çağırabilir.
+        Davet kabul edilmişse (ACTIVE) iptal edilemez; bunun yerine remove_member kullanılır.
+        """
+        self.project_repo.get_by_id_or_404(project_id)
+        self._require_manager_or_admin(project_id, current_user)
+
+        member = self.repo.get_member_by_id(member_id)
+        if member is None or str(member.project_id) != str(project_id):
+            raise NotFoundException("Üyelik kaydı bulunamadı")
+
+        if member.status != MemberStatus.INVITED:
+            raise BadRequestException(
+                "Yalnızca beklemedeki (INVITED) davetler iptal edilebilir. "
+                "Aktif üyeyi çıkarmak için üye çıkarma endpoint'ini kullanın."
+            )
+
+        self.db.delete(member)
+        self.db.commit()
+        return {"message": "Davet iptal edildi"}
 
     # ── Üye Çıkarma ───────────────────────────────────────────────────────────
 

@@ -16,7 +16,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   
   const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState<any[]>([]);
+
+  interface Notification {
+    id: string;
+    title: string;
+    message: string;
+    is_read: boolean;
+    created_at: string;
+  }
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const fetchUnreadCount = async () => {
     if (!user) return;
@@ -37,7 +46,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
 
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Sekme aktif değilse polling'i durdur (FE-8)
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchUnreadCount();
+    }, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -120,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
                   Hiç bildiriminiz yok.
                 </div>
               ) : (
-                notifications.map((notif: any) => (
+                notifications.map((notif) => (
                   <div key={notif.id} className={cn(
                     "flex items-start gap-3 rounded-lg p-3 text-left mb-1 transition-colors",
                     !notif.is_read ? "bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
@@ -165,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
               <UserIcon className="h-4 w-4" />
             </div>
             <span className="hidden font-medium text-gray-700 md:block dark:text-gray-200">
-              {user?.name || "Kullanıcı"}
+              {user?.full_name || "Kullanıcı"}
             </span>
           </button>
 
@@ -180,7 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
           >
             <div className="border-b border-gray-100 px-4 py-3 dark:border-slate-700">
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.name}
+                {user?.full_name}
               </p>
               <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                 {user?.email}

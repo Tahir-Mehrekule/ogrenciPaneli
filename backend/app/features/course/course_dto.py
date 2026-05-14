@@ -1,19 +1,18 @@
 """
 Course DTO (Data Transfer Object) modülü.
 
-Ders oluşturma, güncelleme, listeleme ve kayıt için request/response şemaları.
+Ders oluşturma, güncelleme ve listeleme için request/response şemaları.
+Enrollment sistemi kaldırıldı — öğrenci görünürlüğü bölüm eşleşmesiyle otomatik sağlanır.
 """
 
 from uuid import UUID
 from typing import Optional
-from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import ProjectType
 from app.base.base_dto import BaseResponse, FilterParams
 
-
-# --- Course DTO'ları ---
 
 class CourseCreate(BaseModel):
     """Ders oluşturma isteği (TEACHER/ADMIN)."""
@@ -34,6 +33,14 @@ class CourseCreate(BaseModel):
         max_length=50,
         description="Dönem bilgisi",
         examples=["2025-2026 Güz"],
+    )
+    department_id: Optional[UUID] = Field(
+        default=None,
+        description="Dersin bölümü — bu bölümdeki öğrenciler dersi otomatik görür",
+    )
+    project_type: ProjectType = Field(
+        default=ProjectType.BOTH,
+        description="Bu derse açılacak projelerin tipi (bireysel/ekip/her ikisi)",
     )
     require_youtube: bool = Field(
         default=False,
@@ -59,6 +66,14 @@ class CourseUpdate(BaseModel):
         max_length=50,
         description="Dönem bilgisi",
     )
+    department_id: Optional[UUID] = Field(
+        default=None,
+        description="Dersin bölümü",
+    )
+    project_type: Optional[ProjectType] = Field(
+        default=None,
+        description="Proje tipi (bireysel / ekip / her ikisi)",
+    )
     require_youtube: Optional[bool] = Field(
         default=None,
         description="Haftalık raporda YouTube video zorunlu mu",
@@ -78,7 +93,10 @@ class CourseResponse(BaseResponse):
     code: str
     semester: str
     teacher_id: UUID
+    teacher_name: str = ""
+    department_id: Optional[UUID] = None
     is_active: bool
+    project_type: ProjectType = ProjectType.BOTH
     require_youtube: bool = False
     require_file: bool = False
 
@@ -93,25 +111,7 @@ class CourseFilterParams(FilterParams):
         default=None,
         description="Öğretmen filtresi",
     )
-
-
-# --- CourseEnrollment DTO'ları ---
-
-class EnrollmentResponse(BaseModel):
-    """Derse kayıt response'u."""
-    id: UUID
-    course_id: UUID
-    student_id: UUID
-    enrolled_at: datetime  # created_at'in alias'ı olarak kullanılacak
-
-    model_config = {"from_attributes": True}
-
-
-class CourseStudentResponse(BaseModel):
-    """Dersin öğrenci listesindeki öğrenci bilgisi."""
-    id: UUID
-    email: str
-    full_name: str
-    enrolled_at: datetime
-
-    model_config = {"from_attributes": True}
+    department_id: Optional[UUID] = Field(
+        default=None,
+        description="Bölüm filtresi",
+    )

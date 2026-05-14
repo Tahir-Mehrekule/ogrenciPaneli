@@ -1,7 +1,8 @@
 """
 Course service (iş mantığı) modülü.
 
-Ders CRUD, kayıt/çıkış ve listeleme orkestrasyon katmanı.
+Ders CRUD ve listeleme orkestrasyon katmanı.
+Enrollment sistemi kaldırıldı — öğrenci görünürlüğü bölüm eşleşmesiyle otomatik sağlanır.
 """
 
 import math
@@ -12,18 +13,15 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import UserRole, ActivityAction, EntityType
-from app.common.exceptions import NotFoundException
 from app.common.activity_log_helper import log_activity
-from app.features.course.course_model import Course, CourseEnrollment
-from app.features.course.course_repo import CourseRepo, CourseEnrollmentRepo
+from app.features.course.course_model import Course
+from app.features.course.course_repo import CourseRepo
 from app.features.course.course_manager import CourseManager
 from app.features.course.course_dto import (
     CourseCreate,
     CourseUpdate,
     CourseResponse,
     CourseFilterParams,
-    EnrollmentResponse,
-    CourseStudentResponse,
 )
 from app.features.auth.auth_model import User
 
@@ -33,8 +31,14 @@ class CourseService(BaseService[Course, CourseRepo]):
 
     def __init__(self, db: Session):
         super().__init__(CourseRepo, db)
-        self.enrollment_repo = CourseEnrollmentRepo(db)
         self.manager = CourseManager(db)
+
+    def _to_response(self, course: Course) -> CourseResponse:
+        """Course ORM nesnesini CourseResponse DTO'ya dönüştürür; teacher_name ekler."""
+        data = CourseResponse.model_validate(course)
+        if course.teacher:
+            data.teacher_name = course.teacher.full_name
+        return data
 
     def create_course(self, data: CourseCreate, current_user: User) -> CourseResponse:
         """
@@ -50,6 +54,8 @@ class CourseService(BaseService[Course, CourseRepo]):
             "code": data.code.upper(),
             "semester": data.semester,
             "teacher_id": current_user.id,
+            "department_id": data.department_id,
+            "project_type": data.project_type,
             "require_youtube": data.require_youtube,
             "require_file": data.require_file,
         }
@@ -57,7 +63,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         log_activity(self.db, ActivityAction.COURSE_CREATE, user_id=current_user.id,
                      entity_type=EntityType.COURSE, entity_id=course.id,
                      details={"name": course.name, "code": course.code})
-        return CourseResponse.model_validate(course)
+        return self._to_response(course)
 
     def list_courses(
         self, params: CourseFilterParams, current_user: User,
@@ -66,19 +72,34 @@ class CourseService(BaseService[Course, CourseRepo]):
         Rol bazlı filtreli ders listesi:
         - TEACHER: kendi dersleri
         - ADMIN: tüm dersler
-        - STUDENT: tüm aktif dersler
+        - STUDENT: bölümüyle eşleşen aktif dersler (enrollment gerektirmez)
         """
-        # Dinamik filtre oluştur
         filters = {}
+        in_filters = {}
+
         if current_user.role == UserRole.TEACHER:
             filters["teacher_id"] = current_user.id
+
+        elif current_user.role == UserRole.STUDENT:
+            dept_ids = [d.id for d in current_user.departments]
+            if not dept_ids:
+                return PaginatedResponse(
+                    items=[], total=0, page=params.page,
+                    size=params.size, pages=0,
+                )
+            in_filters["department_id"] = dept_ids
+
+        # Parametrik override filtreler
         if params.teacher_id:
             filters["teacher_id"] = params.teacher_id
         if params.semester:
             filters["semester"] = params.semester
+        if params.department_id:
+            filters["department_id"] = params.department_id
 
         courses, total = self.repo.get_many(
             filters=filters,
+            in_filters=in_filters if in_filters else None,
             search=params.search,
             search_fields=["name", "code"],
             page=params.page,
@@ -86,7 +107,7 @@ class CourseService(BaseService[Course, CourseRepo]):
             sort_by=params.sort_by,
             order=params.order,
         )
-        items = [CourseResponse.model_validate(c) for c in courses]
+        items = [self._to_response(c) for c in courses]
 
         return PaginatedResponse(
             items=items,
@@ -99,7 +120,7 @@ class CourseService(BaseService[Course, CourseRepo]):
     def get_course(self, course_id: UUID) -> CourseResponse:
         """ID ile ders detayı."""
         course = self.repo.get_by_id_or_404(course_id)
-        return CourseResponse.model_validate(course)
+        return self._to_response(course)
 
     def update_course(
         self, course_id: UUID, data: CourseUpdate, current_user: User,
@@ -117,7 +138,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         log_activity(self.db, ActivityAction.COURSE_UPDATE, user_id=current_user.id,
                      entity_type=EntityType.COURSE, entity_id=course_id,
                      details=update_data)
-        return CourseResponse.model_validate(updated)
+        return self._to_response(updated)
 
     def delete_course(self, course_id: UUID, current_user: User) -> dict:
         """Dersi kalıcı siler (hard delete). Sadece öğretmeni veya ADMIN."""
@@ -128,55 +149,3 @@ class CourseService(BaseService[Course, CourseRepo]):
                      entity_type=EntityType.COURSE, entity_id=course_id,
                      details={"name": course.name})
         return {"message": f"Ders başarıyla silindi: {course.name}"}
-
-    # --- Enrollment (Kayıt) İşlemleri ---
-
-    def enroll_student(self, course_id: UUID, current_user: User) -> EnrollmentResponse:
-        """
-        Öğrenciyi derse kaydeder.
-        Sadece STUDENT kaydolabilir, aynı derse iki kez kaydolunamaz.
-        """
-        course = self.repo.get_by_id_or_404(course_id)
-        self.manager.validate_enrollment(course, current_user)
-
-        enrollment = self.enrollment_repo.create({
-            "course_id": course_id,
-            "student_id": current_user.id,
-        })
-
-        return EnrollmentResponse(
-            id=enrollment.id,
-            course_id=enrollment.course_id,
-            student_id=enrollment.student_id,
-            enrolled_at=enrollment.created_at,
-        )
-
-    def unenroll_student(self, course_id: UUID, current_user: User) -> dict:
-        """Öğrenciyi dersten kalıcı olarak çıkarır (hard delete)."""
-        self.manager.validate_unenrollment(course_id, current_user)
-
-        enrollment = self.enrollment_repo.get_enrollment(course_id, current_user.id)
-        if enrollment is None:
-            raise NotFoundException("Kayıt bulunamadı")
-
-        self.enrollment_repo.delete(enrollment.id)
-        return {"message": "Dersten başarıyla çıkıldı"}
-
-    def list_students(self, course_id: UUID, current_user: User) -> list[CourseStudentResponse]:
-        """
-        Dersin kayıtlı öğrenci listesi.
-        Sadece dersin öğretmeni veya ADMIN görebilir.
-        """
-        course = self.repo.get_by_id_or_404(course_id)
-        self.manager.validate_teacher_owns_course(course, current_user)
-
-        enrollments = self.enrollment_repo.get_students_by_course(course_id)
-        return [
-            CourseStudentResponse(
-                id=e.student.id,
-                email=e.student.email,
-                full_name=e.student.full_name,
-                enrolled_at=e.created_at,
-            )
-            for e in enrollments
-        ]

@@ -1,7 +1,8 @@
 """
 Course controller (API endpoint) modülü.
 
-Ders yönetimi ve derse kayıt endpoint'lerini tanımlar.
+Ders yönetimi endpoint'lerini tanımlar.
+Enrollment endpoint'leri kaldırıldı — öğrenci görünürlüğü bölüm eşleşmesiyle otomatik sağlanır.
 """
 
 from uuid import UUID
@@ -19,8 +20,6 @@ from app.features.course.course_dto import (
     CourseUpdate,
     CourseResponse,
     CourseFilterParams,
-    EnrollmentResponse,
-    CourseStudentResponse,
 )
 
 
@@ -29,8 +28,6 @@ router = APIRouter(
     tags=["Courses"],
 )
 
-
-# --- Ders CRUD ---
 
 @router.post(
     "",
@@ -57,7 +54,12 @@ def list_courses(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Filtreli ders listesi. TEACHER sadece kendi derslerini görür."""
+    """
+    Filtreli ders listesi.
+    - TEACHER: sadece kendi dersleri
+    - STUDENT: bölümüyle eşleşen dersler (enrollment gerektirmez)
+    - ADMIN: tüm dersler
+    """
     return CourseService(db).list_courses(params, current_user)
 
 
@@ -102,48 +104,3 @@ def delete_course(
 ):
     """Soft delete. Sadece dersin öğretmeni veya ADMIN."""
     return CourseService(db).delete_course(course_id, current_user)
-
-
-# --- Derse Kayıt (Enrollment) ---
-
-@router.post(
-    "/{course_id}/enroll",
-    response_model=EnrollmentResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Derse kaydol",
-)
-def enroll(
-    course_id: UUID,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Öğrenci derse kaydolur. Sadece STUDENT."""
-    return CourseService(db).enroll_student(course_id, current_user)
-
-
-@router.delete(
-    "/{course_id}/unenroll",
-    response_model=MessageResponse,
-    summary="Dersten çık",
-)
-def unenroll(
-    course_id: UUID,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Öğrenci dersten çıkar."""
-    return CourseService(db).unenroll_student(course_id, current_user)
-
-
-@router.get(
-    "/{course_id}/students",
-    response_model=list[CourseStudentResponse],
-    summary="Derse kayıtlı öğrenciler",
-)
-def list_students(
-    course_id: UUID,
-    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
-    db: Session = Depends(get_db),
-):
-    """Dersin kayıtlı öğrencilerini listeler. Sadece öğretmeni veya ADMIN."""
-    return CourseService(db).list_students(course_id, current_user)

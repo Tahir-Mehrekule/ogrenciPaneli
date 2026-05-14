@@ -106,6 +106,10 @@ def accept_member(
     "/api/v1/projects/{project_id}/members/{member_id}/reject",
     response_model=MessageResponse,
     summary="Davet veya katılım isteğini reddet",
+    description=(
+        "Kullanıcı kendi davetini reddeder (INVITED → REJECTED). "
+        "Yönetici/Admin katılım isteğini reddeder (JOIN_REQUESTED → REJECTED)."
+    ),
 )
 def reject_member(
     project_id: UUID,
@@ -114,6 +118,25 @@ def reject_member(
     db: Session = Depends(get_db),
 ):
     return ProjectMemberService(db).reject_member(project_id, member_id, current_user)
+
+
+@router.delete(
+    "/api/v1/projects/{project_id}/members/{member_id}/cancel-invite",
+    response_model=MessageResponse,
+    summary="Gönderilen daveti iptal et",
+    description=(
+        "Proje yöneticisi veya Admin, gönderdiği beklemedeki (INVITED) daveti iptal eder. "
+        "Davet kabul edildikten sonra (ACTIVE) bu endpoint kullanılamaz; "
+        "bunun yerine üye çıkarma endpoint'ini kullanın."
+    ),
+)
+def cancel_invite(
+    project_id: UUID,
+    member_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectMemberService(db).cancel_invite(project_id, member_id, current_user)
 
 
 # ── Üye Çıkarma ───────────────────────────────────────────────────────────────

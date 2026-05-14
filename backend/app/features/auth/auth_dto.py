@@ -81,6 +81,61 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(description="Mevcut refresh token")
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Şifre sıfırlama isteği — kayıtlı email adresine sıfırlama linki gönderilir."""
+
+    email: EmailStr = Field(description="Kayıtlı okul email adresi")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Sıfırlama token'ı ve yeni şifre ile şifre güncelleme."""
+
+    token: str = Field(description="Sıfırlama token'ı (email ile gelen)")
+    new_password: str = Field(
+        min_length=8,
+        description="Yeni şifre (minimum 8 karakter, 1 büyük harf, 1 rakam)",
+    )
+
+
+class ChangePasswordRequest(BaseModel):
+    """Şifre değiştirme isteği. Eski şifre doğrulanır, yeni şifre politikasına uyulur."""
+
+    current_password: str = Field(
+        description="Mevcut şifre (doğrulama için)"
+    )
+    new_password: str = Field(
+        min_length=8,
+        description="Yeni şifre (minimum 8 karakter, en az 1 büyük harf, 1 rakam)",
+    )
+
+    @property
+    def is_new_password_strong(self) -> bool:
+        """Yeni şifrenin gücünü kontrol eder."""
+        p = self.new_password
+        return (
+            len(p) >= 8
+            and any(c.isupper() for c in p)
+            and any(c.isdigit() for c in p)
+        )
+
+
+class UpdateProfileRequest(BaseModel):
+    """Kullanıcının kendi profilini güncellemesi için istek şeması (PATCH /auth/me)."""
+
+    first_name: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+        description="Yeni ad",
+    )
+    last_name: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+        description="Yeni soyad",
+    )
+
+
 class UserResponse(BaseResponse):
 
     email: str

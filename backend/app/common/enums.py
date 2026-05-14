@@ -8,6 +8,18 @@ Hardcoded string kullanmak yerine bu enum'lar kullanılır.
 import enum
 
 
+class ProjectType(str, enum.Enum):
+    """
+    Proje tipi — ders bazında öğretmen tarafından ayarlanır.
+    - INDIVIDUAL: Sadece bireysel proje oluşturulabilir
+    - TEAM: Sadece ekip projesi oluşturulabilir
+    - BOTH: İkisi de seçilebilir (varsayılan)
+    """
+    INDIVIDUAL = "individual"
+    TEAM       = "team"
+    BOTH       = "both"
+
+
 class MemberRole(str, enum.Enum):
     """
     Proje üyesinin proje içindeki rolü.
@@ -116,7 +128,9 @@ class ActivityAction(str, enum.Enum):
     """
     USER_LOGIN = "user_login"
     USER_REGISTER = "user_register"
+    USER_UPDATE = "user_update"
     USER_ROLE_CHANGE = "user_role_change"
+    USER_PASSWORD_CHANGE = "user_password_change"
     PROJECT_CREATE = "project_create"
     PROJECT_APPROVE = "project_approve"
     PROJECT_REJECT = "project_reject"

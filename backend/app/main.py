@@ -5,11 +5,19 @@ Tüm router'ları, middleware'leri ve exception handler'ları burada birleştiri
 Uvicorn ile çalıştırmak için: uvicorn app.main:app --reload
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.logging_config import setup_logging
 from app.common.exception_handlers import register_exception_handlers
+
+# Logging yapılandırmasını uygulama başlangıcında kur
+setup_logging(debug=settings.DEBUG)
 
 # Feature router'ları
 from app.features.auth.auth_controller import router as auth_router
@@ -44,20 +52,21 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# --- Rate Limiter ---
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- CORS Middleware ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
-
 
 # --- Global Exception Handler'lar ---
 register_exception_handlers(app)
-
 
 # --- Router Kayıtları ---
 app.include_router(auth_router)
@@ -88,5 +97,4 @@ def health_check():
         "status": "ok",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "debug": settings.DEBUG,
     }

@@ -3,10 +3,17 @@ Uygulama ayarları modülü.
 
 Pydantic Settings ile .env dosyasından ortam değişkenlerini okur.
 Tüm uygulama boyunca tek bir 'settings' objesi kullanılır.
+
+Güvenlik kuralları:
+- SECRET_KEY varsayılan değerdeyse ya da 32 karakterden kısaysa uygulama başlamaz.
+- DEBUG production'da False olmalı.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
+
+
+_DEFAULT_SECRET = "change-this-secret-key-in-production"
 
 
 class Settings(BaseSettings):
@@ -23,8 +30,8 @@ class Settings(BaseSettings):
 
     # --- JWT Authentication ---
     SECRET_KEY: str = Field(
-        default="change-this-secret-key-in-production",
-        description="JWT token imzalama anahtarı"
+        default=_DEFAULT_SECRET,
+        description="JWT token imzalama anahtarı (en az 32 karakter, rastgele)"
     )
     ALGORITHM: str = Field(
         default="HS256",
@@ -32,7 +39,7 @@ class Settings(BaseSettings):
     )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=15,
-        description="Access token geçerlilik süresi (dakika) — sliding expiration"
+        description="Access token geçerlilik süresi (dakika)"
     )
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
         default=7,
@@ -59,8 +66,8 @@ class Settings(BaseSettings):
         description="Uygulama versiyonu"
     )
     DEBUG: bool = Field(
-        default=True,
-        description="Debug modu (production'da False olmalı)"
+        default=False,
+        description="Debug modu — production'da False olmalı"
     )
 
     # --- CORS ---
@@ -90,6 +97,27 @@ class Settings(BaseSettings):
         default=False,
         description="HTTPS kullanılıp kullanılmayacağı (lokalde False)"
     )
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        """
+        Güvenlik doğrulamaları:
+        - SECRET_KEY varsayılan veya çok kısa olamaz (production'da).
+        - DEBUG=True iken uyarı verilir ama bloklanmaz (geliştirme için).
+        """
+        if not self.DEBUG:
+            # Production modunda SECRET_KEY kontrolü
+            if self.SECRET_KEY == _DEFAULT_SECRET:
+                raise ValueError(
+                    "SECRET_KEY varsayılan değerde! "
+                    ".env dosyasında güçlü bir anahtar belirtin. "
+                    "Üretmek için: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+                )
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    f"SECRET_KEY en az 32 karakter olmalı (mevcut: {len(self.SECRET_KEY)} karakter)."
+                )
+        return self
 
     @property
     def allowed_origins_list(self) -> list[str]:

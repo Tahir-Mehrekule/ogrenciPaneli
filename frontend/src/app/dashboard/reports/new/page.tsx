@@ -115,8 +115,9 @@ export default function NewReportPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje *</label>
+              <label htmlFor="rpt-project" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje *</label>
               <select
+                id="rpt-project"
                 value={selectedProjectId}
                 onChange={(e) => handleProjectChange(e.target.value)}
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
@@ -145,10 +146,11 @@ export default function NewReportPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="rpt-content" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Bu Hafta Ne Yaptınız? *
               </label>
               <textarea
+                id="rpt-content"
                 rows={6}
                 placeholder="Bu hafta proje üzerinde yaptığınız çalışmalar, ilerlemeler ve karşılaşılan zorluklar... (min 20 karakter)"
                 value={content}
@@ -159,10 +161,11 @@ export default function NewReportPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="rpt-youtube" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Video Rapor Linki {courseReq?.require_youtube ? "(Zorunlu) *" : "(Opsiyonel)"}
               </label>
               <input
+                id="rpt-youtube"
                 type="url"
                 placeholder="https://youtube.com/watch?v=..."
                 value={youtubeUrl}
@@ -173,10 +176,11 @@ export default function NewReportPage() {
 
             {/* Dosya Ekleme */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="rpt-file" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Dosya Ekle {courseReq?.require_file ? "(Zorunlu) *" : "(Opsiyonel)"}
               </label>
               <input
+                id="rpt-file"
                 ref={fileInputRef}
                 type="file"
                 className="hidden"

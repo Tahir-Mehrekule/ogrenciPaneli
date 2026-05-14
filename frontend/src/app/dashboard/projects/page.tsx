@@ -7,7 +7,8 @@ import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
-import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle } from "lucide-react";
+import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type ProjectStatus =
   | "DRAFT"
@@ -23,22 +24,30 @@ interface Project {
   description: string;
   status: ProjectStatus;
   created_by: string;
+  created_by_name: string | null;
   course_id: string | null;
   course_name: string | null;
   course_code: string | null;
+  project_type: string | null;
   created_at: string;
+}
+
+interface CourseOption {
+  id: string;
+  name: string;
+  code: string;
 }
 
 const STATUS_CONFIG: Record<
   ProjectStatus,
-  { label: string; className: string; dot: string }
+  { label: string; className: string; icon: LucideIcon }
 > = {
-  DRAFT:       { label: "Taslak",        className: "bg-slate-700/60 text-slate-300 border-slate-600/50",          dot: "bg-slate-400" },
-  PENDING:     { label: "Bekliyor",      className: "bg-amber-500/15 text-amber-400 border-amber-500/30",          dot: "bg-amber-400" },
-  APPROVED:    { label: "Onaylı",        className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",    dot: "bg-emerald-400" },
-  REJECTED:    { label: "Reddedildi",   className: "bg-red-500/15 text-red-400 border-red-500/30",                dot: "bg-red-400" },
-  IN_PROGRESS: { label: "Devam Ediyor", className: "bg-blue-500/15 text-blue-400 border-blue-500/30",             dot: "bg-blue-400" },
-  COMPLETED:   { label: "Tamamlandı",   className: "bg-teal-500/15 text-teal-400 border-teal-500/30",             dot: "bg-teal-400" },
+  DRAFT:       { label: "Taslak",        className: "bg-slate-700/60 text-slate-300 border-slate-600/50",        icon: FileText   },
+  PENDING:     { label: "Bekliyor",      className: "bg-amber-500/15 text-amber-400 border-amber-500/30",        icon: Clock      },
+  APPROVED:    { label: "Onaylı",        className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",  icon: CheckCircle},
+  REJECTED:    { label: "Reddedildi",    className: "bg-red-500/15 text-red-400 border-red-500/30",              icon: XCircle    },
+  IN_PROGRESS: { label: "Devam Ediyor",  className: "bg-blue-500/15 text-blue-400 border-blue-500/30",          icon: Play       },
+  COMPLETED:   { label: "Tamamlandı",    className: "bg-teal-500/15 text-teal-400 border-teal-500/30",          icon: CheckCheck },
 };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -51,13 +60,14 @@ function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[normalized] ?? {
     label: status,
     className: "bg-slate-700 text-slate-300 border-slate-600",
-    dot: "bg-slate-400",
+    icon: FileText,
   };
+  const Icon = cfg.icon;
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium ${cfg.className}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      <Icon className="h-3 w-3" aria-hidden="true" />
       {cfg.label}
     </span>
   );
@@ -78,12 +88,23 @@ export default function ProjectsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
 
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
   const isStaff = role === "TEACHER" || role === "ADMIN";
+
+  // Ders filtre seçeneklerini yükle (teacher/admin için)
+  useEffect(() => {
+    if (!isStaff) return;
+    apiClient.get("/api/v1/courses?size=200").then((res) => {
+      setCourseOptions(res.data?.items ?? []);
+    }).catch(() => {});
+  }, [isStaff]);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
@@ -94,8 +115,10 @@ export default function ProjectsPage() {
         sort_by: sortBy,
         order: sortOrder,
       });
-      if (search) params.set("search", search);
+      if (search)       params.set("search", search);
       if (statusFilter) params.set("status", statusFilter);
+      if (gradeFilter)  params.set("grade_label", gradeFilter);
+      if (courseFilter) params.set("course_id", courseFilter);
       const { data } = await apiClient.get(`/api/v1/projects?${params}`);
       setProjects(data.items);
       setTotal(data.total);
@@ -105,11 +128,11 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, page, pageSize, sortBy, sortOrder]);
+  }, [search, statusFilter, gradeFilter, courseFilter, page, pageSize, sortBy, sortOrder]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, sortBy, sortOrder]);
+  }, [search, statusFilter, gradeFilter, courseFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchProjects();
@@ -170,6 +193,17 @@ export default function ProjectsPage() {
         </div>
       ),
     },
+    ...(isStaff
+      ? [{
+          key: "student" as keyof Project,
+          header: "Öğrenci",
+          render: (p: Project) => (
+            <span className="text-sm text-gray-300">
+              {p.created_by_name ?? "—"}
+            </span>
+          ),
+        }]
+      : []),
     {
       key: "course",
       header: "Ders",
@@ -309,11 +343,41 @@ export default function ProjectsPage() {
           <option value="IN_PROGRESS">Devam Ediyor</option>
           <option value="COMPLETED">Tamamlandı</option>
         </select>
-        {(search || statusFilter) && (
+
+        {/* Sınıf filtresi */}
+        <select
+          value={gradeFilter}
+          onChange={(e) => setGradeFilter(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 outline-none focus:border-indigo-400"
+        >
+          <option value="">Tüm Sınıflar</option>
+          <option value="1. Sınıf">1. Sınıf</option>
+          <option value="2. Sınıf">2. Sınıf</option>
+          <option value="3. Sınıf">3. Sınıf</option>
+          <option value="4. Sınıf">4. Sınıf</option>
+        </select>
+
+        {/* Ders filtresi (sadece staff) */}
+        {isStaff && courseOptions.length > 0 && (
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 outline-none focus:border-indigo-400"
+          >
+            <option value="">Tüm Dersler</option>
+            {courseOptions.map((c) => (
+              <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+            ))}
+          </select>
+        )}
+
+        {(search || statusFilter || gradeFilter || courseFilter) && (
           <button
             onClick={() => {
               setSearch("");
               setStatusFilter("");
+              setGradeFilter("");
+              setCourseFilter("");
             }}
             className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800/40 dark:text-red-400 dark:hover:bg-red-900/10"
           >

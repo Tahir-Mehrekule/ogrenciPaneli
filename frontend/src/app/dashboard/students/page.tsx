@@ -9,6 +9,8 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
 import { ImportExportToolbar } from "@/components/ui/ImportExportToolbar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
+import { GRADE_OPTIONS } from "@/constants/grades";
 
 interface Student {
   id: string;
@@ -154,7 +156,7 @@ export default function StudentsPage() {
     try {
       // Admin: isim güncelle (PATCH /users/{id})
       if (isAdmin) {
-        const namePayload: any = {};
+        const namePayload: Partial<{ first_name: string; last_name: string }> = {};
         if (editState.first_name.trim()) namePayload.first_name = editState.first_name.trim();
         if (editState.last_name.trim()) namePayload.last_name = editState.last_name.trim();
         if (Object.keys(namePayload).length > 0) {
@@ -163,7 +165,7 @@ export default function StudentsPage() {
       }
 
       // Teacher + Admin: öğrenci bilgisi güncelle (PATCH /users/{id}/student-info)
-      const infoPayload: any = {};
+      const infoPayload: Partial<{ student_no: string; grade_label: string }> = {};
       if (editState.student_no) infoPayload.student_no = editState.student_no;
       if (editState.grade_label) infoPayload.grade_label = editState.grade_label;
       if (Object.keys(infoPayload).length > 0) {
@@ -198,16 +200,16 @@ export default function StudentsPage() {
     }
   };
 
-  const handleImport = async (data: any[]) => {
+  const handleImport = async (data: Record<string, unknown>[]) => {
     setIsImporting(true);
     try {
       const payload = data.map((item) => ({
-        first_name: item.first_name || item["Ad"] || "",
-        last_name: item.last_name || item["Soyad"] || "",
-        email: item.email || item["E-posta"] || "",
-        student_no: item.student_no || item["Okul No"] || item["Öğrenci No"] || "",
+        first_name: String(item.first_name ?? item["Ad"] ?? ""),
+        last_name: String(item.last_name ?? item["Soyad"] ?? ""),
+        email: String(item.email ?? item["E-posta"] ?? ""),
+        student_no: String(item.student_no ?? item["Okul No"] ?? item["Öğrenci No"] ?? ""),
         department_names: item.department_names
-          ? String(item.department_names).split(",").map((d: string) => d.trim())
+          ? String(item.department_names).split(",").map((d) => d.trim())
           : [],
       }));
       const res = await apiClient.post("/api/v1/users/import", payload);
@@ -232,11 +234,11 @@ export default function StudentsPage() {
       const { data } = await apiClient.get(`/api/v1/users/my-students?${params}`);
       const { utils, writeFile } = await import("xlsx");
       const ws = utils.json_to_sheet(
-        data.items.map((s: any) => ({
+        data.items.map((s: Student) => ({
           "Ad": s.first_name,
           "Soyad": s.last_name,
           "Okul No": s.student_no || "",
-          "Bölüm": s.departments.map((d: any) => d.name).join(", "),
+          "Bölüm": s.departments.map((d) => d.name).join(", "),
           "Sınıf": s.grade_label || "",
           "E-posta": s.email,
           "Durum": s.is_active ? "Aktif" : "Pasif",
@@ -380,10 +382,9 @@ export default function StudentsPage() {
           className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
         >
           <option value="">Tüm Sınıflar</option>
-          <option value="1. Sınıf">1. Sınıf</option>
-          <option value="2. Sınıf">2. Sınıf</option>
-          <option value="3. Sınıf">3. Sınıf</option>
-          <option value="4. Sınıf">4. Sınıf</option>
+          {GRADE_OPTIONS.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
         </select>
 
         <select
@@ -436,9 +437,9 @@ export default function StudentsPage() {
 
       {/* ─── Düzenleme Modalı ─── */}
       {editState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Öğrenci Düzenle">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditState(null)} />
-          <div className="relative w-full max-w-sm rounded-2xl bg-gray-900 border border-gray-800 p-6 shadow-2xl">
+          <FocusTrapContainer className="relative w-full max-w-sm rounded-2xl bg-gray-900 border border-gray-800 p-6 shadow-2xl">
             <h3 className="mb-1 text-lg font-semibold text-white">Bilgileri Düzenle</h3>
             <p className="mb-5 text-sm text-gray-400">{editState.student.full_name}</p>
 
@@ -448,8 +449,9 @@ export default function StudentsPage() {
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-gray-400">Ad</label>
+                      <label htmlFor="st-edit-firstname" className="mb-1.5 block text-xs font-medium text-gray-400">Ad</label>
                       <input
+                        id="st-edit-firstname"
                         type="text"
                         value={editState.first_name}
                         onChange={(e) => setEditState((s) => s && { ...s, first_name: e.target.value })}
@@ -457,8 +459,9 @@ export default function StudentsPage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-gray-400">Soyad</label>
+                      <label htmlFor="st-edit-lastname" className="mb-1.5 block text-xs font-medium text-gray-400">Soyad</label>
                       <input
+                        id="st-edit-lastname"
                         type="text"
                         value={editState.last_name}
                         onChange={(e) => setEditState((s) => s && { ...s, last_name: e.target.value })}
@@ -472,8 +475,9 @@ export default function StudentsPage() {
 
               {/* Teacher + Admin: öğrenci bilgileri */}
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">Öğrenci Numarası</label>
+                <label htmlFor="st-edit-student-no" className="mb-1.5 block text-xs font-medium text-gray-400">Öğrenci Numarası</label>
                 <input
+                  id="st-edit-student-no"
                   type="text"
                   maxLength={9}
                   placeholder="123456789"
@@ -488,17 +492,17 @@ export default function StudentsPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">Sınıf Etiketi</label>
+                <label htmlFor="st-edit-grade" className="mb-1.5 block text-xs font-medium text-gray-400">Sınıf Etiketi</label>
                 <select
+                  id="st-edit-grade"
                   value={editState.grade_label}
                   onChange={(e) => setEditState((s) => s && { ...s, grade_label: e.target.value })}
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 text-gray-200"
                 >
                   <option value="">Otomatik (numaradan belirle)</option>
-                  <option value="1. Sınıf">1. Sınıf</option>
-                  <option value="2. Sınıf">2. Sınıf</option>
-                  <option value="3. Sınıf">3. Sınıf</option>
-                  <option value="4. Sınıf">4. Sınıf</option>
+                  {GRADE_OPTIONS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -518,7 +522,7 @@ export default function StudentsPage() {
                 {saving ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
-          </div>
+          </FocusTrapContainer>
         </div>
       )}
 

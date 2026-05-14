@@ -7,6 +7,7 @@ Haftalık rapor oluşturma, güncelleme, teslim ve inceleme işlemlerinin orkest
 import math
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.base.base_dto import PaginatedResponse
@@ -69,15 +70,25 @@ class ReportService(BaseService[Report, ReportRepo]):
             data.project_id, current_user.id, week_number, year
         )
 
-        report = self.repo.create({
-            "project_id": data.project_id,
-            "submitted_by": current_user.id,
-            "week_number": week_number,
-            "year": year,
-            "content": data.content,
-            "youtube_url": data.youtube_url,
-            "status": ReportStatus.DRAFT,
-        })
+        # Race condition koruması: uq_report_weekly constraint → IntegrityError → 409.
+        # İki eş zamanlı istek her ikisi de validate_weekly_uniqueness'tan geçebilir;
+        # DB constraint ikincisini reddeder — biz 500 yerine 409 döneriz.
+        try:
+            report = self.repo.create({
+                "project_id": data.project_id,
+                "submitted_by": current_user.id,
+                "week_number": week_number,
+                "year": year,
+                "content": data.content,
+                "youtube_url": data.youtube_url,
+                "status": ReportStatus.DRAFT,
+            })
+        except IntegrityError:
+            self.db.rollback()
+            from app.common.exceptions import ConflictException
+            raise ConflictException(
+                f"{year} yılının {week_number}. haftası için rapor zaten mevcut"
+            )
         return self._to_response(report)
 
     def list_reports(self, params: ReportFilterParams, current_user: User) -> PaginatedResponse:

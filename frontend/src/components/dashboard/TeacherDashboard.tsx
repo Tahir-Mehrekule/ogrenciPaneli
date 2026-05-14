@@ -43,7 +43,7 @@ export const TeacherDashboard = () => {
           apiClient.get("/api/v1/projects?per_page=100"),
         ]);
 
-        const courses: any[] = coursesRes.data?.items ?? [];
+        const courses: unknown[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];
 
         const pending = projects.filter((p) => p.status?.toUpperCase() === "PENDING");
@@ -92,7 +92,7 @@ export const TeacherDashboard = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-          Hoş geldin, Öğretmen {user?.name?.split(" ")[0]}! 🎓
+          Hoş geldin, Öğretmen {user?.full_name?.split(" ")[0]}! 🎓
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Öğrenci proje onayları ve sınıf istatistikleri burada listeleniyor.

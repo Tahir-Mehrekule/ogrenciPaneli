@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
-from app.common.enums import ProjectStatus, UserRole, NotificationType, ActivityAction, EntityType
+from app.common.enums import ProjectStatus, ProjectType, UserRole, NotificationType, ActivityAction, EntityType
 from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
 from app.features.project.project_model import Project
@@ -46,9 +46,15 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         return response
 
     def _to_response(self, project) -> ProjectResponse:
-        """Proje nesnesini response DTO'ya dönüştürür ve ders bilgisiyle zenginleştirir."""
+        """Proje nesnesini response DTO'ya dönüştürür; ders ve oluşturan ismi ekler."""
         response = ProjectResponse.model_validate(project)
-        return self._enrich_with_course(project, response)
+        response = self._enrich_with_course(project, response)
+        try:
+            if project.creator:
+                response.created_by_name = project.creator.full_name
+        except Exception:
+            pass
+        return response
 
     def create_project(self, data: ProjectCreate, current_user: User) -> ProjectResponse:
         """
@@ -64,6 +70,18 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         # Benzersiz 8 karakterlik paylaşım kodu üret
         share_code = self._generate_unique_share_code()
 
+        # Ders project_type kontrolü: dersin ayarına göre zorla veya doğrula
+        resolved_type = data.project_type
+        if data.course_id:
+            from app.features.course.course_repo import CourseRepo
+            course = CourseRepo(self.db).get_by_id(data.course_id)
+            if course:
+                if course.project_type == ProjectType.INDIVIDUAL:
+                    resolved_type = ProjectType.INDIVIDUAL
+                elif course.project_type == ProjectType.TEAM:
+                    resolved_type = ProjectType.TEAM
+                # BOTH → kullanıcının seçimine bırak
+
         project_data = {
             "title": data.title,
             "description": data.description,
@@ -71,6 +89,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             "status": ProjectStatus.DRAFT,
             "created_by": current_user.id,
             "share_code": share_code,
+            "project_type": resolved_type,
         }
         project = self.repo.create(project_data)
         log_activity(self.db, ActivityAction.PROJECT_CREATE, user_id=current_user.id,
@@ -96,17 +115,20 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         filters = {}
         if params.status:
             filters["status"] = params.status
-        if params.created_by:
-            filters["created_by"] = params.created_by
+        if params.course_id:
+            filters["course_id"] = params.course_id
 
-        # STUDENT sadece kendi projelerini görür
+        # STUDENT sadece kendi projelerini görür; teacher/admin ek filtre uygulayabilir
         if current_user.role == UserRole.STUDENT:
             filters["created_by"] = current_user.id
+        elif params.created_by:
+            filters["created_by"] = params.created_by
 
-        projects, total = self.repo.get_many(
+        projects, total = self.repo.get_many_filtered(
             filters=filters,
             search=params.search,
             search_fields=["title", "description"],
+            grade_label=params.grade_label,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -148,6 +170,10 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         """
         Proje bilgilerini günceller. Sadece DRAFT projeler güncellenebilir.
 
+        İçerik değişikliği yapıldığında rejected_at temizlenir (BL-4):
+        → Bu sayede önceki red sonrası içerik güncellendi olarak işaretlenir
+        → submit_for_approval artık bu projeyi tekrar onaya gönderebilir.
+
         Raises:
             NotFoundException, ForbiddenException, BadRequestException
         """
@@ -159,14 +185,34 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             raise BadRequestException("Sadece DRAFT statüsündeki projeler güncellenebilir")
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+
+        # BL-4: İçerik (title veya description) değiştiyse → red kaydını temizle
+        if update_data.get("title") or update_data.get("description"):
+            update_data["rejected_at"] = None
+
         updated = self.repo.update(project_id, update_data)
         return self._to_response(updated)
 
     def submit_for_approval(self, project_id: UUID, current_user: User) -> ProjectResponse:
-        """Projeyi onay için gönderir: DRAFT → PENDING."""
+        """
+        Projeyi onay için gönderir: DRAFT → PENDING.
+
+        BL-4 kontrolü: Daha önce reddedilmiş bir proje, içerik değişikliği
+        yapılmadan tekrar gönderilemez. rejected_at alanı dolduysa ve PATCH
+        ile temizlenmediyse hata fırlatılır.
+        """
+        from app.common.exceptions import BadRequestException
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_project_owner(project, current_user)
         self.manager.validate_status_transition(project.status, ProjectStatus.PENDING)
+
+        # BL-4: Reddedilmiş proje içerik değiştirmeden tekrar gönderilemez
+        if project.rejected_at is not None:
+            raise BadRequestException(
+                "Bu proje daha önce reddedildi. Tekrar göndermeden önce "
+                "başlık veya açıklamayı güncellemeniz gerekmektedir."
+            )
+
         updated = self.repo.update(project_id, {"status": ProjectStatus.PENDING})
         return self._to_response(updated)
 
@@ -192,9 +238,14 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
     def reject_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """Projeyi reddeder: PENDING → REJECTED. Sadece TEACHER/ADMIN."""
+        from datetime import datetime, timezone
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_status_transition(project.status, ProjectStatus.REJECTED)
-        updated = self.repo.update(project_id, {"status": ProjectStatus.REJECTED})
+        # BL-4: Reddedilme zamanını kaydet
+        updated = self.repo.update(project_id, {
+            "status": ProjectStatus.REJECTED,
+            "rejected_at": datetime.now(timezone.utc),
+        })
         log_activity(self.db, ActivityAction.PROJECT_REJECT, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
                      details={"title": project.title})
@@ -208,6 +259,19 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             related_id=project.id
         )
 
+        return self._to_response(updated)
+
+    def reopen_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
+        """
+        Reddedilmiş projeyi düzenlemeye açar: REJECTED → DRAFT.
+
+        rejected_at korunur — submit_for_approval içerik değişikliği zorunlu kılar.
+        Sadece proje sahibi veya Admin yapabilir.
+        """
+        project = self.repo.get_by_id_or_404(project_id)
+        self.manager.validate_project_owner(project, current_user)
+        self.manager.validate_status_transition(project.status, ProjectStatus.DRAFT)
+        updated = self.repo.update(project_id, {"status": ProjectStatus.DRAFT})
         return self._to_response(updated)
 
     def delete_project(self, project_id: UUID, current_user: User) -> dict:

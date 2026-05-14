@@ -1,10 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { BookOpen } from "lucide-react";
+
+type ProjectType = "individual" | "team" | "both";
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+const PROJECT_TYPE_OPTIONS: { value: ProjectType; label: string; desc: string }[] = [
+  { value: "both",       label: "Her İkisi",              desc: "Öğrenci bireysel veya ekip seçer" },
+  { value: "individual", label: "Bireysel Proje Zorunlu", desc: "Sadece bireysel proje açılabilir" },
+  { value: "team",       label: "Ekip Projesi Zorunlu",   desc: "Sadece ekip projesi açılabilir" },
+];
 
 export default function NewCoursePage() {
   const router = useRouter();
@@ -13,18 +26,26 @@ export default function NewCoursePage() {
   const [semester, setSemester] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [branch, setBranch] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [projectType, setProjectType] = useState<ProjectType>("both");
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    apiClient.get("/api/v1/departments?size=100").then((res) => {
+      setDepartments(res.data?.items ?? []);
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !code || !semester) {
-      setError("Tüm alanları doldurun.");
+      setError("Ders adı, kodu ve dönemi zorunludur.");
       return;
     }
-
     try {
       setIsLoading(true);
       setError("");
@@ -34,19 +55,17 @@ export default function NewCoursePage() {
         semester,
         grade_level: gradeLevel || undefined,
         branch: branch || undefined,
+        department_id: departmentId || undefined,
+        project_type: projectType,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
       router.push("/dashboard/courses");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      if (typeof detail === "string") {
-        setError(detail);
-      } else if (Array.isArray(detail)) {
-        setError(detail.map((d: any) => d.msg).join(", "));
-      } else {
-        setError("Ders oluşturulamadı.");
-      }
+      if (typeof detail === "string") setError(detail);
+      else if (Array.isArray(detail)) setError(detail.map((d: any) => d.msg).join(", "));
+      else setError("Ders oluşturulamadı.");
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +83,7 @@ export default function NewCoursePage() {
           </div>
           <CardTitle>Yeni Ders Oluştur</CardTitle>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Öğrencilerin kaydolabileceği yeni bir ders açın.
+            Bölümünüzdeki öğrenciler bu dersi otomatik olarak görür.
           </p>
         </CardHeader>
         <CardContent>
@@ -76,10 +95,11 @@ export default function NewCoursePage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="crs-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Ders Adı
               </label>
               <input
+                id="crs-name"
                 type="text"
                 placeholder="Yazılım Mühendisliği"
                 value={name}
@@ -89,10 +109,11 @@ export default function NewCoursePage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="crs-code" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Ders Kodu
               </label>
               <input
+                id="crs-code"
                 type="text"
                 placeholder="CENG314"
                 value={code}
@@ -102,10 +123,11 @@ export default function NewCoursePage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="crs-semester" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Dönem
               </label>
               <input
+                id="crs-semester"
                 type="text"
                 placeholder="2025-2026 Güz"
                 value={semester}
@@ -114,13 +136,35 @@ export default function NewCoursePage() {
               />
             </div>
 
+            {/* Bölüm */}
+            <div>
+              <label htmlFor="crs-department" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Bölüm <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+              </label>
+              <select
+                id="crs-department"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— Bölüm seçin —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Seçilen bölümdeki öğrenciler bu dersi otomatik görür.
+              </p>
+            </div>
+
             {/* Sınıf / Şube */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="crs-grade" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Sınıf / Yıl <span className="text-gray-400 font-normal">(Opsiyonel)</span>
                 </label>
                 <input
+                  id="crs-grade"
                   type="text"
                   placeholder="2. Sınıf"
                   value={gradeLevel}
@@ -129,16 +173,52 @@ export default function NewCoursePage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="crs-branch" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Şube <span className="text-gray-400 font-normal">(Opsiyonel)</span>
                 </label>
                 <input
+                  id="crs-branch"
                   type="text"
                   placeholder="A Şubesi"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
                   className={inputClass}
                 />
+              </div>
+            </div>
+
+            {/* Proje Tipi */}
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Proje Tipi
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Bu derse öğrencilerin oluşturabileceği proje türü.
+              </p>
+              <div className="space-y-2">
+                {PROJECT_TYPE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      projectType === opt.value
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        : "border-gray-200 dark:border-slate-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="project_type"
+                      value={opt.value}
+                      checked={projectType === opt.value}
+                      onChange={() => setProjectType(opt.value)}
+                      className="mt-0.5 accent-indigo-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{opt.label}</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -151,7 +231,7 @@ export default function NewCoursePage() {
                 Öğrencilerin rapor teslim ederken uyması gereken zorunluluklar.
               </p>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -168,7 +248,7 @@ export default function NewCoursePage() {
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input
                     type="checkbox"

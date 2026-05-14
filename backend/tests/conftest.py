@@ -129,6 +129,16 @@ def student_token(client, student_user):
 
 
 @pytest.fixture
+def student_refresh_token(client, student_user):
+    """Öğrenci için geçerli refresh token döner."""
+    resp = client.post("/api/v1/auth/login", json={
+        "email": "student@ogr.uni.edu.tr",
+        "password": "Test1234!",
+    })
+    return resp.json()["refresh_token"]
+
+
+@pytest.fixture
 def teacher_token(client, teacher_user):
     """Öğretmen için geçerli access token döner."""
     resp = client.post("/api/v1/auth/login", json={

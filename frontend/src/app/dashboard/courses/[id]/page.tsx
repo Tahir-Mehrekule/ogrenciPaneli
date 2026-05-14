@@ -4,7 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ArrowLeft, BookOpen, Save, Trash2 } from "lucide-react";
+
+type ProjectType = "individual" | "team" | "both";
 
 interface CourseDetail {
   id: string;
@@ -12,10 +15,19 @@ interface CourseDetail {
   code: string;
   semester: string;
   teacher_id: string;
+  teacher_name: string;
+  department_id: string | null;
   is_active: boolean;
+  project_type: ProjectType;
   require_youtube: boolean;
   require_file: boolean;
 }
+
+const PROJECT_TYPE_OPTIONS: { value: ProjectType; label: string; desc: string }[] = [
+  { value: "both",       label: "Her İkisi",              desc: "Öğrenci bireysel veya ekip seçer" },
+  { value: "individual", label: "Bireysel Proje Zorunlu", desc: "Sadece bireysel proje açılabilir" },
+  { value: "team",       label: "Ekip Projesi Zorunlu",   desc: "Sadece ekip projesi açılabilir" },
+];
 
 export default function CourseEditPage() {
   const router = useRouter();
@@ -25,6 +37,7 @@ export default function CourseEditPage() {
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [name, setName] = useState("");
   const [semester, setSemester] = useState("");
+  const [projectType, setProjectType] = useState<ProjectType>("both");
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,6 +52,7 @@ export default function CourseEditPage() {
         setCourse(data);
         setName(data.name);
         setSemester(data.semester);
+        setProjectType(data.project_type ?? "both");
         setRequireYoutube(data.require_youtube);
         setRequireFile(data.require_file);
       } catch (err: any) {
@@ -56,7 +70,6 @@ export default function CourseEditPage() {
       setError("Ders adı ve dönem boş bırakılamaz.");
       return;
     }
-
     try {
       setSaving(true);
       setError("");
@@ -64,6 +77,7 @@ export default function CourseEditPage() {
       await apiClient.patch(`/api/v1/courses/${courseId}`, {
         name: name.trim(),
         semester: semester.trim(),
+        project_type: projectType,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
@@ -90,8 +104,13 @@ export default function CourseEditPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-gray-400">Ders bilgileri yükleniyor...</p>
+      <div className="mx-auto max-w-lg space-y-4">
+        <div className="h-4 w-48 rounded-lg bg-gray-800 animate-pulse" />
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-6 space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-10 rounded-xl bg-gray-800 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -101,10 +120,7 @@ export default function CourseEditPage() {
       <div className="mx-auto max-w-lg">
         <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-6 text-center">
           <p className="text-sm text-red-400">{error}</p>
-          <button
-            onClick={() => router.push("/dashboard/courses")}
-            className="mt-4 text-sm text-indigo-400 hover:underline"
-          >
+          <button onClick={() => router.push("/dashboard/courses")} className="mt-4 text-sm text-indigo-400 hover:underline">
             Derslere Dön
           </button>
         </div>
@@ -116,7 +132,13 @@ export default function CourseEditPage() {
     "w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400";
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg space-y-4">
+      <Breadcrumb
+        items={[
+          { label: "Dersler", href: "/dashboard/courses" },
+          { label: course?.name ?? "Ders Detayı" },
+        ]}
+      />
       <button
         onClick={() => router.push("/dashboard/courses")}
         className="mb-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors select-none"
@@ -148,10 +170,11 @@ export default function CourseEditPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="edit-crs-code" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Ders Kodu
               </label>
               <input
+                id="edit-crs-code"
                 type="text"
                 value={course?.code ?? ""}
                 disabled
@@ -161,10 +184,11 @@ export default function CourseEditPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="edit-crs-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Ders Adı *
               </label>
               <input
+                id="edit-crs-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -174,10 +198,11 @@ export default function CourseEditPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="edit-crs-semester" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Dönem *
               </label>
               <input
+                id="edit-crs-semester"
                 type="text"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
@@ -186,23 +211,47 @@ export default function CourseEditPage() {
               />
             </div>
 
+            {/* Proje Tipi */}
+            <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Proje Tipi</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Bu derse öğrencilerin oluşturabileceği proje türü.
+              </p>
+              <div className="space-y-2">
+                {PROJECT_TYPE_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      projectType === opt.value
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        : "border-gray-200 dark:border-slate-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="project_type_edit"
+                      value={opt.value}
+                      checked={projectType === opt.value}
+                      onChange={() => setProjectType(opt.value)}
+                      className="mt-0.5 accent-indigo-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{opt.label}</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Rapor Gereksinimleri */}
             <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Haftalık Rapor Gereksinimleri
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Öğrencilerin rapor teslim ederken uyması gereken zorunluluklar.
-              </p>
-
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={requireYoutube}
-                    onChange={(e) => setRequireYoutube(e.target.checked)}
-                    className="sr-only peer"
-                  />
+                  <input type="checkbox" checked={requireYoutube} onChange={(e) => setRequireYoutube(e.target.checked)} className="sr-only peer" />
                   <div className="w-10 h-5 bg-gray-300 dark:bg-slate-600 rounded-full peer-checked:bg-indigo-600 transition-colors" />
                   <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
                 </div>
@@ -211,15 +260,9 @@ export default function CourseEditPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">Rapor tesliminde video linki şartı</p>
                 </div>
               </label>
-
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={requireFile}
-                    onChange={(e) => setRequireFile(e.target.checked)}
-                    className="sr-only peer"
-                  />
+                  <input type="checkbox" checked={requireFile} onChange={(e) => setRequireFile(e.target.checked)} className="sr-only peer" />
                   <div className="w-10 h-5 bg-gray-300 dark:bg-slate-600 rounded-full peer-checked:bg-indigo-600 transition-colors" />
                   <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
                 </div>

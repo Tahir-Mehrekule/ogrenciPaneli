@@ -4,13 +4,17 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { FolderKanban, Clock, ArrowRight, Send } from "lucide-react";
+import { FolderKanban, Clock, ArrowRight, Send, User, Users, Lock } from "lucide-react";
+
+type CourseProjectType = "individual" | "team" | "both";
+type ChosenProjectType = "individual" | "team";
 
 interface Course {
   id: string;
   name: string;
   code: string;
   semester: string;
+  project_type?: CourseProjectType;
 }
 
 export default function NewProjectPage() {
@@ -19,6 +23,8 @@ export default function NewProjectPage() {
   const [description, setDescription] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [courseProjectType, setCourseProjectType] = useState<CourseProjectType | null>(null);
+  const [chosenProjectType, setChosenProjectType] = useState<ChosenProjectType>("individual");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
@@ -28,10 +34,34 @@ export default function NewProjectPage() {
     apiClient.get("/api/v1/courses").then(({ data }) => setCourses(data.items ?? [])).catch(() => {});
   }, []);
 
+  const handleCourseChange = async (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCourseProjectType(null);
+    if (!courseId) return;
+    try {
+      const { data } = await apiClient.get<Course>(`/api/v1/courses/${courseId}`);
+      const pt = data.project_type ?? "both";
+      setCourseProjectType(pt);
+      if (pt === "individual") setChosenProjectType("individual");
+      else if (pt === "team") setChosenProjectType("team");
+    } catch {
+      setCourseProjectType("both");
+    }
+  };
+
+  const resolvedProjectType = (): ChosenProjectType | undefined => {
+    if (!selectedCourseId) return undefined;
+    if (courseProjectType === "individual") return "individual";
+    if (courseProjectType === "team") return "team";
+    return chosenProjectType;
+  };
+
   const handleSubmit = async (e: React.FormEvent, submitForApproval = false) => {
     e.preventDefault();
     if (!title.trim() || title.length < 3) return setError("Proje başlığı en az 3 karakter olmalı.");
     if (!description.trim() || description.length < 10) return setError("Açıklama en az 10 karakter olmalı.");
+
+    const pt = resolvedProjectType();
 
     try {
       setIsLoading(true);
@@ -40,6 +70,7 @@ export default function NewProjectPage() {
         title: title.trim(),
         description: description.trim(),
         ...(selectedCourseId ? { course_id: selectedCourseId } : {}),
+        ...(pt ? { project_type: pt } : {}),
       });
 
       // Direkt onaya gönder seçildiyse submit endpoint'ini de çağır
@@ -171,8 +202,9 @@ export default function NewProjectPage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje Başlığı</label>
+              <label htmlFor="prj-title" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje Başlığı</label>
               <input
+                id="prj-title"
                 type="text"
                 placeholder="örn. Yapay Zeka Destekli Not Uygulaması"
                 value={title}
@@ -182,8 +214,9 @@ export default function NewProjectPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje Açıklaması</label>
+              <label htmlFor="prj-desc" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Proje Açıklaması</label>
               <textarea
+                id="prj-desc"
                 rows={4}
                 placeholder="Projenizin amacını ve kapsamını açıklayın..."
                 value={description}
@@ -193,10 +226,11 @@ export default function NewProjectPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ders (Opsiyonel)</label>
+              <label htmlFor="prj-course" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ders (Opsiyonel)</label>
               <select
+                id="prj-course"
                 value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
+                onChange={(e) => handleCourseChange(e.target.value)}
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
               >
                 <option value="">— Ders seçme</option>
@@ -205,6 +239,65 @@ export default function NewProjectPage() {
                 ))}
               </select>
             </div>
+
+            {/* Proje Tipi — ders seçilince görünür */}
+            {selectedCourseId && courseProjectType && (
+              <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Proje Tipi</p>
+
+                {courseProjectType === "both" ? (
+                  <div className="space-y-2">
+                    {[
+                      { value: "individual" as const, label: "Bireysel Proje", desc: "Sadece sen çalışırsın", icon: <User className="h-4 w-4 text-violet-400" /> },
+                      { value: "team"       as const, label: "Ekip Projesi",   desc: "Takım arkadaşı davet edebilirsin", icon: <Users className="h-4 w-4 text-cyan-400" /> },
+                    ].map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                          chosenProjectType === opt.value
+                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                            : "border-gray-200 dark:border-slate-600 hover:border-indigo-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="chosen_project_type"
+                          value={opt.value}
+                          checked={chosenProjectType === opt.value}
+                          onChange={() => setChosenProjectType(opt.value)}
+                          className="accent-indigo-600"
+                        />
+                        {opt.icon}
+                        <div>
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{opt.label}</span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{opt.desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`flex items-center gap-3 rounded-lg border p-3 ${
+                    courseProjectType === "team"
+                      ? "border-cyan-500/40 bg-cyan-500/10"
+                      : "border-violet-500/40 bg-violet-500/10"
+                  }`}>
+                    <Lock className="h-4 w-4 text-gray-400 shrink-0" />
+                    {courseProjectType === "team"
+                      ? <Users className="h-4 w-4 text-cyan-400 shrink-0" />
+                      : <User  className="h-4 w-4 text-violet-400 shrink-0" />
+                    }
+                    <div>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {courseProjectType === "team" ? "Ekip Projesi (Zorunlu)" : "Bireysel Proje (Zorunlu)"}
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Bu ders için öğretmen tarafından proje tipi sabitlenmiştir.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* İki Buton */}
             <div className="flex gap-3 pt-1">

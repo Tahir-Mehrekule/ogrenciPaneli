@@ -68,7 +68,8 @@
       "Bash(rtk tsc *)",
       "Bash(rtk npm *)",
       "Bash(Get-Content \"C:\\\\Users\\\\Tahir\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Tahir-Documents-GitHub-ogrenciPaneli\\\\064ab2cc-4c23-4390-944b-23fccc770782\\\\tasks\\\\bte8jj3xd.output\" -Tail 20)",
-      "Bash(rtk curl *)"
+      "Bash(rtk curl *)",
+      "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\" -ErrorAction SilentlyContinue)"
     ]
   }
 }

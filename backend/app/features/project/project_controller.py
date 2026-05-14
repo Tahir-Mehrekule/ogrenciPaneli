@@ -128,6 +128,23 @@ def reject_project(
     return ProjectService(db).reject_project(project_id, current_user)
 
 
+@router.post(
+    "/{project_id}/reopen",
+    response_model=ProjectResponse,
+    summary="Reddedilen projeyi yeniden aç",
+    description=(
+        "REJECTED → DRAFT geçişi. İçerik değiştirip tekrar onaya göndermek için kullanılır. "
+        "Önemli: submit öncesi başlık veya açıklamayı güncellemeniz gerekmektedir (BL-4)."
+    ),
+)
+def reopen_project(
+    project_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).reopen_project(project_id, current_user)
+
+
 @router.delete(
     "/{project_id}",
     summary="Proje sil",

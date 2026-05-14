@@ -7,7 +7,9 @@ import toast from "react-hot-toast";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { AuthContext } from "@/context/AuthContext";
+import { GRADE_OPTIONS } from "@/constants/grades";
 
 type TabRole = "all" | "STUDENT" | "TEACHER";
 
@@ -51,8 +53,6 @@ const SORT_OPTIONS: SortOption[] = [
   { value: "full_name", label: "Ad Soyad" },
   { value: "email", label: "E-posta" },
 ];
-
-const GRADE_OPTIONS = ["1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf"];
 
 export default function UsersPage() {
   const { user: currentUser } = useContext(AuthContext);
@@ -443,12 +443,12 @@ export default function UsersPage() {
 
       {/* Düzenleme Modalı */}
       {editState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Kullanıcı Düzenle">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => !editLoading && setEditState(null)}
           />
-          <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
+          <FocusTrapContainer className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Kullanıcı Düzenle</h2>
               <button
@@ -465,16 +465,18 @@ export default function UsersPage() {
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Ad</label>
+                    <label htmlFor="usr-edit-firstname" className="block text-xs text-gray-400 mb-1">Ad</label>
                     <input
+                      id="usr-edit-firstname"
                       value={editState.first_name}
                       onChange={(e) => setEditState((s) => s && { ...s, first_name: e.target.value })}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Soyad</label>
+                    <label htmlFor="usr-edit-lastname" className="block text-xs text-gray-400 mb-1">Soyad</label>
                     <input
+                      id="usr-edit-lastname"
                       value={editState.last_name}
                       onChange={(e) => setEditState((s) => s && { ...s, last_name: e.target.value })}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
@@ -483,8 +485,9 @@ export default function UsersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Rol</label>
+                  <label htmlFor="usr-edit-role" className="block text-xs text-gray-400 mb-1">Rol</label>
                   <select
+                    id="usr-edit-role"
                     value={editState.role}
                     onChange={(e) => setEditState((s) => s && { ...s, role: e.target.value })}
                     className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
@@ -497,8 +500,8 @@ export default function UsersPage() {
 
                 {departments.length > 0 && (
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">Bölümler</label>
-                    <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800/50 p-2">
+                    <p className="block text-xs text-gray-400 mb-1.5" id="usr-dept-group-label">Bölümler</p>
+                    <div role="group" aria-labelledby="usr-dept-group-label" className="flex flex-col gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800/50 p-2">
                       {departments.map((d) => (
                         <label key={d.id} className="flex items-center gap-2 cursor-pointer px-1">
                           <input
@@ -530,8 +533,9 @@ export default function UsersPage() {
                 {isAdmin && <hr className="border-gray-700" />}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Öğrenci No</label>
+                    <label htmlFor="usr-edit-student-no" className="block text-xs text-gray-400 mb-1">Öğrenci No</label>
                     <input
+                      id="usr-edit-student-no"
                       value={editState.student_no}
                       onChange={(e) => setEditState((s) => s && { ...s, student_no: e.target.value })}
                       placeholder="123456789"
@@ -540,8 +544,9 @@ export default function UsersPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Sınıf</label>
+                    <label htmlFor="usr-edit-grade" className="block text-xs text-gray-400 mb-1">Sınıf</label>
                     <select
+                      id="usr-edit-grade"
                       value={editState.grade_label}
                       onChange={(e) => setEditState((s) => s && { ...s, grade_label: e.target.value })}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
@@ -572,7 +577,7 @@ export default function UsersPage() {
                 {editLoading ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
-          </div>
+          </FocusTrapContainer>
         </div>
       )}
 

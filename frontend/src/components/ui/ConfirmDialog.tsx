@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Button } from './Button';
 import { AlertTriangle, X } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -25,23 +26,32 @@ export function ConfirmDialog({
   isDestructive = false,
   loading = false,
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+    >
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={() => !loading && onClose()}
       />
-      
+
       {/* Dialog */}
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div ref={dialogRef} className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="absolute top-4 right-4">
-          <button 
+          <button
             onClick={onClose}
             disabled={loading}
             className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Kapat"
           >
             <X className="w-5 h-5" />
           </button>
@@ -53,7 +63,7 @@ export function ConfirmDialog({
           </div>
           
           <div className="flex-1 pt-1">
-            <h3 className="text-lg font-semibold text-white mb-2">
+            <h3 id="confirm-dialog-title" className="text-lg font-semibold text-white mb-2">
               {title}
             </h3>
             <div className="text-sm text-gray-400 mb-6">

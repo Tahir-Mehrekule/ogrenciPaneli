@@ -5,13 +5,30 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { CheckCircle, Circle, Clock, Plus } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
+import { SkeletonDetail } from "@/components/ui/Skeleton";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown } from "lucide-react";
+import toast from "react-hot-toast";
 
 type ProjectStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
+type ProjectType = "individual" | "team" | "both";
+type MemberStatus = "ACTIVE" | "INVITED" | "JOIN_REQUESTED" | "REJECTED";
 
-interface Project { id: string; title: string; description: string; status: ProjectStatus; created_by: string; }
+interface Project {
+  id: string; title: string; description: string;
+  status: ProjectStatus; created_by: string;
+  project_type?: ProjectType; created_by_name?: string;
+}
 interface Task { id: string; title: string; description: string; status: TaskStatus; due_date: string | null; ai_suggested: boolean; }
+
+interface MemberUser { id: string; name: string; email: string; grade_label?: string; }
+interface ProjectMember { id: string; user_id: string; role: string; status: MemberStatus; user?: MemberUser; }
+interface PendingMember  { id: string; user_id: string; status: MemberStatus; user?: MemberUser; }
+interface UserSearchResult { id: string; name: string; email: string; student_no?: string; }
 
 const PROJECT_STATUS: Record<ProjectStatus, { label: string; className: string }> = {
   DRAFT:    { label: "Taslak",     className: "bg-slate-700 text-slate-300" },
@@ -31,6 +48,100 @@ const TASK_STATUS_NEXT: Record<TaskStatus, TaskStatus> = {
   IN_PROGRESS: "DONE",
   DONE: "TODO",
 };
+
+// ── Proje Düzenleme Modalı (FE-2) ────────────────────────────────────────────
+interface EditProjectModalProps {
+  project: { id: string; title: string; description: string };
+  onClose: () => void;
+  onUpdated: () => void;
+}
+
+function EditProjectModal({ project, onClose, onUpdated }: EditProjectModalProps) {
+  const [title, setTitle] = useState(project.title);
+  const [description, setDescription] = useState(project.description);
+  const [loading, setLoading] = useState(false);
+
+  const inputCls =
+    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (title.trim().length < 3) return toast.error("Başlık en az 3 karakter olmalıdır.");
+    if (description.trim().length < 10) return toast.error("Açıklama en az 10 karakter olmalıdır.");
+
+    try {
+      setLoading(true);
+      await apiClient.patch(`/api/v1/projects/${project.id}`, {
+        title: title.trim(),
+        description: description.trim(),
+      });
+      toast.success("Proje başarıyla güncellendi.");
+      onUpdated();
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg ?? "Güncelleme başarısız.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Projeyi Düzenle">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <FocusTrapContainer className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Projeyi Düzenle</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Kapat"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="edit-title">
+                Başlık <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="edit-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="edit-desc">
+                Açıklama <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                id="edit-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className={inputCls + " resize-none"}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="outline" type="button" onClick={onClose}>İptal</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </FocusTrapContainer>
+    </div>
+  );
+}
 
 // Görev oluşturma mini formu
 const NewTaskForm = ({ projectId, onCreated }: { projectId: string; onCreated: () => void }) => {
@@ -87,7 +198,32 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Ekip üyeleri
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [memberSearchResults, setMemberSearchResults] = useState<UserSearchResult[]>([]);
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState<string | null>(null);
+
+  // Onay diyaloğu: hangi aksiyon bekliyor?
+  type PendingAction = "submit" | "reject" | "ai" | null;
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
+  const fetchMembers = useCallback(async (projectType?: ProjectType) => {
+    if (projectType !== "team") return;
+    try {
+      const [activeRes, pendingRes] = await Promise.all([
+        apiClient.get(`/api/v1/projects/${id}/members`),
+        apiClient.get(`/api/v1/projects/${id}/members/pending`).catch(() => ({ data: [] })),
+      ]);
+      setMembers(activeRes.data ?? []);
+      setPendingMembers(pendingRes.data ?? []);
+    } catch { /* üye listesi sessizce hata verebilir */ }
+  }, [id]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -97,15 +233,22 @@ export default function ProjectDetailPage() {
       ]);
       setProject(projRes.data);
       setTasks(taskRes.data.items ?? []);
+      fetchMembers(projRes.data.project_type);
     } finally { setLoading(false); }
-  }, [id]);
+  }, [id, fetchMembers]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSubmit = async () => {
-    if (!confirm("Projeyi onay için göndermek istiyor musunuz?")) return;
-    await apiClient.post(`/api/v1/projects/${id}/submit`);
-    fetchData();
+    try {
+      await apiClient.post(`/api/v1/projects/${id}/submit`);
+      toast.success("Proje onay için gönderildi.");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "İşlem başarısız.");
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const handleApprove = async () => {
@@ -114,9 +257,75 @@ export default function ProjectDetailPage() {
   };
 
   const handleReject = async () => {
-    if (!confirm("Bu projeyi reddetmek istediğinize emin misiniz?")) return;
-    await apiClient.post(`/api/v1/projects/${id}/reject`);
-    router.push("/dashboard/projects");
+    try {
+      await apiClient.post(`/api/v1/projects/${id}/reject`);
+      router.push("/dashboard/projects");
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Reddetme başarısız.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleAiPlan = async () => {
+    if (!project) return;
+    try {
+      setAiLoading(true);
+      await apiClient.post('/api/v1/ai/suggest', { project_id: project.id });
+      toast.success("AI tarafından önerilen görevler projeye eklendi.");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "AI görev önerisi alınamadı.");
+    } finally {
+      setAiLoading(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleUserSearch = async (query: string) => {
+    setMemberSearchQuery(query);
+    if (query.trim().length < 2) { setMemberSearchResults([]); return; }
+    try {
+      setMemberSearchLoading(true);
+      const { data } = await apiClient.get(`/api/v1/users?search=${encodeURIComponent(query)}&role=STUDENT&per_page=5`);
+      setMemberSearchResults(data.items ?? []);
+    } catch { setMemberSearchResults([]); } finally { setMemberSearchLoading(false); }
+  };
+
+  const handleInvite = async (userId: string) => {
+    try {
+      setInviteLoading(userId);
+      await apiClient.post(`/api/v1/projects/${id}/invite`, { user_id: userId });
+      toast.success("Davet gönderildi.");
+      setMemberSearchQuery(""); setMemberSearchResults([]);
+      fetchMembers("team");
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || "Davet gönderilemedi.");
+    } finally { setInviteLoading(null); }
+  };
+
+  const handleAcceptInvite = async (memberId: string) => {
+    try {
+      await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/accept`);
+      toast.success("Daveti kabul ettiniz.");
+      fetchMembers("team");
+    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
+  };
+
+  const handleRejectInvite = async (memberId: string) => {
+    try {
+      await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/reject`);
+      toast.success("Davet reddedildi.");
+      fetchMembers("team");
+    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
+  };
+
+  const handleCancelInvite = async (memberId: string) => {
+    try {
+      await apiClient.delete(`/api/v1/projects/${id}/members/${memberId}/cancel-invite`);
+      toast.success("Davet iptal edildi.");
+      fetchMembers("team");
+    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
   };
 
   const toggleTaskStatus = async (task: Task) => {
@@ -125,7 +334,7 @@ export default function ProjectDetailPage() {
     setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
   };
 
-  if (loading) return <div className="py-20 text-center text-sm text-gray-400">Yükleniyor...</div>;
+  if (loading) return <SkeletonDetail />;
   if (!project) return <div className="py-20 text-center text-sm text-gray-400">Proje bulunamadı.</div>;
 
   const normalizedStatus = project.status?.toUpperCase() as ProjectStatus;
@@ -134,25 +343,78 @@ export default function ProjectDetailPage() {
   const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
   tasks.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
 
+  const isTeamProject = project.project_type === "team";
+  // Current user's own membership record (to show accept/reject if INVITED)
+  const myMembership = pendingMembers.find((m) => m.user_id === user?.id && m.status === "INVITED");
+  // Current user is project manager if they are the creator or have MANAGER role
+  const amManager = String(project.created_by) === String(user?.id) ||
+    members.some((m) => m.user_id === user?.id && m.role === "MANAGER");
+
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Projeler", href: "/dashboard/projects" },
+          { label: project.title },
+        ]}
+      />
+
       {/* Proje Bilgi Kartı */}
       <Card>
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <span className={`inline-block rounded-lg px-2 py-0.5 text-xs font-bold ${statusCfg.className} mb-3`}>
-                {statusCfg.label}
-              </span>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className={`inline-block rounded-lg px-2 py-0.5 text-xs font-bold ${statusCfg.className}`}>
+                  {statusCfg.label}
+                </span>
+                {project.project_type === "team" && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-400">
+                    <Users className="h-3 w-3" /> Ekip Projesi
+                  </span>
+                )}
+                {project.project_type === "individual" && (
+                  <span className="inline-block rounded-lg bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-xs font-semibold text-violet-400">
+                    Bireysel Proje
+                  </span>
+                )}
+              </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">{project.title}</h2>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{project.description}</p>
             </div>
 
             {/* Aksiyon Butonları */}
             <div className="flex flex-col gap-2 shrink-0">
+              {/* FE-2: DRAFT projesini düzenle */}
+              {normalizedStatus === "DRAFT" && String(project.created_by) === String(user?.id) && (
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:text-gray-200 dark:hover:bg-slate-700 whitespace-nowrap"
+                >
+                  <Pencil className="h-4 w-4" /> Düzenle
+                </button>
+              )}
               {role === "STUDENT" && normalizedStatus === "DRAFT" && (
-                <button onClick={handleSubmit} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 whitespace-nowrap">
+                <button onClick={() => setPendingAction("submit")} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 whitespace-nowrap">
                   📨 Onaya Gönder
+                </button>
+              )}
+              {/* Reddedilen projeyi yeniden açma */}
+              {normalizedStatus === "REJECTED" && String(project.created_by) === String(user?.id) && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await apiClient.post(`/api/v1/projects/${id}/reopen`);
+                      toast.success("Proje düzenleme için açıldı. İçeriği güncelleyip tekrar gönderin.");
+                      fetchData();
+                    } catch {
+                      toast.error("İşlem başarısız.");
+                    }
+                  }}
+                  className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 whitespace-nowrap"
+                >
+                  🔄 Yeniden Aç
                 </button>
               )}
               {(role === "TEACHER" || role === "ADMIN") && normalizedStatus === "PENDING" && (
@@ -160,7 +422,7 @@ export default function ProjectDetailPage() {
                   <button onClick={handleApprove} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                     ✅ Onayla
                   </button>
-                  <button onClick={handleReject} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">
+                  <button onClick={() => setPendingAction("reject")} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">
                     ❌ Reddet
                   </button>
                 </>
@@ -170,19 +432,9 @@ export default function ProjectDetailPage() {
               <button
                 disabled={(role !== "TEACHER" && role !== "ADMIN") || normalizedStatus !== "APPROVED" || aiLoading}
                 title={(role !== "TEACHER" && role !== "ADMIN") ? "Sadece öğretmenler kullanabilir" : normalizedStatus !== "APPROVED" ? "Projenin onaylanması (APPROVED) gerekir" : "Yapay zeka ile görevleri planla"}
-                onClick={async () => {
+                onClick={() => {
                   if ((role !== "TEACHER" && role !== "ADMIN") || normalizedStatus !== "APPROVED") return;
-                  if (!confirm('Proje detaylarına göre sistem otomatik olarak yapay zeka destekli görevler önerip projeye ekleyecek. Devam edilsin mi?')) return;
-                  try {
-                    setAiLoading(true);
-                    await apiClient.post('/api/v1/ai/suggest', { project_id: project.id });
-                    alert("Harika! AI tarafından önerilen görevler projeye eklendi.");
-                    fetchData();
-                  } catch (err: any) {
-                    alert(err.response?.data?.detail || "AI görev önerisi alınamadı.");
-                  } finally {
-                    setAiLoading(false);
-                  }
+                  setPendingAction("ai");
                 }}
                 className="disabled:opacity-50 disabled:cursor-not-allowed rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
               >
@@ -315,6 +567,210 @@ export default function ProjectDetailPage() {
             ))}
           </div>
         </>
+      )}
+
+      {/* ── Ekip Üyeleri Paneli ──────────────────────────────────────────── */}
+      {isTeamProject && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-cyan-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ekip Üyeleri</h3>
+            <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              {members.length}
+            </span>
+          </div>
+
+          {/* Davet bekleyen — invited user */}
+          {myMembership && (
+            <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-indigo-300">Bu projeye davet edildiniz</p>
+                <p className="text-xs text-gray-400 mt-0.5">Daveti kabul ederek ekibe katılabilirsiniz.</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => handleAcceptInvite(myMembership.id)}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  Kabul Et
+                </button>
+                <button
+                  onClick={() => handleRejectInvite(myMembership.id)}
+                  className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-slate-600"
+                >
+                  Reddet
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Aktif Üyeler */}
+          {members.length > 0 ? (
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-3 py-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                        {m.user?.name?.charAt(0).toUpperCase() ?? "?"}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{m.user?.name ?? m.user_id}</p>
+                          {m.role === "MANAGER" && <Crown className="h-3.5 w-3.5 text-amber-400" />}
+                        </div>
+                        <p className="text-xs text-gray-400">{m.user?.email}</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                      m.role === "MANAGER"
+                        ? "bg-amber-500/10 text-amber-400"
+                        : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                    }`}>
+                      {m.role === "MANAGER" ? "Yönetici" : "Üye"}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-300 dark:border-slate-700 p-6 text-center">
+              <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <p className="text-sm text-gray-400">Henüz aktif ekip üyesi yok.</p>
+            </div>
+          )}
+
+          {/* Bekleyen davetler — yönetici görür */}
+          {(amManager || role === "TEACHER" || role === "ADMIN") && pendingMembers.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Bekleyen Davetler</p>
+              <Card>
+                <CardContent className="p-4 space-y-2">
+                  {pendingMembers.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between gap-3 py-1">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 text-xs font-bold text-amber-700 dark:text-amber-300">
+                          {m.user?.name?.charAt(0).toUpperCase() ?? "?"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{m.user?.name ?? m.user_id}</p>
+                          <p className="text-xs text-gray-400">{m.user?.email}</p>
+                        </div>
+                      </div>
+                      {amManager && (
+                        <button
+                          onClick={() => handleCancelInvite(m.id)}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          İptal
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Üye Davet Et — yönetici / admin */}
+          {(amManager || role === "ADMIN") && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Üye Davet Et</p>
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Ad, e-posta veya öğrenci no ile ara..."
+                        value={memberSearchQuery}
+                        onChange={(e) => handleUserSearch(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 bg-white pl-9 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  {memberSearchLoading && (
+                    <p className="text-xs text-gray-400 px-1">Aranıyor...</p>
+                  )}
+
+                  {memberSearchResults.length > 0 && (
+                    <div className="space-y-1 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+                      {memberSearchResults.map((u) => {
+                        const alreadyInvited = pendingMembers.some((m) => m.user_id === u.id) ||
+                                               members.some((m) => m.user_id === u.id);
+                        return (
+                          <div key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-800">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
+                              <p className="text-xs text-gray-400">{u.email}{u.student_no ? ` · ${u.student_no}` : ""}</p>
+                            </div>
+                            <button
+                              disabled={alreadyInvited || inviteLoading === u.id}
+                              onClick={() => handleInvite(u.id)}
+                              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              {alreadyInvited ? "Zaten Eklendi" : inviteLoading === u.id ? "Gönderiliyor..." : "Davet Et"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!memberSearchLoading && memberSearchQuery.trim().length >= 2 && memberSearchResults.length === 0 && (
+                    <p className="text-xs text-gray-400 px-1">Sonuç bulunamadı.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Onaya Gönder Onayı */}
+      <ConfirmDialog
+        isOpen={pendingAction === "submit"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleSubmit}
+        title="Onaya Gönder"
+        description="Projeyi öğretmeninize onay için göndermek istiyor musunuz? Onay sürecinde proje içeriği kilitlenir."
+        confirmText="Evet, Gönder"
+        cancelText="Vazgeç"
+      />
+
+      {/* Reddet Onayı */}
+      <ConfirmDialog
+        isOpen={pendingAction === "reject"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleReject}
+        title="Projeyi Reddet"
+        description="Bu projeyi reddetmek istediğinize emin misiniz? Öğrenci bilgilendirilecek ve projeyi düzenleyebilecek."
+        confirmText="Evet, Reddet"
+        cancelText="Vazgeç"
+        isDestructive
+      />
+
+      {/* AI Görev Planlama Onayı */}
+      <ConfirmDialog
+        isOpen={pendingAction === "ai"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleAiPlan}
+        title="AI ile Görev Planla"
+        description="Proje açıklaması analiz edilerek üyelere otomatik görevler atanacak. Mevcut görevler etkilenmez. Devam edilsin mi?"
+        confirmText="Evet, Planla"
+        cancelText="Vazgeç"
+      />
+
+      {/* FE-2: Proje Düzenleme Modalı */}
+      {showEditModal && project && (
+        <EditProjectModal
+          project={project}
+          onClose={() => setShowEditModal(false)}
+          onUpdated={fetchData}
+        />
       )}
     </div>
   );

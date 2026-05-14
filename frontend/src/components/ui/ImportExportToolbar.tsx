@@ -4,7 +4,7 @@ import { Download, Upload, Loader2, FileDown } from 'lucide-react';
 import * as xlsx from 'xlsx';
 
 interface ImportExportToolbarProps {
-  onImport: (data: any[]) => Promise<void>;
+  onImport: (data: Record<string, unknown>[]) => Promise<void>;
   onExport: () => void;
   isExporting?: boolean;
   isImporting?: boolean;
@@ -28,7 +28,7 @@ export function ImportExportToolbar({
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       
-      const jsonData = xlsx.utils.sheet_to_json(worksheet);
+      const jsonData = xlsx.utils.sheet_to_json<Record<string, unknown>>(worksheet);
       await onImport(jsonData);
       
     } catch (error) {

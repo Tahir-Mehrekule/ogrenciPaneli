@@ -42,7 +42,7 @@ export const StudentDashboard = () => {
           apiClient.get("/api/v1/projects?per_page=100"),
         ]);
 
-        const courses: any[] = coursesRes.data?.items ?? [];
+        const courses: unknown[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];
 
         const active = projects.filter((p) => p.status?.toUpperCase() === "APPROVED").length;
@@ -69,7 +69,7 @@ export const StudentDashboard = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-          Hoş geldin, {user?.name?.split(" ")[0]}! 👋
+          Hoş geldin, {user?.full_name?.split(" ")[0]}! 👋
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           İşte sınıf ve proje süreçlerindeki son durumun.

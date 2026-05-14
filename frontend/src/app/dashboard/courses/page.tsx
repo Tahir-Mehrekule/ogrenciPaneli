@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Plus, Users, User } from "lucide-react";
+
+type ProjectType = "individual" | "team" | "both";
 
 interface Course {
   id: string;
@@ -13,7 +15,10 @@ interface Course {
   code: string;
   semester: string;
   teacher_id: string;
+  teacher_name: string;
+  department_id: string | null;
   is_active: boolean;
+  project_type: ProjectType;
   require_youtube: boolean;
   require_file: boolean;
 }
@@ -25,6 +30,12 @@ interface PaginatedResponse {
   per_page: number;
   total_pages: number;
 }
+
+const PROJECT_TYPE_BADGE: Record<ProjectType, { label: string; className: string }> = {
+  individual: { label: "Bireysel",  className: "bg-violet-500/10 border-violet-500/20 text-violet-400" },
+  team:       { label: "Ekip",      className: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400" },
+  both:       { label: "Serbest",   className: "bg-gray-500/10 border-gray-500/20 text-gray-400" },
+};
 
 export default function CoursesPage() {
   const { user } = useAuth();
@@ -49,17 +60,6 @@ export default function CoursesPage() {
     fetchCourses();
   }, [fetchCourses]);
 
-  const handleEnroll = async (courseId: string) => {
-    try {
-      await apiClient.post(`/api/v1/courses/${courseId}/enroll`);
-      alert("Derse kaydınız yapıldı!");
-      fetchCourses();
-    } catch (err: any) {
-      const msg = err.response?.data?.detail;
-      alert(typeof msg === "string" ? msg : "Kayıt başarısız.");
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -68,21 +68,23 @@ export default function CoursesPage() {
     );
   }
 
+  const isEditable = role === "TEACHER" || role === "ADMIN";
+
   return (
     <div className="space-y-6">
       {/* Başlık */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {role === "TEACHER" || role === "ADMIN" ? "Verdiğim Dersler" : "Ders Kataloğu"}
+            {isEditable ? "Verdiğim Dersler" : "Derslerim"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {role === "TEACHER" || role === "ADMIN"
-              ? "Sistemde oluşturulan dersler burada listelenir."
-              : "Kayıt olabileceğiniz tüm dersler."}
+            {isEditable
+              ? "Oluşturduğunuz dersler ve proje ayarları."
+              : "Bölümünüze atanmış dersler aşağıda listeleniyor."}
           </p>
         </div>
-        {(role === "TEACHER" || role === "ADMIN") && (
+        {isEditable && (
           <button
             onClick={() => router.push("/dashboard/courses/new")}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
@@ -106,66 +108,73 @@ export default function CoursesPage() {
           <CardContent className="flex flex-col items-center justify-center p-12">
             <BookOpen className="h-10 w-10 text-gray-400 dark:text-gray-500" />
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              {user?.role === "TEACHER"
+              {isEditable
                 ? "Henüz bir ders oluşturmadınız."
-                : "Henüz açılmış ders bulunmuyor."}
+                : "Bölümünüze atanmış aktif ders bulunmuyor."}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => (
-            <Card
-              key={course.id}
-              className={role === "TEACHER" || role === "ADMIN" ? "cursor-pointer select-none transition-colors hover:border-indigo-500/50" : ""}
-              onClick={() => {
-                if (role === "TEACHER" || role === "ADMIN") {
-                  router.push(`/dashboard/courses/${course.id}`);
-                }
-              }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="rounded-lg bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400">
-                    {course.code}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {course.semester}
-                  </span>
-                </div>
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                  {course.name}
-                </h3>
-                {(course.require_youtube || course.require_file) && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {course.require_youtube && (
-                      <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
-                        Video zorunlu
-                      </span>
-                    )}
-                    {course.require_file && (
-                      <span className="rounded-md bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
-                        Dosya zorunlu
-                      </span>
-                    )}
+          {courses.map((course) => {
+            const typeBadge = PROJECT_TYPE_BADGE[course.project_type ?? "both"];
+            return (
+              <Card
+                key={course.id}
+                className={isEditable ? "cursor-pointer select-none transition-colors hover:border-indigo-500/50" : ""}
+                onClick={() => {
+                  if (isEditable) router.push(`/dashboard/courses/${course.id}`);
+                }}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="rounded-lg bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400">
+                      {course.code}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {course.semester}
+                    </span>
+                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${typeBadge.className}`}>
+                      {typeBadge.label}
+                    </span>
                   </div>
-                )}
-                {(role === "TEACHER" || role === "ADMIN") && (
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    Düzenlemek için tıklayın
-                  </p>
-                )}
-                {role === "STUDENT" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleEnroll(course.id); }}
-                    className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-                  >
-                    Kayıt Ol
-                  </button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    {course.name}
+                  </h3>
+
+                  {/* Öğretmen adı (öğrenci görünümü) */}
+                  {role === "STUDENT" && course.teacher_name && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      <User className="h-3.5 w-3.5" />
+                      <span>{course.teacher_name}</span>
+                    </div>
+                  )}
+
+                  {(course.require_youtube || course.require_file) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {course.require_youtube && (
+                        <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                          Video zorunlu
+                        </span>
+                      )}
+                      {course.require_file && (
+                        <span className="rounded-md bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
+                          Dosya zorunlu
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {isEditable && (
+                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      Düzenlemek için tıklayın
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

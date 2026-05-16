@@ -16,6 +16,8 @@ import {
   GraduationCap,
   CheckSquare,
   X,
+  ChevronRight,
+  LogOut,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -26,119 +28,181 @@ interface SidebarProps {
 const ROLE_LABEL: Record<string, string> = {
   STUDENT: "Öğrenci",
   TEACHER: "Öğretmen",
-  ADMIN: "Admin",
+  ADMIN: "Yönetici",
 };
 
+const ROLE_COLOR: Record<string, string> = {
+  STUDENT: "bg-emerald-500/20 text-emerald-300",
+  TEACHER: "bg-indigo-500/20 text-indigo-300",
+  ADMIN: "bg-amber-500/20 text-amber-300",
+};
+
+function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6">
+      <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        {label}
+      </p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function NavItem({
+  href,
+  icon: Icon,
+  label,
+  isActive,
+  badge,
+  onClick,
+}: {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  isActive: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "nav-link group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium",
+        isActive
+          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+          : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+      )}
+    >
+      <span className="flex items-center gap-3">
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            isActive ? "text-white" : "text-slate-500 group-hover:text-slate-300"
+          )}
+        />
+        {label}
+      </span>
+      <span className="flex items-center gap-1.5">
+        {badge !== undefined && badge > 0 && (
+          <span className="badge-pulse flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+        {isActive && <ChevronRight className="h-3 w-3 text-white/60" />}
+      </span>
+    </Link>
+  );
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const role = user?.role?.toUpperCase();
 
-  const getNavLinks = () => {
-    const baseLinks = [
-      { name: "Genel Bakış", href: "/dashboard", icon: LayoutDashboard },
-    ];
-
-    if (role === "STUDENT") {
-      return [
-        ...baseLinks,
-        { name: "Ders Kataloğu", href: "/dashboard/courses", icon: BookOpen },
-        { name: "Projelerim", href: "/dashboard/projects", icon: FolderKanban },
-        { name: "Görevlerim", href: "/dashboard/tasks", icon: CheckSquare },
-        { name: "Haftalık Raporlar", href: "/dashboard/reports", icon: FileText },
-      ];
-    }
-
-    if (role === "TEACHER") {
-      return [
-        ...baseLinks,
-        { name: "Verdiğim Dersler", href: "/dashboard/courses", icon: BookOpen },
-        { name: "Gelen Projeler", href: "/dashboard/projects", icon: FolderKanban },
-        { name: "Gelen Raporlar", href: "/dashboard/reports", icon: FileText },
-        { name: "Öğrencilerim", href: "/dashboard/students", icon: GraduationCap },
-      ];
-    }
-
-    if (role === "ADMIN") {
-      return [
-        ...baseLinks,
-        { name: "Sistem İstatistikleri", href: "/dashboard/admin", icon: BarChart3 },
-        { name: "Tüm Dersler", href: "/dashboard/courses", icon: BookOpen },
-        { name: "Tüm Projeler", href: "/dashboard/projects", icon: FolderKanban },
-        { name: "Tüm Görevler", href: "/dashboard/tasks", icon: CheckSquare },
-        { name: "Tüm Raporlar", href: "/dashboard/reports", icon: FileText },
-        { name: "Öğrencilerim", href: "/dashboard/students", icon: GraduationCap },
-        { name: "Tüm Kullanıcılar", href: "/dashboard/users", icon: Users },
-        { name: "Ayarlar", href: "/dashboard/settings", icon: Settings },
-      ];
-    }
-
-    return baseLinks;
-  };
-
-  const links = getNavLinks();
+  const isActive = (href: string) =>
+    href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 
   const sidebarContent = (
-    <div className="flex h-full flex-col">
-      {/* Mobil başlık satırı */}
-      <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200 dark:border-slate-700 lg:border-transparent">
-        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 lg:hidden">
-          UniTrack AI
-        </span>
+    <div className="flex h-full flex-col bg-[#0f172a]">
+      {/* Logo */}
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/5 px-5">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-lg shadow-indigo-600/30">
+            <GraduationCap className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-base font-bold text-white tracking-tight">
+            UniTrack <span className="text-indigo-400">AI</span>
+          </span>
+        </Link>
         <button
           onClick={onClose}
-          className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-800 lg:hidden"
+          className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 lg:hidden"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-6">
-        <nav className="flex flex-col gap-1 px-4">
-          <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            Ana Menü
-          </p>
-          {links.map((link) => {
-            const isActive =
-              link.href === "/dashboard"
-                ? pathname === link.href
-                : pathname.startsWith(link.href);
-            const Icon = link.icon;
+      {/* Nav */}
+      <div className="sidebar-scroll flex-1 overflow-y-auto px-3 py-5">
+        {role === "STUDENT" && (
+          <>
+            <NavSection label="Genel">
+              <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Eğitim">
+              <NavItem href="/dashboard/courses" icon={BookOpen} label="Ders Kataloğu" isActive={isActive("/dashboard/courses")} onClick={onClose} />
+              <NavItem href="/dashboard/projects" icon={FolderKanban} label="Projelerim" isActive={isActive("/dashboard/projects")} onClick={onClose} />
+              <NavItem href="/dashboard/tasks" icon={CheckSquare} label="Görevlerim" isActive={isActive("/dashboard/tasks")} onClick={onClose} />
+              <NavItem href="/dashboard/reports" icon={FileText} label="Haftalık Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
+            </NavSection>
+          </>
+        )}
 
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-slate-800 dark:hover:text-gray-50"
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "h-5 w-5 shrink-0",
-                    isActive
-                      ? "text-indigo-600 dark:text-indigo-400"
-                      : "text-gray-400 dark:text-gray-500"
-                  )}
-                />
-                {link.name}
-              </Link>
-            );
-          })}
-        </nav>
+        {role === "TEACHER" && (
+          <>
+            <NavSection label="Genel">
+              <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Sınıf Yönetimi">
+              <NavItem href="/dashboard/courses" icon={BookOpen} label="Derslerim" isActive={isActive("/dashboard/courses")} onClick={onClose} />
+              <NavItem href="/dashboard/students" icon={GraduationCap} label="Öğrencilerim" isActive={isActive("/dashboard/students")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Proje Takibi">
+              <NavItem href="/dashboard/projects" icon={FolderKanban} label="Gelen Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
+              <NavItem href="/dashboard/reports" icon={FileText} label="Gelen Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
+            </NavSection>
+          </>
+        )}
+
+        {role === "ADMIN" && (
+          <>
+            <NavSection label="Genel">
+              <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+              <NavItem href="/dashboard/admin" icon={BarChart3} label="Sistem İstatistikleri" isActive={isActive("/dashboard/admin")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="İçerik">
+              <NavItem href="/dashboard/courses" icon={BookOpen} label="Tüm Dersler" isActive={isActive("/dashboard/courses")} onClick={onClose} />
+              <NavItem href="/dashboard/projects" icon={FolderKanban} label="Tüm Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
+              <NavItem href="/dashboard/tasks" icon={CheckSquare} label="Tüm Görevler" isActive={isActive("/dashboard/tasks")} onClick={onClose} />
+              <NavItem href="/dashboard/reports" icon={FileText} label="Tüm Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Kullanıcılar">
+              <NavItem href="/dashboard/students" icon={GraduationCap} label="Öğrenciler" isActive={isActive("/dashboard/students")} onClick={onClose} />
+              <NavItem href="/dashboard/users" icon={Users} label="Tüm Kullanıcılar" isActive={isActive("/dashboard/users")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Sistem">
+              <NavItem href="/dashboard/settings" icon={Settings} label="Ayarlar" isActive={isActive("/dashboard/settings")} onClick={onClose} />
+            </NavSection>
+          </>
+        )}
       </div>
 
-      {/* Sidebar Footer */}
-      <div className="border-t border-gray-200 p-4 dark:border-slate-700">
-        <div className="rounded-xl bg-gray-50 p-4 dark:bg-slate-800">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Giriş Yapılan Rol</p>
-          <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">
-            {ROLE_LABEL[role ?? ""] ?? user?.role ?? "—"}
-          </p>
+      {/* User profile at bottom */}
+      <div className="shrink-0 border-t border-white/5 p-3">
+        <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
+          {/* Avatar */}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600/30 text-indigo-300 text-sm font-bold">
+            {user?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-slate-200">
+              {user?.full_name ?? "Kullanıcı"}
+            </p>
+            <span className={cn(
+              "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              ROLE_COLOR[role ?? ""] ?? "bg-slate-500/20 text-slate-400"
+            )}>
+              {ROLE_LABEL[role ?? ""] ?? role}
+            </span>
+          </div>
+          <button
+            onClick={logout}
+            title="Çıkış Yap"
+            className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -146,15 +210,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
 
   return (
     <>
-      {/* Desktop sidebar — her zaman görünür */}
-      <aside className="hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex dark:border-slate-700 dark:bg-slate-900">
+      {/* Desktop sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col lg:flex">
         {sidebarContent}
       </aside>
 
-      {/* Mobil sidebar — isMobileOpen olduğunda slide-in */}
+      {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-72 flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out dark:border-slate-700 dark:bg-slate-900 lg:hidden",
+          "fixed inset-y-0 left-0 z-40 w-64 flex-col transition-transform duration-300 ease-in-out lg:hidden",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

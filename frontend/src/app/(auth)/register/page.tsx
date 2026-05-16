@@ -4,32 +4,33 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import toast from "react-hot-toast";
 import {
-  BookOpen,
-  Clock,
-  Mail,
   GraduationCap,
   Users,
+  Mail,
+  Lock,
+  User,
+  Hash,
   ChevronDown,
   X,
+  ArrowRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import type { DepartmentInfo } from "@/types/auth";
 
 type SelectedRole = "STUDENT" | "TEACHER";
 
-const isStudentEmail = (email: string) =>
-  email.toLowerCase().includes("@ogr.");
+const isStudentEmail = (email: string) => email.toLowerCase().includes("@ogr.");
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<SelectedRole>("STUDENT");
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
@@ -43,7 +44,6 @@ export default function RegisterPage() {
     department_ids: [] as string[],
   });
 
-  // Bölüm listesini API'den çek
   useEffect(() => {
     apiClient
       .get<DepartmentInfo[]>("/api/v1/admin/departments")
@@ -51,7 +51,6 @@ export default function RegisterPage() {
       .catch(() => {});
   }, []);
 
-  // Email değiştiğinde rolü otomatik kısıtla
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const email = e.target.value;
     setFormData((prev) => ({ ...prev, email }));
@@ -67,10 +66,8 @@ export default function RegisterPage() {
     setFormData((prev) => {
       const already = prev.department_ids.includes(id);
       if (selectedRole === "STUDENT") {
-        // Öğrenci: tek seçim
         return { ...prev, department_ids: already ? [] : [id] };
       }
-      // Öğretmen: çoklu seçim
       return {
         ...prev,
         department_ids: already
@@ -85,18 +82,16 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Email-rol tutarlılık kontrolü (frontend)
     if (isStudentEmail(formData.email) && !isStudent) {
-      toast.error("@ogr. mail ile sadece öğrenci olarak kayıt olunabilir.");
+      toast.error("@ogr. mail ile sadece öğrenci kaydı yapılabilir.");
       return;
     }
     if (!isStudentEmail(formData.email) && isStudent) {
-      toast.error("Öğrenci kaydı için @ogr. uzantılı okul maili gereklidir.");
+      toast.error("Öğrenci kaydı için @ogr. uzantılı okul maili gerekli.");
       return;
     }
-
     if (isStudent && !/^\d{9}$/.test(formData.student_no)) {
-      toast.error("Öğrenci numarası 9 haneli rakamdan oluşmalıdır.");
+      toast.error("Öğrenci numarası 9 haneli olmalıdır.");
       return;
     }
 
@@ -112,14 +107,11 @@ export default function RegisterPage() {
       };
       if (isStudent) payload.student_no = formData.student_no;
 
-      const response = await register(payload);
-
-      toast.success("Kayıt başarılı! Panele yönlendiriliyorsunuz...");
+      await register(payload);
+      toast.success("Hesabınız oluşturuldu!");
       router.push("/dashboard");
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.detail || "Kayıt sırasında bir hata oluştu."
-      );
+      toast.error(error.response?.data?.detail || "Kayıt sırasında hata oluştu.");
     } finally {
       setIsLoading(false);
     }
@@ -129,224 +121,266 @@ export default function RegisterPage() {
     .filter((d) => formData.department_ids.includes(d.id))
     .map((d) => d.name);
 
+  const inputBase =
+    "w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-indigo-500";
+
   return (
-    <>
-      <Card className="shadow-xl dark:border-slate-800 dark:bg-slate-900/80 dark:backdrop-blur-xl">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/50">
-            <BookOpen className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Yeni Hesap Oluştur
-          </CardTitle>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl font-bold text-gray-900 tracking-tight dark:text-white">
+          Hesap oluşturun
+        </h2>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Sisteme katılmak için bilgilerinizi girin.
+        </p>
+      </div>
 
-          {/* Rol Toggle */}
-          <div className="flex overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700">
-            <button
-              type="button"
-              onClick={() => setSelectedRole("STUDENT")}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-all ${
-                isStudent
-                  ? "bg-emerald-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-slate-900 dark:text-gray-400 dark:hover:bg-slate-800"
-              }`}
-            >
-              <GraduationCap className="h-4 w-4" />
-              Öğrenci
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedRole("TEACHER")}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-all ${
-                !isStudent
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-slate-900 dark:text-gray-400 dark:hover:bg-slate-800"
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              Öğretmen
-            </button>
-          </div>
-        </CardHeader>
+      {/* Role selector */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setSelectedRole("STUDENT")}
+          className={`flex items-center justify-center gap-2.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
+            isStudent
+              ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300"
+              : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+          }`}
+        >
+          <GraduationCap className="h-4 w-4" />
+          Öğrenci
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedRole("TEACHER")}
+          className={`flex items-center justify-center gap-2.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-all ${
+            !isStudent
+              ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-300"
+              : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Öğretmen
+        </button>
+      </div>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Ad + Soyad */}
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Ad"
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Ad + Soyad */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Ad</label>
+            <div className="relative">
+              <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
                 name="first_name"
                 type="text"
                 placeholder="Ahmet"
                 required
                 value={formData.first_name}
                 onChange={handleChange}
+                className={inputBase}
               />
-              <Input
-                label="Soyad"
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Soyad</label>
+            <div className="relative">
+              <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
                 name="last_name"
                 type="text"
                 placeholder="Yılmaz"
                 required
                 value={formData.last_name}
                 onChange={handleChange}
+                className={inputBase}
               />
             </div>
+          </div>
+        </div>
 
-            <Input
-              label="Okul E-posta Adresi"
+        {/* Email */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+            Okul E-posta Adresi
+          </label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
               name="email"
               type="email"
-              placeholder={
-                isStudent ? "ahmet@ogr.unvan.edu.tr" : "hoca@unvan.edu.tr"
-              }
+              placeholder={isStudent ? "ahmet@ogr.uni.edu.tr" : "hoca@uni.edu.tr"}
               required
               value={formData.email}
               onChange={handleEmailChange}
+              className={inputBase}
             />
+          </div>
+          {isStudentEmail(formData.email) && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+              ✓ Öğrenci maili tespit edildi — rol otomatik atandı
+            </p>
+          )}
+        </div>
 
-            {/* Öğrenci numarası */}
-            {isStudent && (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                <Input
-                  label="Öğrenci Numarası"
-                  name="student_no"
-                  type="text"
-                  placeholder="123456789"
-                  required
-                  maxLength={9}
-                  pattern="\d{9}"
-                  value={formData.student_no}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, 9);
-                    setFormData((prev) => ({ ...prev, student_no: val }));
-                  }}
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  9 haneli öğrenci numaranız — sınıfınız otomatik belirlenir
-                </p>
+        {/* Öğrenci numarası */}
+        {isStudent && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+              Öğrenci Numarası
+            </label>
+            <div className="relative">
+              <Hash className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                name="student_no"
+                type="text"
+                placeholder="123456789"
+                required
+                maxLength={9}
+                value={formData.student_no}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setFormData((prev) => ({ ...prev, student_no: val }));
+                }}
+                className={inputBase}
+              />
+            </div>
+            <p className="text-xs text-gray-400">9 haneli numara — sınıfınız otomatik belirlenir</p>
+          </div>
+        )}
+
+        {/* Bölüm seçici */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+            {isStudent ? "Bölüm" : "Bölümler"}
+          </label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setDeptDropdownOpen((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 transition hover:border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+            >
+              <span className="truncate">
+                {selectedDeptNames.length > 0
+                  ? selectedDeptNames.join(", ")
+                  : "Bölüm seçin..."}
+              </span>
+              <ChevronDown
+                className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                  deptDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {deptDropdownOpen && (
+              <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                {departments.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-gray-400">Bölüm bulunamadı</p>
+                ) : (
+                  departments.map((dept) => {
+                    const checked = formData.department_ids.includes(dept.id);
+                    return (
+                      <button
+                        key={dept.id}
+                        type="button"
+                        onClick={() => {
+                          toggleDepartment(dept.id);
+                          if (isStudent) setDeptDropdownOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 ${
+                          checked
+                            ? "font-semibold text-indigo-600 dark:text-indigo-400"
+                            : "text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {dept.name}
+                        {checked && (
+                          <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                        )}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             )}
+          </div>
 
-            {/* Bölüm Seçici */}
-            <div className="relative">
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {isStudent ? "Bölüm" : "Bölümler"}{" "}
-                {isStudent && <span className="text-xs text-gray-400">(opsiyonel)</span>}
-              </label>
-              <button
-                type="button"
-                onClick={() => setDeptDropdownOpen((v) => !v)}
-                className="flex w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-700 hover:border-gray-400 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-300"
-              >
-                <span className="truncate">
-                  {selectedDeptNames.length > 0
-                    ? selectedDeptNames.join(", ")
-                    : "Bölüm seçin..."}
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
-                    deptDropdownOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {deptDropdownOpen && (
-                <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                  {departments.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-gray-400">
-                      Bölüm bulunamadı
-                    </p>
-                  ) : (
-                    departments.map((dept) => {
-                      const checked = formData.department_ids.includes(dept.id);
-                      return (
-                        <button
-                          key={dept.id}
-                          type="button"
-                          onClick={() => {
-                            toggleDepartment(dept.id);
-                            if (isStudent) setDeptDropdownOpen(false);
-                          }}
-                          className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 ${
-                            checked
-                              ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                              : "text-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {dept.name}
-                          {checked && (
-                            <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500" />
-                          )}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-
-              {/* Seçili bölüm chip'leri (öğretmen) */}
-              {!isStudent && selectedDeptNames.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {selectedDeptNames.map((name, i) => (
-                    <span
-                      key={i}
-                      className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
-                    >
-                      {name}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleDepartment(formData.department_ids[i])
-                        }
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+          {/* Teacher dept chips */}
+          {!isStudent && selectedDeptNames.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {formData.department_ids.map((id, i) => {
+                const name = departments.find((d) => d.id === id)?.name ?? "";
+                return (
+                  <span
+                    key={id}
+                    className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                  >
+                    {name}
+                    <button type="button" onClick={() => toggleDepartment(id)}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
+          )}
+        </div>
 
-            <Input
-              label="Şifre"
+        {/* Şifre */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Şifre</label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="En az 6 karakter"
               required
               minLength={6}
               autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
+              className={`${inputBase} pr-11`}
             />
-
-
-
-            <Button
-              type="submit"
-              className={`w-full ${
-                isStudent
-                  ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500"
-                  : "bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500"
-              }`}
-              isLoading={isLoading}
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              {isStudent ? "Kayıt Ol ve Sisteme Gir" : "Kayıt Ol ve Sisteme Gir"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Zaten hesabınız var mı?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-emerald-600 hover:text-emerald-500 hover:underline dark:text-emerald-400"
-            >
-              Giriş Sayfasına Dön
-            </Link>
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-    </>
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="group flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/25 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60"
+        >
+          {isLoading ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Hesap oluşturuluyor...
+            </>
+          ) : (
+            <>
+              Hesap Oluştur
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </>
+          )}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+        Zaten hesabınız var mı?{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+        >
+          Giriş Yap
+        </Link>
+      </p>
+    </div>
   );
 }

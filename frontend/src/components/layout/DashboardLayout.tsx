@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
+import { GraduationCap } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -23,10 +24,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-slate-900">
+      <div className="flex h-screen items-center justify-center bg-[#0f172a]">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Yükleniyor...</p>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 shadow-lg shadow-indigo-600/30">
+            <GraduationCap className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:-0.3s]" />
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400 [animation-delay:-0.15s]" />
+            <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400" />
+          </div>
         </div>
       </div>
     );
@@ -35,25 +42,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   if (!user) return null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-slate-950">
-      {/* Sol Menü */}
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Sidebar isMobileOpen={isMobileOpen} onClose={() => setIsMobileOpen(false)} />
 
-      {/* Mobil overlay backdrop */}
+      {/* Mobile overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Üst Menü */}
         <Navbar onMenuToggle={() => setIsMobileOpen((prev) => !prev)} />
-
-        {/* Ana İçerik Alanı */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
             {children}
           </div>
         </main>

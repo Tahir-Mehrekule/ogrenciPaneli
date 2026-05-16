@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, LogOut, User as UserIcon, Menu, CheckCircle } from "lucide-react";
+import { Bell, Menu, CheckCircle, Inbox, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import apiClient from "@/lib/apiClient";
 
@@ -10,204 +10,222 @@ interface NavbarProps {
   onMenuToggle: () => void;
 }
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "şimdi";
+  if (minutes < 60) return `${minutes} dk önce`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} sa önce`;
+  return `${Math.floor(hours / 24)} gün önce`;
+}
+
 export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
-  const { user, logout } = useAuth();
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const { user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
-  
   const [unreadCount, setUnreadCount] = useState(0);
-
-  interface Notification {
-    id: string;
-    title: string;
-    message: string;
-    is_read: boolean;
-    created_at: string;
-  }
-
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const fetchUnreadCount = async () => {
     if (!user) return;
     try {
       const res = await apiClient.get("/api/v1/notifications/unread-count");
-      // JSON response if dict format or plain number
-      const cnt = typeof res.data === 'number' ? res.data : (res.data?.detail ?? res.data?.count ?? res.data ?? 0);
+      const cnt =
+        typeof res.data === "number"
+          ? res.data
+          : res.data?.count ?? res.data?.detail ?? 0;
       setUnreadCount(Number(cnt));
-    } catch(e) {}
+    } catch {}
   };
 
   const fetchNotifications = async () => {
     try {
       const res = await apiClient.get("/api/v1/notifications");
       setNotifications(res.data?.items || []);
-    } catch(e) {}
+    } catch {}
   };
 
   useEffect(() => {
     fetchUnreadCount();
-    // Sekme aktif değilse polling'i durdur (FE-8)
     const interval = setInterval(() => {
       if (!document.hidden) fetchUnreadCount();
     }, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
-  const toggleNotifications = () => {
-    const isOpening = !showNotifications;
-    setShowNotifications(isOpening);
-    setShowProfileMenu(false);
-    if (isOpening) {
-      fetchNotifications();
-    }
-  };
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const handleMarkAsRead = async (id: string) => {
     try {
       await apiClient.patch(`/api/v1/notifications/${id}/read`);
-      fetchNotifications();
-      fetchUnreadCount();
-    } catch(e) {}
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {}
   };
 
   const handleMarkAllRead = async () => {
     try {
       await apiClient.patch("/api/v1/notifications/read-all");
-      fetchNotifications();
-      fetchUnreadCount();
-    } catch(e) {}
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
+  const toggleNotifications = () => {
+    const opening = !showNotifications;
+    setShowNotifications(opening);
+    if (opening) fetchNotifications();
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white/80 px-6 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
-      <div className="flex items-center gap-4">
-        {/* Hamburger Menü — mobilde sidebar açar */}
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white/90 px-4 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/90 md:px-6">
+      {/* Left */}
+      <div className="flex items-center gap-3">
         <button
           onClick={onMenuToggle}
-          className="block rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-slate-800"
-          aria-label="Menüyü aç/kapat"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800"
+          aria-label="Menü"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4 w-4" />
         </button>
-        <h1 className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-          UniTrack AI
-        </h1>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Bildirimler */}
-        <div className="relative">
-          <button 
+      {/* Right */}
+      <div className="flex items-center gap-2">
+        {/* Notifications */}
+        <div className="relative" ref={notifRef}>
+          <button
             onClick={toggleNotifications}
-            className="relative rounded-full p-2 text-gray-500 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-slate-800"
+            className="relative flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
-                {unreadCount > 9 ? '9+' : unreadCount}
+              <span className="badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
 
-          {/* Bildirim Menüsü */}
+          {/* Notification Panel */}
           <div
             className={cn(
-              "absolute right-0 mt-2 w-80 origin-top-right rounded-xl border border-gray-200 bg-white shadow-lg transition-all dark:border-slate-700 dark:bg-slate-800 flex flex-col",
-              showNotifications ? "visible scale-100 opacity-100" : "invisible scale-95 opacity-0"
+              "absolute right-0 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl transition-all duration-200 dark:border-slate-700 dark:bg-slate-900",
+              showNotifications
+                ? "visible translate-y-0 opacity-100"
+                : "invisible -translate-y-2 opacity-0"
             )}
-            style={{ maxHeight: '400px' }}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-slate-700">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white">Bildirimler</span>
-              {unreadCount > 0 && (
-                <button onClick={handleMarkAllRead} className="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
-                  Tümünü Okundu İşaretle
+            {/* Panel header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Bildirimler
+                </span>
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                    {unreadCount} yeni
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
+                  >
+                    Tümü okundu
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800"
+                >
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              )}
+              </div>
             </div>
-            
-            <div className="flex-1 overflow-y-auto w-full p-2">
+
+            {/* Notifications list */}
+            <div className="max-h-[340px] overflow-y-auto">
               {notifications.length === 0 ? (
-                <div className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
-                  Hiç bildiriminiz yok.
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                  <Inbox className="h-8 w-8 text-gray-300 dark:text-slate-600" />
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
+                    Henüz bildirim yok
+                  </p>
                 </div>
               ) : (
-                notifications.map((notif) => (
-                  <div key={notif.id} className={cn(
-                    "flex items-start gap-3 rounded-lg p-3 text-left mb-1 transition-colors",
-                    !notif.is_read ? "bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  )}>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
-                        {notif.title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {notif.message}
-                      </p>
-                      <span className="text-[10px] text-gray-400 mt-1 block">
-                        {new Date(notif.created_at).toLocaleString('tr-TR')}
-                      </span>
+                <div className="divide-y divide-gray-50 dark:divide-slate-800">
+                  {notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={cn(
+                        "flex items-start gap-3 px-4 py-3 transition-colors",
+                        !notif.is_read
+                          ? "bg-indigo-50/60 dark:bg-indigo-950/30"
+                          : "hover:bg-gray-50 dark:hover:bg-slate-800/60"
+                      )}
+                    >
+                      {!notif.is_read && (
+                        <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                      )}
+                      {notif.is_read && <div className="mt-1.5 h-1.5 w-1.5 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
+                          {notif.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-slate-400 line-clamp-2">
+                          {notif.message}
+                        </p>
+                        <span className="mt-1 block text-[10px] text-gray-400">
+                          {timeAgo(notif.created_at)}
+                        </span>
+                      </div>
+                      {!notif.is_read && (
+                        <button
+                          onClick={() => handleMarkAsRead(notif.id)}
+                          title="Okundu işaretle"
+                          className="shrink-0 rounded-md p-1 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/30"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {!notif.is_read && (
-                      <button 
-                        onClick={() => handleMarkAsRead(notif.id)}
-                        className="shrink-0 p-1 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"
-                        title="Okundu İşaretle"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Kullanıcı Profili */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setShowProfileMenu((prev) => !prev);
-              setShowNotifications(false);
-            }}
-            className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
-          >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
-              <UserIcon className="h-4 w-4" />
-            </div>
-            <span className="hidden font-medium text-gray-700 md:block dark:text-gray-200">
-              {user?.full_name || "Kullanıcı"}
-            </span>
-          </button>
-
-          {/* Kolay Açılır Menü */}
-          <div
-            className={cn(
-              "absolute right-0 mt-2 w-48 origin-top-right rounded-xl border border-gray-200 bg-white shadow-lg transition-all dark:border-slate-700 dark:bg-slate-800",
-              showProfileMenu
-                ? "visible scale-100 opacity-100"
-                : "invisible scale-95 opacity-0"
-            )}
-          >
-            <div className="border-b border-gray-100 px-4 py-3 dark:border-slate-700">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.full_name}
-              </p>
-              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                {user?.email}
-              </p>
-            </div>
-            <div className="p-1">
-              <button
-                onClick={logout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-              >
-                <LogOut className="h-4 w-4" />
-                Çıkış Yap
-              </button>
-            </div>
+        {/* User chip */}
+        <div className="flex h-8 items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-[10px] font-bold text-white">
+            {user?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
           </div>
+          <span className="hidden text-xs font-medium text-gray-700 sm:block dark:text-slate-300">
+            {user?.full_name?.split(" ")[0] ?? "Kullanıcı"}
+          </span>
         </div>
       </div>
     </header>

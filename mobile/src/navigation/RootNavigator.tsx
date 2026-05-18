@@ -27,6 +27,7 @@ import { NotificationListScreen } from '../screens/notifications/NotificationLis
 import { PendingStudentsScreen } from '../screens/admin/PendingStudentsScreen';
 import { SettingsScreen } from '../screens/admin/SettingsScreen';
 import { ActivityLogsScreen } from '../screens/admin/ActivityLogsScreen';
+import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import {
   View, Text, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
@@ -55,22 +56,7 @@ const DarkNavTheme = {
   },
 };
 
-const ProfileScreen = () => {
-  const { logout, user } = useAuth();
-  return (
-    <View className="flex-1 items-center justify-center bg-slate-950 p-6">
-      <View className="h-24 w-24 items-center justify-center rounded-full bg-indigo-900/50 mb-4">
-        <UserIcon size={40} color="#818cf8" />
-      </View>
-      <Text className="text-2xl font-bold mb-1 text-white">{user?.full_name}</Text>
-      <Text className="text-sm text-gray-400 mb-2">{user?.email}</Text>
-      <View className="rounded-lg bg-slate-800 px-3 py-1 mb-8">
-        <Text className="text-xs font-semibold text-indigo-400">{user?.role}</Text>
-      </View>
-      <Button title="Güvenli Çıkış Yap" variant="danger" onPress={logout} className="w-full" />
-    </View>
-  );
-};
+
 
 const CoursesStackNavigator = () => (
   <CourseStack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#0f172a' }, headerTintColor: '#818cf8', headerTitleStyle: { fontWeight: 'bold', fontSize: 16 }, headerShadowVisible: false }}>

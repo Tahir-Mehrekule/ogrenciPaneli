@@ -230,8 +230,8 @@ export const TeacherDashboard = () => {
       {/* Two column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Pending approvals — wider */}
-        <div className="lg:col-span-3">
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-col lg:col-span-3">
+          <div className="flex flex-1 flex-col rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-slate-700">
               <div className="flex items-center gap-2.5">
@@ -256,7 +256,7 @@ export const TeacherDashboard = () => {
             </div>
 
             {/* List */}
-            <div className="divide-y divide-gray-50 dark:divide-slate-700/50">
+            <div className="flex-1 divide-y divide-gray-50 dark:divide-slate-700/50">
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 px-5 py-4">
@@ -328,8 +328,8 @@ export const TeacherDashboard = () => {
         </div>
 
         {/* Recent projects — narrower */}
-        <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-col lg:col-span-2">
+          <div className="flex flex-1 flex-col rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-slate-700">
               <div className="flex items-center gap-2.5">
@@ -343,7 +343,7 @@ export const TeacherDashboard = () => {
               </button>
             </div>
 
-            <div className="divide-y divide-gray-50 dark:divide-slate-700/50">
+            <div className="flex-1 divide-y divide-gray-50 dark:divide-slate-700/50">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 px-5 py-3.5">
@@ -355,8 +355,10 @@ export const TeacherDashboard = () => {
                   </div>
                 ))
               ) : recentProjects.length === 0 ? (
-                <div className="py-8 text-center text-xs text-gray-400">
-                  Henüz proje yok
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <Activity className="h-10 w-10 text-gray-200 dark:text-slate-600" />
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Henüz proje yok</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">Derslerinize proje gönderilmemiş</p>
                 </div>
               ) : (
                 recentProjects.map((p) => (

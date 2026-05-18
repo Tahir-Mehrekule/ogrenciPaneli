@@ -156,6 +156,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Gelen Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
               <NavItem href="/dashboard/reports" icon={FileText} label="Gelen Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
             </NavSection>
+            <NavSection label="Hesap">
+              <NavItem href="/dashboard/settings" icon={Settings} label="Ayarlar" isActive={isActive("/dashboard/settings")} onClick={onClose} />
+            </NavSection>
           </>
         )}
 

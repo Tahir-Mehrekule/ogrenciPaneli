@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  Alert, RefreshControl, ActivityIndicator, ScrollView,
+  Alert, RefreshControl, ActivityIndicator, ScrollView, Modal,
 } from 'react-native';
 import apiClient from '../../lib/apiClient';
 import { Building2, Plus, Trash2, Pencil, Check, X, Hash, BookOpen } from 'lucide-react-native';
@@ -10,18 +10,25 @@ import { StudentPrefix } from '../../types/project';
 type Tab = 'departments' | 'prefixes';
 
 // ── Bölüm Yönetimi ───────────────────────────────────────────────────────────
-interface Department { id: string; name: string; created_at: string; }
+interface Department { id: string; name: string; code?: string; created_at: string; }
 
 const DepartmentTab = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Ekleme modal state'leri
+  const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newCode, setNewCode] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // Düzenleme state'leri
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
 
-  const fetch = useCallback(async () => {
+  const fetchDepts = useCallback(async () => {
     try {
       const { data } = await apiClient.get<Department[]>('/api/v1/admin/departments');
       setDepartments(data);
@@ -29,34 +36,55 @@ const DepartmentTab = () => {
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchDepts(); }, [fetchDepts]);
+
+  const isValidCode = (c: string) => /^\d{3}$/.test(c);
+
+  const closeAddModal = () => {
+    if (adding) return;
+    setAddOpen(false);
+    setNewName('');
+    setNewCode('');
+  };
 
   const handleAdd = async () => {
     const name = newName.trim();
-    if (!name) return;
+    const code = newCode.trim();
+    if (!name) return Alert.alert('Hata', 'Bölüm ismi boş olamaz.');
+    if (!isValidCode(code)) return Alert.alert('Hata', 'Bölüm kodu tam 3 rakam olmalı (örn: 235).');
+
     setAdding(true);
     try {
-      const { data } = await apiClient.post<Department>('/api/v1/admin/departments', { name });
+      const { data } = await apiClient.post<Department>('/api/v1/admin/departments', { name, code });
       setDepartments(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'tr')));
-      setNewName('');
+      Alert.alert('Başarılı', `"${data.name}" bölümü eklendi.`);
+      closeAddModal();
     } catch (err: any) {
       Alert.alert('Hata', err.response?.data?.detail || 'Bölüm eklenemedi.');
     } finally { setAdding(false); }
   };
 
+  const handleEditStart = (dept: Department) => {
+    setEditingId(dept.id);
+    setEditName(dept.name);
+    setEditCode(dept.code ?? '');
+  };
+
   const handleEditSave = async (id: string) => {
     const name = editName.trim();
+    const code = editCode.trim();
     if (!name) return;
+    if (code && !isValidCode(code)) return Alert.alert('Hata', 'Bölüm kodu tam 3 rakam olmalı.');
     try {
-      const { data } = await apiClient.patch<Department>(`/api/v1/admin/departments/${id}`, { name });
+      const { data } = await apiClient.patch<Department>(`/api/v1/admin/departments/${id}`, { name, ...(code ? { code } : {}) });
       setDepartments(prev => prev.map(d => d.id === id ? data : d).sort((a, b) => a.name.localeCompare(b.name, 'tr')));
       setEditingId(null);
     } catch (err: any) { Alert.alert('Hata', err.response?.data?.detail || 'Güncellenemedi.'); }
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert('Sil', `"${name}" bölümünü silmek istediğinize emin misiniz?`, [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Sil', `"${name}" bölümünü silmek istediğinize emin misiniz? Bu bölüme bağlı kullanıcılar/dersler etkilenebilir.`, [
+      { text: 'Vazgeç', style: 'cancel' },
       { text: 'Sil', style: 'destructive', onPress: async () => {
         try {
           await apiClient.delete(`/api/v1/admin/departments/${id}`);
@@ -70,44 +98,62 @@ const DepartmentTab = () => {
 
   return (
     <View className="flex-1">
-      <View className="flex-row items-center gap-2 px-4 mb-3">
-        <TextInput value={newName} onChangeText={setNewName} placeholder="Yeni bölüm adı..."
-          placeholderTextColor="#64748b" className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white"
-          onSubmitEditing={handleAdd} returnKeyType="done" />
-        <TouchableOpacity onPress={handleAdd} disabled={adding || !newName.trim()}
-          className="h-12 w-12 items-center justify-center rounded-xl bg-indigo-600"
-          style={{ opacity: adding || !newName.trim() ? 0.5 : 1 }}>
-          <Plus size={20} color="#fff" />
+      {/* Başlık + Ekle Butonu */}
+      <View className="flex-row items-center justify-between px-4 mb-3">
+        <View>
+          <Text className="text-xs text-gray-500">Toplam {departments.length} bölüm</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => setAddOpen(true)}
+          className="flex-row items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2.5"
+        >
+          <Plus size={14} color="#fff" />
+          <Text className="text-xs font-semibold text-white">Bölüm Ekle</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Bölüm Listesi */}
       <FlatList data={departments} keyExtractor={i => i.id}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} tintColor="#818cf8" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDepts(); }} tintColor="#818cf8" />}
         ListEmptyComponent={
           <View className="mt-10 items-center rounded-2xl border border-dashed border-slate-700 p-10">
             <Building2 size={32} color="#475569" />
-            <Text className="text-sm text-gray-500 mt-3 text-center">Henüz bölüm eklenmemiş.</Text>
+            <Text className="text-sm text-gray-500 mt-3 text-center">Henüz bölüm eklenmemiş.{'\n'}İlk bölümü eklemek için "Bölüm Ekle" butonunu kullanın.</Text>
           </View>
         }
         renderItem={({ item }) => (
           <View className="mb-2 flex-row items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3">
             <Building2 size={16} color="#64748b" />
             {editingId === item.id ? (
-              <View className="flex-1 flex-row items-center gap-2">
-                <TextInput value={editName} onChangeText={setEditName} autoFocus
-                  className="flex-1 rounded-lg border border-indigo-500 bg-slate-800 px-3 py-1.5 text-sm text-white"
-                  onSubmitEditing={() => handleEditSave(item.id)} returnKeyType="done" />
-                <TouchableOpacity onPress={() => handleEditSave(item.id)} className="h-8 w-8 items-center justify-center rounded-lg bg-emerald-700">
-                  <Check size={14} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setEditingId(null)} className="h-8 w-8 items-center justify-center rounded-lg bg-slate-700">
-                  <X size={14} color="#94a3b8" />
-                </TouchableOpacity>
+              <View className="flex-1 gap-2">
+                <View className="flex-row items-center gap-2">
+                  <TextInput value={editCode} onChangeText={(t) => setEditCode(t.replace(/\D/g, '').slice(0, 3))}
+                    keyboardType="numeric" maxLength={3} placeholder="Kod"
+                    placeholderTextColor="#475569"
+                    className="w-16 rounded-lg border border-indigo-500 bg-slate-800 px-2 py-1.5 text-center text-sm text-white font-mono" />
+                  <TextInput value={editName} onChangeText={setEditName} autoFocus
+                    className="flex-1 rounded-lg border border-indigo-500 bg-slate-800 px-3 py-1.5 text-sm text-white"
+                    onSubmitEditing={() => handleEditSave(item.id)} returnKeyType="done" />
+                </View>
+                <View className="flex-row gap-2 justify-end">
+                  <TouchableOpacity onPress={() => handleEditSave(item.id)} className="h-8 w-8 items-center justify-center rounded-lg bg-emerald-700">
+                    <Check size={14} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setEditingId(null)} className="h-8 w-8 items-center justify-center rounded-lg bg-slate-700">
+                    <X size={14} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <>
+                {item.code && (
+                  <View className="rounded-md bg-indigo-900/30 border border-indigo-500/20 px-2 py-0.5">
+                    <Text className="text-xs font-mono font-semibold text-indigo-300">{item.code}</Text>
+                  </View>
+                )}
                 <Text className="flex-1 text-sm font-medium text-white">{item.name}</Text>
-                <TouchableOpacity onPress={() => { setEditingId(item.id); setEditName(item.name); }}
+                <TouchableOpacity onPress={() => handleEditStart(item)}
                   className="h-8 w-8 items-center justify-center rounded-lg bg-slate-800">
                   <Pencil size={13} color="#94a3b8" />
                 </TouchableOpacity>
@@ -120,6 +166,69 @@ const DepartmentTab = () => {
           </View>
         )}
       />
+
+      {/* ── Bölüm Ekleme Popup Modal ── */}
+      <Modal visible={addOpen} transparent animationType="slide" onRequestClose={closeAddModal}>
+        <View className="flex-1 justify-center items-center bg-black/60 p-4">
+          <View className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            {/* Gradient Bar */}
+            <View className="h-1 rounded-t-2xl bg-indigo-500" />
+
+            <View className="p-5">
+              {/* Başlık */}
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-lg font-semibold text-white">Bölüm Ekle</Text>
+                <TouchableOpacity onPress={closeAddModal} disabled={adding} className="p-1.5 rounded-lg bg-slate-800">
+                  <X size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+              <Text className="text-xs text-gray-400 mb-5">Bölüm bilgilerini aşağıdaki formda girin.</Text>
+
+              {/* Bölüm İsmi */}
+              <View className="mb-4">
+                <Text className="text-xs font-medium text-gray-400 mb-1.5">Bölüm İsmi <Text className="text-red-400">*</Text></Text>
+                <TextInput
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Bilgisayar Mühendisliği"
+                  placeholderTextColor="#475569"
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm text-white"
+                />
+              </View>
+
+              {/* Bölüm Kodu */}
+              <View className="mb-5">
+                <Text className="text-xs font-medium text-gray-400 mb-1.5">Bölüm Kodu <Text className="text-red-400">*</Text></Text>
+                <TextInput
+                  value={newCode}
+                  onChangeText={(t) => setNewCode(t.replace(/\D/g, '').slice(0, 3))}
+                  placeholder="235"
+                  placeholderTextColor="#475569"
+                  keyboardType="numeric"
+                  maxLength={3}
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm text-white font-mono tracking-wider"
+                />
+                <Text className="text-[10px] text-gray-500 mt-1">Öğrenci numarasının orta 3 hanesini eşler.</Text>
+              </View>
+
+              {/* Butonlar */}
+              <View className="flex-row justify-end gap-3 border-t border-slate-700 pt-4">
+                <TouchableOpacity onPress={closeAddModal} disabled={adding}
+                  className="rounded-xl border border-slate-600 px-4 py-2.5">
+                  <Text className="text-sm text-gray-400">İptal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleAdd}
+                  disabled={adding || !newName.trim() || !isValidCode(newCode)}
+                  className="flex-row items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5"
+                  style={{ opacity: adding || !newName.trim() || !isValidCode(newCode) ? 0.5 : 1 }}>
+                  <Plus size={14} color="#fff" />
+                  <Text className="text-sm font-semibold text-white">{adding ? 'Ekleniyor...' : 'Ekle'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

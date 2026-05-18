@@ -40,6 +40,7 @@ class ProjectRepo(BaseRepository[Project]):
         self,
         filters: dict = None,
         exclude_status=None,
+        course_ids: list = None,
         search: str = None,
         search_fields: list[str] = None,
         grade_label: Optional[str] = None,
@@ -83,6 +84,9 @@ class ProjectRepo(BaseRepository[Project]):
                     User.email.ilike(term),
                 )
             )
+
+        if course_ids is not None:
+            query = query.filter(Project.course_id.in_(course_ids))
 
         if exclude_status is not None:
             query = query.filter(Project.status != exclude_status)

@@ -9,8 +9,11 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import ClassTabs from "@/components/ui/ClassTabs";
-import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck, Github } from "lucide-react";
+import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck, Github, Eye, Pencil, Trash2, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
+import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
+import toast from "react-hot-toast";
 
 type ProjectStatus =
   | "DRAFT"
@@ -33,6 +36,16 @@ interface Project {
   project_type: string | null;
   created_at: string;
   github_url: string | null;
+  rejection_reason: string | null;
+  is_active: boolean;
+}
+
+interface ProjectMember {
+  id: string;
+  user_id: string;
+  role: "MANAGER" | "MEMBER";
+  status: "ACTIVE" | "INVITED" | "JOIN_REQUESTED" | "REJECTED";
+  user?: { id: string; name: string; email: string };
 }
 
 interface CourseOption {
@@ -79,6 +92,139 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function getDetail(err: unknown): string {
+  const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map((d) => d?.msg ?? "").join(", ");
+  return "";
+}
+
+function EditProjectPopupModal({
+  project,
+  onClose,
+  onUpdated,
+}: {
+  project: Project;
+  onClose: () => void;
+  onUpdated: (updated: Project) => void;
+}) {
+  const [title, setTitle] = React.useState(project.title);
+  const [description, setDescription] = React.useState(project.description);
+  const [githubUrl, setGithubUrl] = React.useState(project.github_url || "");
+  const [saving, setSaving] = React.useState(false);
+  const [formError, setFormError] = React.useState("");
+
+  const handleSave = async () => {
+    if (title.trim().length < 3) { setFormError("Başlık en az 3 karakter olmalı."); return; }
+    if (description.trim().length < 10) { setFormError("Açıklama en az 10 karakter olmalı."); return; }
+    setSaving(true);
+    setFormError("");
+    try {
+      const { data } = await apiClient.patch(`/api/v1/projects/${project.id}`, {
+        title: title.trim(),
+        description: description.trim(),
+        github_url: githubUrl.trim() || null,
+      });
+      toast.success("Proje güncellendi.");
+      onUpdated(data);
+      onClose();
+    } catch (err: unknown) {
+      setFormError(getDetail(err) || "Güncelleme başarısız.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={!saving ? onClose : undefined} />
+      <FocusTrapContainer className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-indigo-400" />
+            Projeyi Düzenle
+          </h3>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {project.status !== "DRAFT" && (
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+            <p className="text-xs text-amber-400">Yalnızca TASLAK durumundaki projeler düzenlenebilir. Bu proje şu anda <strong>{project.status}</strong> durumunda.</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Proje Başlığı <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={200}
+              disabled={project.status !== "DRAFT"}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-gray-200 outline-none focus:border-indigo-500 disabled:opacity-50"
+            />
+            <p className="text-xs text-gray-500 text-right mt-0.5">{title.length}/200</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Açıklama <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={5}
+              disabled={project.status !== "DRAFT"}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-none disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              GitHub URL <span className="text-gray-500 font-normal">(opsiyonel)</span>
+            </label>
+            <input
+              type="url"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              maxLength={500}
+              placeholder="https://github.com/..."
+              disabled={project.status !== "DRAFT"}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-gray-200 outline-none focus:border-indigo-500 disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        {formError && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+            <p className="text-xs text-red-400">{formError}</p>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 pt-1">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 disabled:opacity-50"
+          >
+            Vazgeç
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || project.status !== "DRAFT"}
+            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
+      </FocusTrapContainer>
+    </div>
+  );
+}
+
 export default function ProjectsPage() {
   const { user } = useAuth();
   const role = user?.role?.toUpperCase();
@@ -105,6 +251,13 @@ export default function ProjectsPage() {
   const [rejectModal, setRejectModal] = useState<{ id: string; title: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+
+  const [viewModal, setViewModal] = useState<Project | null>(null);
+  const [editModal, setEditModal] = useState<Project | null>(null);
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [softDeleteTarget, setSoftDeleteTarget] = useState<Project | null>(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<Project | null>(null);
 
   const isStaff = role === "TEACHER" || role === "ADMIN";
 
@@ -189,11 +342,38 @@ export default function ProjectsPage() {
     try {
       await apiClient.post(`/api/v1/projects/${rejectModal.id}/reject`, { reason: rejectReason.trim() });
       setRejectModal(null);
+      setViewModal(null);
       fetchProjects();
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Reddetme başarısız.");
+      toast.error(getDetail(err) || "Reddetme başarısız.");
     } finally {
       setRejecting(false);
+    }
+  };
+
+  const openDetailPopup = useCallback(async (project: Project) => {
+    setViewModal(project);
+    setProjectMembers([]);
+    setMembersLoading(true);
+    try {
+      const { data } = await apiClient.get(`/api/v1/projects/${project.id}/members`);
+      setProjectMembers(Array.isArray(data) ? data : (data.items ?? []));
+    } catch {
+      // üye listesi kritik değil, sessizce geç
+    } finally {
+      setMembersLoading(false);
+    }
+  }, []);
+
+  const handleApproveFromPopup = async () => {
+    if (!viewModal) return;
+    try {
+      await apiClient.post(`/api/v1/projects/${viewModal.id}/approve`);
+      toast.success("Proje onaylandı.");
+      setViewModal(null);
+      fetchProjects();
+    } catch (err: unknown) {
+      toast.error(getDetail(err) || "Onaylama başarısız.");
     }
   };
 
@@ -297,27 +477,36 @@ export default function ProjectsPage() {
       header: "",
       render: (p) => {
         const normalized = p.status?.toUpperCase();
-        if (isStaff && normalized === "PENDING") {
-          return (
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={(e) => handleApprove(p.id, e)}
-                title="Onayla"
-                className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
-              >
-                <CheckCircle className="h-3.5 w-3.5" /> Onayla
-              </button>
-              <button
-                onClick={(e) => handleReject(p.id, p.title, e)}
-                title="Reddet"
-                className="flex items-center gap-1 rounded-lg bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800 transition-colors"
-              >
-                <XCircle className="h-3.5 w-3.5" /> Reddet
-              </button>
-            </div>
-          );
-        }
-        return null;
+        if (!isStaff) return null;
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); openDetailPopup(p); }}
+              title="Detay Görüntüle"
+              className="rounded-lg p-1.5 text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            {normalized === "PENDING" && (
+              <>
+                <button
+                  onClick={(e) => handleApprove(p.id, e)}
+                  title="Onayla"
+                  className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" /> Onayla
+                </button>
+                <button
+                  onClick={(e) => handleReject(p.id, p.title, e)}
+                  title="Reddet"
+                  className="flex items-center gap-1 rounded-lg bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800 transition-colors"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Reddet
+                </button>
+              </>
+            )}
+          </div>
+        );
       },
     },
   ];
@@ -516,7 +705,13 @@ export default function ProjectsPage() {
             setPageSize(size);
             setPage(1);
           }}
-          onRowClick={(p) => router.push(`/dashboard/projects/${p.id}`)}
+          onRowClick={(p) => {
+            if (isStaff) {
+              openDetailPopup(p);
+            } else {
+              router.push(`/dashboard/projects/${p.id}`);
+            }
+          }}
           emptyMessage={
             search || statusFilter
               ? "Filtrelere uyan proje bulunamadı."
@@ -582,7 +777,9 @@ export default function ProjectsPage() {
                         key={project.id}
                         className="cursor-pointer hover:ring-2 hover:ring-indigo-500/30 transition-all"
                         onClick={() =>
-                          router.push(`/dashboard/projects/${project.id}`)
+                          isStaff
+                            ? openDetailPopup(project)
+                            : router.push(`/dashboard/projects/${project.id}`)
                         }
                       >
                         <CardContent className="p-5">
@@ -679,6 +876,263 @@ export default function ProjectsPage() {
           <p className="text-sm text-gray-400">Projeler yükleniyor...</p>
         </div>
       )}
+
+      {/* ─── PROJE DETAY POPUP ─── */}
+      {viewModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Proje Detayı"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setViewModal(null)}
+          />
+          <FocusTrapContainer className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Üst renk çizgisi */}
+            <div
+              className={`h-1 w-full ${
+                viewModal.status === "APPROVED" || viewModal.status === "COMPLETED"
+                  ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                  : viewModal.status === "PENDING"
+                  ? "bg-gradient-to-r from-amber-400 to-orange-400"
+                  : viewModal.status === "REJECTED"
+                  ? "bg-gradient-to-r from-red-400 to-rose-400"
+                  : viewModal.status === "IN_PROGRESS"
+                  ? "bg-gradient-to-r from-blue-400 to-indigo-400"
+                  : "bg-gradient-to-r from-slate-500 to-slate-600"
+              }`}
+            />
+
+            {/* Header */}
+            <div className="flex items-start justify-between p-5 border-b border-gray-800 gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-semibold text-white truncate">{viewModal.title}</h3>
+                  <StatusBadge status={viewModal.status} />
+                </div>
+                <p className="text-sm text-gray-400 mt-1">
+                  {viewModal.created_by_name ?? "Bilinmeyen Kullanıcı"} •{" "}
+                  {new Date(viewModal.created_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewModal(null)}
+                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Kaydırılabilir içerik */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Açıklama */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Açıklama</h4>
+                <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {viewModal.description}
+                </div>
+              </div>
+
+              {/* Proje bilgileri grid */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Proje Bilgileri</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/50 p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">Ders</p>
+                    <p className="text-sm text-gray-200">
+                      {viewModal.course_name
+                        ? <>{viewModal.course_code && <span className="font-mono text-indigo-400 mr-1">[{viewModal.course_code}]</span>}{viewModal.course_name}</>
+                        : "Ders Atanmamış"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/50 p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">Proje Türü</p>
+                    <p className="text-sm text-gray-200">
+                      {viewModal.project_type === "INDIVIDUAL"
+                        ? "Bireysel"
+                        : viewModal.project_type === "TEAM"
+                        ? "Takım"
+                        : viewModal.project_type === "BOTH"
+                        ? "Bireysel veya Takım"
+                        : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/50 p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">Oluşturulma Tarihi</p>
+                    <p className="text-sm text-gray-200">
+                      {new Date(viewModal.created_at).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/50 p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">GitHub</p>
+                    {viewModal.github_url ? (
+                      <a
+                        href={viewModal.github_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 hover:underline"
+                      >
+                        <Github className="h-3.5 w-3.5" />
+                        Repoyu Aç
+                      </a>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">—</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reddetme sebebi (sadece REJECTED) */}
+              {viewModal.status === "REJECTED" && viewModal.rejection_reason && (
+                <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-red-400 mb-2 flex items-center gap-1.5">
+                    <XCircle className="h-3.5 w-3.5" /> Reddetme Sebebi
+                  </h4>
+                  <p className="text-sm text-red-300 whitespace-pre-wrap">{viewModal.rejection_reason}</p>
+                </div>
+              )}
+
+              {/* Üyeler */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Üyeler
+                </h4>
+                {membersLoading ? (
+                  <p className="text-sm text-gray-500 italic">Üyeler yükleniyor...</p>
+                ) : projectMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">Henüz üye yok.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {projectMembers.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between rounded-xl bg-gray-800/40 border border-gray-700/50 px-4 py-2.5">
+                        <div>
+                          <p className="text-sm font-medium text-gray-200">{m.user?.name ?? m.user_id}</p>
+                          {m.user?.email && <p className="text-xs text-gray-500">{m.user.email}</p>}
+                        </div>
+                        <span className={`rounded-lg border px-2 py-0.5 text-xs font-medium ${
+                          m.role === "MANAGER"
+                            ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                            : "bg-gray-700/60 border-gray-600/50 text-gray-400"
+                        }`}>
+                          {m.role === "MANAGER" ? "Yönetici" : "Üye"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer aksiyonlar */}
+            <div className="flex items-center justify-between gap-3 p-5 border-t border-gray-800 flex-wrap">
+              <button
+                onClick={() => setViewModal(null)}
+                className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 transition-colors"
+              >
+                Kapat
+              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Düzenle — sadece DRAFT */}
+                {viewModal.status === "DRAFT" && (
+                  <button
+                    onClick={() => setEditModal(viewModal)}
+                    className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Düzenle
+                  </button>
+                )}
+                {/* Onayla/Reddet — sadece PENDING + isStaff */}
+                {isStaff && viewModal.status === "PENDING" && (
+                  <>
+                    <button
+                      onClick={handleApproveFromPopup}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" /> Onayla
+                    </button>
+                    <button
+                      onClick={() => { setRejectModal({ id: viewModal.id, title: viewModal.title }); setRejectReason(""); }}
+                      className="flex items-center gap-1.5 rounded-xl bg-red-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-red-800 transition-colors"
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> Reddet
+                    </button>
+                  </>
+                )}
+                {/* Sil (soft delete) */}
+                <button
+                  onClick={() => setSoftDeleteTarget(viewModal)}
+                  className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-amber-700 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Sil
+                </button>
+                {/* Kalıcı Sil — sadece ADMIN */}
+                {role === "ADMIN" && (
+                  <button
+                    onClick={() => setHardDeleteTarget(viewModal)}
+                    className="flex items-center gap-1.5 rounded-xl bg-red-900 border border-red-700 px-3.5 py-2 text-sm font-semibold text-red-300 hover:bg-red-800 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Kalıcı Sil
+                  </button>
+                )}
+              </div>
+            </div>
+          </FocusTrapContainer>
+        </div>
+      )}
+
+      {/* ─── EDİT MODAL ─── */}
+      {editModal && (
+        <EditProjectPopupModal
+          project={editModal}
+          onClose={() => setEditModal(null)}
+          onUpdated={(updated) => {
+            setViewModal(updated);
+            setEditModal(null);
+            fetchProjects();
+          }}
+        />
+      )}
+
+      {/* ─── SOFT DELETE MODAL ─── */}
+      <SoftDeleteModal
+        open={!!softDeleteTarget}
+        onClose={() => setSoftDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!softDeleteTarget) return;
+          await apiClient.delete(`/api/v1/projects/${softDeleteTarget.id}`);
+          toast.success("Proje silindi (geri yüklenebilir).");
+          setSoftDeleteTarget(null);
+          setViewModal(null);
+          fetchProjects();
+        }}
+        title="Projeyi Sil"
+        entityName={softDeleteTarget?.title ?? "Proje"}
+        cascadeUrl={softDeleteTarget ? `/api/v1/projects/${softDeleteTarget.id}/cascade-info` : null}
+        cascadeLabels={{ tasks: "Görevler", reports: "Raporlar", members: "Üyeler" }}
+        confirmLabel="Sil"
+      />
+
+      {/* ─── HARD DELETE MODAL ─── */}
+      <SoftDeleteModal
+        open={!!hardDeleteTarget}
+        onClose={() => setHardDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!hardDeleteTarget) return;
+          await apiClient.delete(`/api/v1/projects/${hardDeleteTarget.id}/hard`);
+          toast.success("Proje kalıcı olarak silindi.");
+          setHardDeleteTarget(null);
+          setViewModal(null);
+          fetchProjects();
+        }}
+        title="Projeyi Kalıcı Sil"
+        entityName={hardDeleteTarget?.title ?? "Proje"}
+        cascadeUrl={hardDeleteTarget ? `/api/v1/projects/${hardDeleteTarget.id}/cascade-info` : null}
+        cascadeLabels={{ tasks: "Görevler", reports: "Raporlar", members: "Üyeler" }}
+        confirmLabel="Kalıcı Sil"
+        destructive
+      />
 
       {/* B2 — Reddetme Sebebi Modalı */}
       {rejectModal && (

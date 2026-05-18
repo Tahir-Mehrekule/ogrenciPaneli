@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
-import { FileText, Plus, Paperclip, CheckCircle2, Clock, Circle, Search, X, ChevronDown } from 'lucide-react-native';
+import { FileText, Plus, Paperclip, CheckCircle2, Clock, Circle, Search, X, ChevronDown, Trash2, RotateCcw, Archive } from 'lucide-react-native';
 import { Report } from '../../types/report';
 import { PaginatedResponse } from '../../types/course';
 
@@ -29,7 +29,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 };
 
 // ── Teacher Tablo Görünümü ────────────────────────────────────────────────────
-const TeacherTableView = ({ reports }: { reports: Report[] }) => {
+const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role }: { reports: Report[]; onDelete: (id: string, content: string) => void; onHardDelete?: (id: string, content: string) => void; onRestore?: (id: string) => void; role: string }) => {
   if (reports.length === 0) {
     return (
       <View className="mt-16 items-center px-8">
@@ -69,8 +69,9 @@ const TeacherTableView = ({ reports }: { reports: Report[] }) => {
             <View className="flex-row bg-slate-800/80 px-3 py-2 border-b border-slate-700/60">
               <Text className="text-xs font-bold text-gray-400 w-24">Öğrenci</Text>
               <Text className="text-xs font-bold text-gray-400 flex-1">Proje</Text>
-              <Text className="text-xs font-bold text-gray-400 w-12 text-center">Hafta</Text>
-              <Text className="text-xs font-bold text-gray-400 w-20 text-right">Durum</Text>
+              <Text className="text-xs font-bold text-gray-400 w-10 text-center">Hafta</Text>
+              <Text className="text-xs font-bold text-gray-400 w-24 text-center">Durum</Text>
+              <Text className="text-xs font-bold text-gray-400 w-16 text-right">İşlem</Text>
             </View>
 
             {/* Tablo Satırları */}
@@ -101,18 +102,39 @@ const TeacherTableView = ({ reports }: { reports: Report[] }) => {
                   </View>
 
                   {/* Hafta */}
-                  <View className="w-12 items-center">
+                  <View className="w-10 items-center">
                     <View className="rounded-lg bg-slate-800 px-1.5 py-0.5">
                       <Text className="text-xs text-gray-400 text-center">{report.week_number}</Text>
                     </View>
                   </View>
 
                   {/* Durum */}
-                  <View className="w-20 items-end">
-                    <View className={`flex-row items-center gap-1 rounded-lg px-2 py-0.5 ${st.bg}`}>
+                  <View className="w-24 items-center justify-center">
+                    <View className={`flex-row items-center justify-center gap-1 rounded-lg px-1.5 py-1 ${st.bg}`}>
                       {STATUS_ICON(report.status)}
-                      <Text className={`text-xs font-semibold ${st.text}`}>{st.label}</Text>
+                      <Text className={`text-[10px] font-bold ${st.text}`} numberOfLines={1}>{st.label}</Text>
                     </View>
+                  </View>
+
+                  {/* İşlem */}
+                  <View className="w-16 flex-row items-center justify-end gap-1.5">
+                    {/* Arşivle (Soft Delete) */}
+                    <TouchableOpacity
+                      onPress={() => onDelete(report.id, report.content.slice(0, 30))}
+                      className="h-7 w-7 items-center justify-center rounded-lg bg-amber-900/30 border border-amber-800/50"
+                    >
+                      <Archive size={12} color="#fbbf24" />
+                    </TouchableOpacity>
+
+                    {/* Kalıcı Sil (Hard Delete) - Sadece ADMIN */}
+                    {role === 'ADMIN' && onHardDelete && (
+                      <TouchableOpacity
+                        onPress={() => onHardDelete(report.id, report.content.slice(0, 30))}
+                        className="h-7 w-7 items-center justify-center rounded-lg bg-red-900/30 border border-red-800/50"
+                      >
+                        <Trash2 size={12} color="#f87171" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -120,12 +142,30 @@ const TeacherTableView = ({ reports }: { reports: Report[] }) => {
           </View>
         </View>
       ))}
+
+      {/* Admin: Kalıcı Sil + Geri Yükle alanı */}
+      {role === 'ADMIN' && reports.some(r => (r as any).is_deleted) && (
+        <View className="mt-4 px-4">
+          <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Silinmiş Raporlar</Text>
+          {reports.filter(r => (r as any).is_deleted).map(report => (
+            <View key={`deleted-${report.id}`} className="mb-2 flex-row items-center gap-2 rounded-xl border border-red-800/30 bg-red-900/10 px-3 py-2">
+              <Text className="flex-1 text-xs text-gray-400" numberOfLines={1}>{report.content.slice(0, 40)}…</Text>
+              <TouchableOpacity onPress={() => onRestore?.(report.id)} className="rounded-lg bg-emerald-900/30 px-2 py-1">
+                <RotateCcw size={12} color="#10b981" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onHardDelete?.(report.id, report.content.slice(0, 30))} className="rounded-lg bg-red-900/30 px-2 py-1">
+                <Trash2 size={12} color="#f87171" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
 
 // ── Öğrenci Kart Görünümü ─────────────────────────────────────────────────────
-const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, aiAnalysis, aiLoading, onAnalyze }: any) => {
+const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, onDelete, aiAnalysis, aiLoading, onAnalyze }: any) => {
   if (reports.length === 0) {
     return (
       <View className="mt-16 items-center px-8">
@@ -207,7 +247,7 @@ const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, ai
                     </View>
                   )}
 
-                  <View className="mt-3 flex-row gap-2">
+                    <View className="mt-3 flex-row gap-2">
                     <TouchableOpacity
                       className="flex-1 rounded-lg bg-slate-800 py-2.5 items-center justify-center flex-row gap-1.5"
                       onPress={() => onFileUpload(report.id)}
@@ -222,6 +262,15 @@ const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, ai
                         onPress={() => onSubmit(report.id)}
                       >
                         <Text className="text-white text-xs font-semibold">Teslim Et</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {report.status === 'draft' && (
+                      <TouchableOpacity
+                        className="rounded-lg bg-red-900/20 border border-red-800/30 py-2.5 px-3 items-center justify-center"
+                        onPress={() => onDelete(report.id, report.content.slice(0, 30))}
+                      >
+                        <Trash2 size={14} color="#f87171" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -262,7 +311,8 @@ const WEEK_OPTIONS = [
 // ── Ana Ekran ─────────────────────────────────────────────────────────────────
 export const ReportListScreen = ({ navigation }: any) => {
   const { user } = useAuth();
-  const isTeacher = user?.role?.toUpperCase() === 'TEACHER';
+  const role = user?.role?.toUpperCase() ?? '';
+  const isStaff = role === 'TEACHER' || role === 'ADMIN';
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -331,6 +381,62 @@ export const ReportListScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleDeleteReport = (reportId: string, content: string) => {
+    Alert.alert(
+      'Raporu Sil',
+      `"${content}..." raporunu silmek istediğinize emin misiniz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/v1/reports/${reportId}`);
+              Alert.alert('Başarılı', 'Rapor silindi.');
+              fetchReports();
+            } catch (error) {
+              Alert.alert('Hata', safeErrorMsg(error, 'Silme başarısız.'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleHardDeleteReport = (reportId: string, content: string) => {
+    Alert.alert(
+      '⚠️ Kalıcı Silme',
+      `"${content}..." raporunu KALICI olarak silmek istediğinize emin misiniz? Bu işlem GERİ ALINAMAZ!`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Kalıcı Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/v1/reports/${reportId}/hard`);
+              Alert.alert('Başarılı', 'Rapor kalıcı olarak silindi.');
+              fetchReports();
+            } catch (error) {
+              Alert.alert('Hata', safeErrorMsg(error, 'Kalıcı silme başarısız.'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRestoreReport = async (reportId: string) => {
+    try {
+      await apiClient.post(`/api/v1/reports/${reportId}/restore`);
+      Alert.alert('Başarılı', 'Rapor geri yüklendi.');
+      fetchReports();
+    } catch (error) {
+      Alert.alert('Hata', safeErrorMsg(error, 'Geri yükleme başarısız.'));
+    }
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -348,11 +454,11 @@ export const ReportListScreen = ({ navigation }: any) => {
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
         <View>
           <Text className="text-2xl font-bold text-white">
-            {isTeacher ? 'Gelen Raporlar' : 'Haftalık Raporlarım'}
+            {isStaff ? 'Gelen Raporlar' : 'Haftalık Raporlarım'}
           </Text>
           <Text className="text-xs text-gray-500 mt-0.5">{reports.length} rapor</Text>
         </View>
-        {!isTeacher && (
+        {!isStaff && (
           <TouchableOpacity
             className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600"
             onPress={() => navigation.navigate('ReportCreate')}
@@ -404,8 +510,14 @@ export const ReportListScreen = ({ navigation }: any) => {
       </View>
 
       {/* İçerik: Teacher → Tablo, Student → Kart */}
-      {isTeacher ? (
-        <TeacherTableView reports={reports} />
+      {isStaff ? (
+        <TeacherTableView
+          reports={reports}
+          onDelete={handleDeleteReport}
+          onHardDelete={role === 'ADMIN' ? handleHardDeleteReport : undefined}
+          onRestore={role === 'ADMIN' ? handleRestoreReport : undefined}
+          role={role}
+        />
       ) : (
         <StudentCardView
           reports={reports}
@@ -413,6 +525,7 @@ export const ReportListScreen = ({ navigation }: any) => {
           user={user}
           onSubmit={handleSubmit}
           onFileUpload={handleFileUpload}
+          onDelete={handleDeleteReport}
           aiAnalysis={aiAnalysis}
           aiLoading={aiLoading}
           onAnalyze={handleAnalyze}

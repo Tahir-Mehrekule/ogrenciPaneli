@@ -1,10 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  Modal, ScrollView, Alert, ActivityIndicator, RefreshControl,
+  Modal, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { Search, X, ChevronDown } from 'lucide-react-native';
+import { Search, X, ChevronDown, ChevronRight, UserPlus } from 'lucide-react-native';
 import apiClient from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
+import { UserDetailModal } from './UserDetailModal';
+import { AdminCreateUserModal } from './AdminCreateUserModal';
 
 interface Department {
   id: string;
@@ -31,25 +34,22 @@ const ROLE_OPTIONS: { label: string; value: RoleFilter }[] = [
   { label: 'Öğretmen', value: 'TEACHER' },
 ];
 
-const APPROVAL_COLORS: Record<string, string> = {
-  approved: 'text-emerald-400',
-  pending: 'text-amber-400',
-  rejected: 'text-red-400',
-};
-
-const APPROVAL_LABELS: Record<string, string> = {
-  approved: 'Onaylı',
-  pending: 'Bekliyor',
-  rejected: 'Reddedildi',
-};
-
 const ROLE_COLORS: Record<string, string> = {
   STUDENT: 'text-emerald-400',
   TEACHER: 'text-indigo-400',
   ADMIN: 'text-amber-400',
 };
 
-export const UserListScreen = () => {
+const ROLE_LABELS: Record<string, string> = {
+  STUDENT: 'Öğrenci',
+  TEACHER: 'Öğretmen',
+  ADMIN: 'Admin',
+};
+
+export const UserListScreen = ({ navigation }: any) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+
   const [users, setUsers] = useState<UserItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -60,6 +60,10 @@ export const UserListScreen = () => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
   const [showRoleModal, setShowRoleModal] = useState(false);
+
+  // Detail & Create modals
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const SIZE = 20;
 
@@ -95,15 +99,35 @@ export const UserListScreen = () => {
     fetchUsers(true);
   }, [search, roleFilter]);
 
+  // Header'a + butonu ekle (Admin)
+  useEffect(() => {
+    if (isAdmin && navigation) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => setShowCreateModal(true)}
+            className="mr-4 h-8 w-8 items-center justify-center rounded-lg bg-indigo-600"
+          >
+            <UserPlus size={16} color="#ffffff" />
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [isAdmin, navigation]);
+
   const onRefresh = () => { setRefreshing(true); fetchUsers(true); };
 
   const renderUser = ({ item }: { item: UserItem }) => (
-    <View className="flex-row items-center px-4 py-3 border-b border-slate-800">
+    <TouchableOpacity
+      onPress={() => setSelectedUserId(item.id)}
+      className="flex-row items-center px-4 py-3 border-b border-slate-800"
+      activeOpacity={0.7}
+    >
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Text className="text-sm font-semibold text-white">{item.full_name}</Text>
           <Text className={`text-xs font-bold ${ROLE_COLORS[item.role] ?? 'text-gray-400'}`}>
-            {item.role}
+            {ROLE_LABELS[item.role] ?? item.role}
           </Text>
         </View>
         <Text className="text-xs text-gray-500 mt-0.5">{item.email}</Text>
@@ -113,15 +137,19 @@ export const UserListScreen = () => {
           </Text>
         )}
       </View>
-      <View className="items-end gap-1">
-        <Text className={`text-xs font-semibold ${APPROVAL_COLORS[item.approval_status] ?? 'text-gray-400'}`}>
-          {APPROVAL_LABELS[item.approval_status] ?? item.approval_status}
-        </Text>
-        {!item.is_active && (
-          <Text className="text-xs text-red-500">Pasif</Text>
-        )}
+      <View className="items-end gap-1 mr-1">
+        <View className={`rounded-full px-2 py-0.5 ${
+          item.is_active ? 'bg-emerald-900/30' : 'bg-slate-700'
+        }`}>
+          <Text className={`text-[10px] font-semibold ${
+            item.is_active ? 'text-emerald-400' : 'text-gray-500'
+          }`}>
+            {item.is_active ? 'Aktif' : 'Pasif'}
+          </Text>
+        </View>
       </View>
-    </View>
+      <ChevronRight size={14} color="#475569" />
+    </TouchableOpacity>
   );
 
   const currentRoleLabel = ROLE_OPTIONS.find((r) => r.value === roleFilter)?.label ?? 'Tümü';
@@ -201,6 +229,21 @@ export const UserListScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Kullanıcı Detay Modal */}
+      <UserDetailModal
+        visible={!!selectedUserId}
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        onUpdated={() => fetchUsers(true)}
+      />
+
+      {/* Yeni Kullanıcı Oluşturma Modal */}
+      <AdminCreateUserModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => fetchUsers(true)}
+      />
     </View>
   );
 };

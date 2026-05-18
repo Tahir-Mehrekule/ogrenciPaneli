@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { Plus, CheckCircle, Circle, Clock } from 'lucide-react-native';
+import { Plus, CheckCircle, Circle, Clock, Trash2, Pencil, X } from 'lucide-react-native';
 import { Project, Task, TaskStatus } from '../../types/project';
 
 const PROJECT_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -59,6 +61,13 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Düzenleme modal state'leri
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editGithub, setEditGithub] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -131,6 +140,87 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
     ]);
   };
 
+  // ── Soft Delete (Teacher + Admin) ──
+  const handleSoftDelete = () => {
+    Alert.alert(
+      'Projeyi Sil',
+      `"${project?.title}" projesini silmek istediğinize emin misiniz? (Geri yüklenebilir)`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/v1/projects/${projectId}`);
+              Alert.alert('Başarılı', 'Proje silindi (geri yüklenebilir).');
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert('Hata', safeErrorMsg(error, 'Silme başarısız.'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Hard Delete (Sadece Admin) ──
+  const handleHardDelete = () => {
+    Alert.alert(
+      '⚠️ Kalıcı Silme',
+      `"${project?.title}" projesini KALICI olarak silmek istediğinize emin misiniz? Bu işlem GERİ ALINAMAZ!`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Kalıcı Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/v1/projects/${projectId}/hard`);
+              Alert.alert('Başarılı', 'Proje kalıcı olarak silindi.');
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert('Hata', safeErrorMsg(error, 'Kalıcı silme başarısız.'));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Proje Düzenleme (DRAFT — proje sahibi) ──
+  const openEditModal = () => {
+    if (!project) return;
+    setEditTitle(project.title);
+    setEditDesc(project.description);
+    setEditGithub((project as any).github_url ?? '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editTitle.trim().length < 3) {
+      return Alert.alert('Hata', 'Başlık en az 3 karakter olmalıdır.');
+    }
+    if (editDesc.trim().length < 10) {
+      return Alert.alert('Hata', 'Açıklama en az 10 karakter olmalıdır.');
+    }
+    setEditLoading(true);
+    try {
+      await apiClient.patch(`/api/v1/projects/${projectId}`, {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        ...(editGithub.trim() ? { github_url: editGithub.trim() } : {}),
+      });
+      Alert.alert('Başarılı', 'Proje güncellendi.');
+      setShowEditModal(false);
+      fetchData();
+    } catch (error) {
+      Alert.alert('Hata', safeErrorMsg(error, 'Güncelleme başarısız.'));
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleToggleTaskStatus = async (task: Task) => {
     const nextStatus = TASK_STATUS_NEXT[task.status];
     try {
@@ -179,6 +269,42 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
           </View>
           <Text className="text-xl font-bold text-white">{project.title}</Text>
           <Text className="text-sm text-gray-400 mt-2 leading-5">{project.description}</Text>
+
+          {/* Düzenle + Sil Butonları */}
+          <View className="flex-row flex-wrap gap-2 mt-4">
+            {/* Düzenle butonu — DRAFT + proje sahibi */}
+            {normalizedStatus === 'draft' && String((project as any).created_by) === String(user?.id) && (
+              <TouchableOpacity
+                onPress={openEditModal}
+                className="flex-row items-center gap-1.5 rounded-xl border border-slate-600 bg-slate-800 px-3.5 py-2"
+              >
+                <Pencil size={14} color="#94a3b8" />
+                <Text className="text-xs font-semibold text-gray-300">Düzenle</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Soft Delete — Teacher + Admin */}
+            {(role === 'TEACHER' || role === 'ADMIN') && (
+              <TouchableOpacity
+                onPress={handleSoftDelete}
+                className="flex-row items-center gap-1.5 rounded-xl border border-amber-600/40 bg-amber-600/10 px-3.5 py-2"
+              >
+                <Trash2 size={14} color="#fbbf24" />
+                <Text className="text-xs font-semibold text-amber-400">Sil</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Hard Delete — Sadece Admin */}
+            {role === 'ADMIN' && (
+              <TouchableOpacity
+                onPress={handleHardDelete}
+                className="flex-row items-center gap-1.5 rounded-xl border border-red-600/40 bg-red-600/10 px-3.5 py-2"
+              >
+                <Trash2 size={14} color="#f87171" />
+                <Text className="text-xs font-semibold text-red-400">Kalıcı Sil</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Öğrenci Aksiyonları */}
           {role === 'STUDENT' && normalizedStatus === 'draft' && (
@@ -369,6 +495,86 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
       )}
 
       <View className="h-8" />
+
+      {/* Proje Düzenleme Modal */}
+      <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
+        <View className="flex-1 justify-center items-center bg-black/60 p-4">
+          <View className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            {/* Gradient Bar */}
+            <View className="h-1 rounded-t-2xl bg-indigo-500" />
+
+            <View className="p-5">
+              <View className="flex-row items-center justify-between mb-5">
+                <Text className="text-lg font-semibold text-white">Projeyi Düzenle</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(false)} className="p-1.5 rounded-lg bg-slate-800">
+                  <X size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Başlık */}
+              <View className="mb-4">
+                <Text className="text-xs font-medium text-gray-400 mb-1.5">Başlık *</Text>
+                <TextInput
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white"
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="Proje başlığı"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+
+              {/* Açıklama */}
+              <View className="mb-4">
+                <Text className="text-xs font-medium text-gray-400 mb-1.5">Açıklama *</Text>
+                <TextInput
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white"
+                  value={editDesc}
+                  onChangeText={setEditDesc}
+                  placeholder="Proje açıklaması"
+                  placeholderTextColor="#64748b"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  style={{ minHeight: 80 }}
+                />
+              </View>
+
+              {/* GitHub URL */}
+              <View className="mb-4">
+                <Text className="text-xs font-medium text-gray-400 mb-1.5">GitHub URL (opsiyonel)</Text>
+                <TextInput
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm text-white"
+                  value={editGithub}
+                  onChangeText={setEditGithub}
+                  placeholder="https://github.com/kullanici/repo"
+                  placeholderTextColor="#64748b"
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+              </View>
+
+              {/* Butonlar */}
+              <View className="flex-row justify-end gap-3">
+                <TouchableOpacity
+                  onPress={() => setShowEditModal(false)}
+                  className="rounded-xl border border-slate-600 px-4 py-2.5"
+                >
+                  <Text className="text-sm text-gray-400">İptal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSaveEdit}
+                  disabled={editLoading}
+                  className="rounded-xl bg-indigo-600 px-4 py-2.5"
+                >
+                  <Text className="text-sm font-semibold text-white">
+                    {editLoading ? 'Kaydediliyor...' : 'Kaydet'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };

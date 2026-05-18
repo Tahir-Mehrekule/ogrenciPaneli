@@ -95,7 +95,8 @@
       "Bash(findstr \":3000 :8000 :8080\")",
       "Bash(findstr \"LISTENING\")",
       "Bash(powershell *)",
-      "Bash(findstr -i \"application startup error\")"
+      "Bash(findstr -i \"application startup error\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }

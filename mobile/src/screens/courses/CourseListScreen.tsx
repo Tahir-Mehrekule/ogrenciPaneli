@@ -3,11 +3,19 @@ import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert } from 
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
 import { Card, CardContent } from '../../components/ui/Card';
-import { BookOpen, Users, Plus } from 'lucide-react-native';
-import { Course, PaginatedResponse } from '../../types/course';
+import { BookOpen, Users, Plus, User } from 'lucide-react-native';
+import { Course, PaginatedResponse, ProjectType } from '../../types/course';
+
+/** Proje tipi badge renkleri — web paneli ile tutarlı */
+const PROJECT_TYPE_BADGE: Record<ProjectType, { label: string; bgClass: string; textClass: string }> = {
+  individual: { label: 'Bireysel', bgClass: 'bg-violet-900/30', textClass: 'text-violet-400' },
+  team:       { label: 'Ekip',     bgClass: 'bg-cyan-900/30',   textClass: 'text-cyan-400' },
+  both:       { label: 'Serbest',  bgClass: 'bg-gray-700/50',   textClass: 'text-gray-400' },
+};
 
 export const CourseListScreen = ({ navigation }: any) => {
   const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +53,24 @@ export const CourseListScreen = ({ navigation }: any) => {
     fetchCourses();
   };
 
+  /** Ders düzenlemeye erişim: ADMIN ve TEACHER */
+  const isEditable = role === 'TEACHER' || role === 'ADMIN';
+  /** Ders oluşturma: Sadece ADMIN (web paneli ile tutarlı) */
+  const canCreateCourse = role === 'ADMIN';
+
+  /** Rol bazlı başlık */
+  const getTitle = () => {
+    if (role === 'ADMIN') return 'Tüm Dersler';
+    if (role === 'TEACHER') return 'Verdiğim Dersler';
+    return 'Ders Kataloğu';
+  };
+
+  const getSubtitle = () => {
+    if (role === 'ADMIN') return 'Sistemdeki tüm dersler ve proje ayarları.';
+    if (role === 'TEACHER') return 'Oluşturduğunuz dersler burada listelenir.';
+    return 'Kayıt olabileceğiniz tüm dersler.';
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -60,17 +86,11 @@ export const CourseListScreen = ({ navigation }: any) => {
     >
       {/* Başlık */}
       <View className="mb-4 mt-2 flex-row items-center justify-between">
-        <View>
-          <Text className="text-2xl font-bold text-white">
-            {user?.role === 'TEACHER' ? 'Verdiğim Dersler' : 'Ders Kataloğu'}
-          </Text>
-          <Text className="text-sm text-gray-400 mt-1">
-            {user?.role === 'TEACHER'
-              ? 'Oluşturduğunuz dersler burada listelenir.'
-              : 'Kayıt olabileceğiniz tüm dersler.'}
-          </Text>
+        <View className="flex-1 mr-3">
+          <Text className="text-2xl font-bold text-white">{getTitle()}</Text>
+          <Text className="text-sm text-gray-400 mt-1">{getSubtitle()}</Text>
         </View>
-        {user?.role === 'TEACHER' && (
+        {canCreateCourse && (
           <TouchableOpacity
             className="h-10 w-10 items-center justify-center rounded-xl bg-indigo-600"
             onPress={() => navigation.navigate('CourseCreate')}
@@ -86,66 +106,90 @@ export const CourseListScreen = ({ navigation }: any) => {
           <CardContent className="items-center justify-center p-8">
             <BookOpen size={40} color="#64748b" />
             <Text className="text-gray-400 mt-4 text-center">
-              {user?.role === 'TEACHER'
-                ? 'Henüz bir ders oluşturmadınız.'
+              {isEditable
+                ? 'Henüz bir ders oluşturulmamış.'
                 : 'Henüz açılmış ders bulunmuyor.'}
             </Text>
           </CardContent>
         </Card>
       ) : (
-        courses.map((course) => (
-          <TouchableOpacity
-            key={course.id}
-            activeOpacity={user?.role === 'TEACHER' ? 0.7 : 1}
-            onPress={() => {
-              if (user?.role === 'TEACHER') {
-                navigation.navigate('CourseEdit', { courseId: course.id });
-              }
-            }}
-          >
-            <Card className="mb-3">
-              <CardContent className="pt-5 pb-4">
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-1 mr-3">
-                    <View className="flex-row items-center mb-1">
-                      <View className="bg-indigo-900/50 rounded-lg px-2 py-0.5 mr-2">
-                        <Text className="text-xs font-bold text-indigo-400">{course.code}</Text>
+        courses.map((course) => {
+          const typeBadge = PROJECT_TYPE_BADGE[course.project_type ?? 'both'];
+          return (
+            <TouchableOpacity
+              key={course.id}
+              activeOpacity={isEditable ? 0.7 : 1}
+              onPress={() => {
+                if (isEditable) {
+                  navigation.navigate('CourseEdit', { courseId: course.id });
+                }
+              }}
+            >
+              <Card className="mb-3">
+                <CardContent className="pt-5 pb-4">
+                  <View className="flex-row items-start justify-between">
+                    <View className="flex-1 mr-3">
+                      {/* Kod + Dönem + Proje Tipi */}
+                      <View className="flex-row items-center flex-wrap gap-1.5 mb-1">
+                        <View className="bg-indigo-900/50 rounded-lg px-2 py-0.5">
+                          <Text className="text-xs font-bold text-indigo-400">{course.code}</Text>
+                        </View>
+                        <Text className="text-xs text-gray-500">{course.semester}</Text>
+                        {typeBadge && (
+                          <View className={`rounded-md border border-slate-600 px-1.5 py-0.5 ${typeBadge.bgClass}`}>
+                            <Text className={`text-[10px] font-semibold ${typeBadge.textClass}`}>
+                              {typeBadge.label}
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      <Text className="text-xs text-gray-500">{course.semester}</Text>
+
+                      {/* Ders Adı */}
+                      <Text className="text-base font-semibold text-white mt-1">{course.name}</Text>
+
+                      {/* Öğretmen adı (Student görünümü) */}
+                      {role === 'STUDENT' && course.teacher_name && (
+                        <View className="flex-row items-center gap-1.5 mt-1.5">
+                          <User size={12} color="#64748b" />
+                          <Text className="text-xs text-gray-500">{course.teacher_name}</Text>
+                        </View>
+                      )}
+
+                      {/* Zorunluluk badge'leri */}
+                      {(course.require_youtube || course.require_file) && (
+                        <View className="flex-row gap-1.5 mt-2">
+                          {course.require_youtube && (
+                            <View className="rounded-md bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5">
+                              <Text className="text-[10px] font-semibold text-amber-400">Video zorunlu</Text>
+                            </View>
+                          )}
+                          {course.require_file && (
+                            <View className="rounded-md bg-blue-900/30 border border-blue-500/20 px-1.5 py-0.5">
+                              <Text className="text-[10px] font-semibold text-blue-400">Dosya zorunlu</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+
+                      {isEditable && (
+                        <Text className="text-xs text-gray-500 mt-2">Düzenlemek için dokunun</Text>
+                      )}
                     </View>
-                    <Text className="text-base font-semibold text-white mt-1">{course.name}</Text>
-                    {(course.require_youtube || course.require_file) && (
-                      <View className="flex-row gap-1.5 mt-2">
-                        {course.require_youtube && (
-                          <View className="rounded-md bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5">
-                            <Text className="text-[10px] font-semibold text-amber-400">Video zorunlu</Text>
-                          </View>
-                        )}
-                        {course.require_file && (
-                          <View className="rounded-md bg-blue-900/30 border border-blue-500/20 px-1.5 py-0.5">
-                            <Text className="text-[10px] font-semibold text-blue-400">Dosya zorunlu</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                    {user?.role === 'TEACHER' && (
-                      <Text className="text-xs text-gray-500 mt-2">Düzenlemek için dokunun</Text>
+
+                    {role === 'STUDENT' && (
+                      <TouchableOpacity
+                        className="bg-indigo-600 rounded-lg px-4 py-2"
+                        onPress={() => handleEnroll(course.id)}
+                      >
+                        <Text className="text-white text-xs font-semibold">Kayıt Ol</Text>
+                      </TouchableOpacity>
                     )}
                   </View>
-
-                  {user?.role === 'STUDENT' && (
-                    <TouchableOpacity
-                      className="bg-indigo-600 rounded-lg px-4 py-2"
-                      onPress={() => handleEnroll(course.id)}
-                    >
-                      <Text className="text-white text-xs font-semibold">Kayıt Ol</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </CardContent>
-            </Card>
-          </TouchableOpacity>
-        ))
+                </CardContent>
+              </Card>
+            </TouchableOpacity>
+          );
+        })
       )}
 
       <View className="h-8" />

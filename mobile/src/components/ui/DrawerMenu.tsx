@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import {
   X, GraduationCap, Users, UserCheck, Settings,
-  Bell, LogOut, User as UserIcon,
+  Bell, LogOut, User as UserIcon, BookOpen, ScrollText,
 } from 'lucide-react-native';
 
 interface DrawerItem {
@@ -49,10 +49,16 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose, naviga
 
   const items: DrawerItem[] = [
     {
+      label: 'Dersler',
+      icon: <BookOpen size={20} color="#818cf8" />,
+      onPress: () => navigate('CoursesModal'),
+      roles: ['STUDENT', 'TEACHER', 'ADMIN'],
+    },
+    {
       label: 'Öğrencilerim',
       icon: <GraduationCap size={20} color="#818cf8" />,
       onPress: () => navigate('StudentList'),
-      roles: ['TEACHER', 'ADMIN'],
+      roles: ['TEACHER'],
     },
     {
       label: 'Tüm Kullanıcılar',
@@ -63,8 +69,8 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose, naviga
     {
       label: 'Onay Bekleyenler',
       icon: <UserCheck size={20} color="#818cf8" />,
-      onPress: () => navigate('PendingRoot'),
-      roles: ['TEACHER', 'ADMIN'],
+      onPress: () => navigate('PendingStudents'),
+      roles: ['TEACHER'],
     },
     {
       label: 'Bildirimler',
@@ -75,7 +81,13 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose, naviga
     {
       label: 'Bölüm Yönetimi',
       icon: <Settings size={20} color="#818cf8" />,
-      onPress: () => navigate('SettingsRoot'),
+      onPress: () => navigate('SettingsModal'),
+      roles: ['ADMIN'],
+    },
+    {
+      label: 'Aktivite Logları',
+      icon: <ScrollText size={20} color="#818cf8" />,
+      onPress: () => navigate('ActivityLogs'),
       roles: ['ADMIN'],
     },
   ];

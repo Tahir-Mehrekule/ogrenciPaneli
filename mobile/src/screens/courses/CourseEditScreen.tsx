@@ -8,7 +8,13 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { BookOpen, Trash2 } from 'lucide-react-native';
-import { Course } from '../../types/course';
+import { Course, ProjectType } from '../../types/course';
+
+const PROJECT_TYPE_OPTIONS: { value: ProjectType; label: string; desc: string }[] = [
+  { value: 'both',       label: 'Her İkisi',             desc: 'Öğrenci bireysel veya ekip seçer' },
+  { value: 'individual', label: 'Bireysel Proje Zorunlu', desc: 'Sadece bireysel proje açılabilir' },
+  { value: 'team',       label: 'Ekip Projesi Zorunlu',  desc: 'Sadece ekip projesi açılabilir' },
+];
 
 const safeErrorMsg = (error: any, fallback: string) => {
   const detail = error?.response?.data?.detail;
@@ -23,6 +29,7 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
   const [course, setCourse] = useState<Course | null>(null);
   const [name, setName] = useState('');
   const [semester, setSemester] = useState('');
+  const [projectType, setProjectType] = useState<ProjectType>('both');
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -34,6 +41,7 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
         setCourse(data);
         setName(data.name);
         setSemester(data.semester);
+        setProjectType(data.project_type ?? 'both');
         setRequireYoutube(data.require_youtube);
         setRequireFile(data.require_file);
       } catch (error) {
@@ -56,6 +64,7 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
       await apiClient.patch(`/api/v1/courses/${courseId}`, {
         name: name.trim(),
         semester: semester.trim(),
+        project_type: projectType,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
@@ -136,6 +145,40 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
               value={semester}
               onChangeText={setSemester}
             />
+
+            {/* Proje Tipi Seçimi */}
+            <View className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 mt-2 mb-4">
+              <Text className="text-sm font-medium text-gray-300 mb-1">Proje Tipi</Text>
+              <Text className="text-xs text-gray-500 mb-3">
+                Bu derse öğrencilerin oluşturabileceği proje türü.
+              </Text>
+              {PROJECT_TYPE_OPTIONS.map((opt) => {
+                const selected = projectType === opt.value;
+                return (
+                  <View
+                    key={opt.value}
+                    className={`flex-row items-center rounded-xl border px-3 py-3 mb-2 ${
+                      selected
+                        ? 'border-indigo-500 bg-indigo-900/20'
+                        : 'border-slate-600'
+                    }`}
+                  >
+                    <Switch
+                      value={selected}
+                      onValueChange={() => setProjectType(opt.value)}
+                      trackColor={{ false: '#334155', true: '#818cf8' }}
+                      thumbColor={selected ? '#ffffff' : '#94a3b8'}
+                    />
+                    <View className="ml-3 flex-1">
+                      <Text className={`text-sm font-medium ${selected ? 'text-indigo-300' : 'text-gray-200'}`}>
+                        {opt.label}
+                      </Text>
+                      <Text className="text-xs text-gray-500">{opt.desc}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
             {/* Rapor Gereksinimleri */}
             <View className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 mt-2 mb-4">

@@ -119,10 +119,33 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             filters["course_id"] = params.course_id
 
         # STUDENT sadece kendi projelerini görür; teacher/admin ek filtre uygulayabilir
+        teacher_course_ids = None
         if current_user.role == UserRole.STUDENT:
             filters["created_by"] = current_user.id
-        elif params.created_by:
-            filters["created_by"] = params.created_by
+        elif current_user.role == UserRole.TEACHER:
+            if params.created_by:
+                filters["created_by"] = params.created_by
+            # Öğretmen kendi derslerine ait projeleri görür (course_id filtresi verilmediyse)
+            if not params.course_id:
+                from app.features.course.course_model import Course
+                rows = (
+                    self.db.query(Course.id)
+                    .filter(
+                        Course.teacher_id == current_user.id,
+                        Course.is_deleted == False,
+                        Course.is_active == True,
+                    )
+                    .all()
+                )
+                teacher_course_ids = [row.id for row in rows]
+                if not teacher_course_ids:
+                    return PaginatedResponse(
+                        items=[], total=0, page=params.page,
+                        size=params.size, pages=0,
+                    )
+        else:  # ADMIN
+            if params.created_by:
+                filters["created_by"] = params.created_by
 
         # Admin Plan: TEACHER ve ADMIN için DRAFT projeler default GİZLİ.
         # Sadece sahip öğrenci kendi DRAFT'ını görür. Frontend status=DRAFT istese
@@ -142,6 +165,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         projects, total = self.repo.get_many_filtered(
             filters=filters,
             exclude_status=effective_exclude_status,
+            course_ids=teacher_course_ids,
             search=params.search,
             search_fields=["title", "description"],
             grade_label=params.grade_label,

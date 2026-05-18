@@ -27,8 +27,6 @@ export default function AdminDepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [courseName, setCourseName] = useState("");
-  const [courseShortName, setCourseShortName] = useState("");
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
   const [adding, setAdding] = useState(false);
@@ -49,8 +47,6 @@ export default function AdminDepartmentsPage() {
   const isValidCode = (c: string) => /^\d{3}$/.test(c);
 
   const resetAddForm = () => {
-    setCourseName("");
-    setCourseShortName("");
     setNewName("");
     setNewCode("");
   };
@@ -296,7 +292,7 @@ export default function AdminDepartmentsPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-white">Bölüm Ekle</h2>
-                  <p className="mt-1 text-xs text-gray-400">Ders ve bölüm bilgilerini dengeli bir formda girin.</p>
+                  <p className="mt-1 text-xs text-gray-400">Bölüm adı ve 3 haneli öğrenci numarası kodunu girin.</p>
                 </div>
                 <button
                   type="button"
@@ -308,48 +304,24 @@ export default function AdminDepartmentsPage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="dept-course-name" className="mb-1.5 block text-xs font-medium text-gray-400">
-                    Ders İsmi
-                  </label>
-                  <input
-                    id="dept-course-name"
-                    value={courseName}
-                    onChange={(e) => setCourseName(e.target.value)}
-                    className={INPUT}
-                    placeholder="Yazılım Mühendisliği"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="dept-course-short" className="mb-1.5 block text-xs font-medium text-gray-400">
-                    Kısaltması
-                  </label>
-                  <input
-                    id="dept-course-short"
-                    value={courseShortName}
-                    onChange={(e) => setCourseShortName(e.target.value.toUpperCase())}
-                    className={INPUT}
-                    placeholder="CENG314"
-                    maxLength={20}
-                  />
-                </div>
+              <div className="space-y-4">
                 <div>
                   <label htmlFor="dept-name" className="mb-1.5 block text-xs font-medium text-gray-400">
-                    Bölüm İsmi
+                    Bölüm Adı
                   </label>
                   <input
                     id="dept-name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     className={INPUT}
-                    placeholder="Bilgisayar Mühendisliği"
+                    placeholder="Web Tasarım ve Kodlama"
                     required
+                    autoFocus
                   />
                 </div>
                 <div>
                   <label htmlFor="dept-code" className="mb-1.5 block text-xs font-medium text-gray-400">
-                    Bölüm Kodu
+                    Bölüm Kodu <span className="text-gray-500 font-normal">(öğrenci numarasının 4–6. hanesi)</span>
                   </label>
                   <input
                     id="dept-code"

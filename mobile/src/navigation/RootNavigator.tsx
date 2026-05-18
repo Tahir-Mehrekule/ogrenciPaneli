@@ -10,6 +10,7 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { StudentDashboardScreen } from '../screens/dashboard/StudentDashboardScreen';
 import { TeacherDashboardScreen } from '../screens/dashboard/TeacherDashboardScreen';
+import { AdminDashboardScreen } from '../screens/dashboard/AdminDashboardScreen';
 import { CourseListScreen } from '../screens/courses/CourseListScreen';
 import { CourseCreateScreen } from '../screens/courses/CourseCreateScreen';
 import { CourseEditScreen } from '../screens/courses/CourseEditScreen';
@@ -25,6 +26,7 @@ import { ReportCreateScreen } from '../screens/reports/ReportCreateScreen';
 import { NotificationListScreen } from '../screens/notifications/NotificationListScreen';
 import { PendingStudentsScreen } from '../screens/admin/PendingStudentsScreen';
 import { SettingsScreen } from '../screens/admin/SettingsScreen';
+import { ActivityLogsScreen } from '../screens/admin/ActivityLogsScreen';
 import {
   View, Text, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
@@ -142,13 +144,8 @@ const MainTabNavigator = ({ rootNavigation, onOpenDrawer }: { rootNavigation: an
     <Tab.Navigator screenOptions={sharedHeader()}>
       <Tab.Screen
         name="DashboardRoot"
-        component={role === 'TEACHER' || role === 'ADMIN' ? TeacherDashboardScreen : StudentDashboardScreen}
-        options={{ title: 'Genel Bakış', headerTitle: 'UniTrack AI', tabBarIcon: ({ color }) => <Home color={color} size={22} /> }}
-      />
-      <Tab.Screen
-        name="CoursesRoot"
-        component={CoursesStackNavigator}
-        options={{ title: 'Dersler', headerShown: false, tabBarIcon: ({ color }) => <BookOpen color={color} size={22} /> }}
+        component={role === 'ADMIN' ? AdminDashboardScreen : role === 'TEACHER' ? TeacherDashboardScreen : StudentDashboardScreen}
+        options={{ title: 'Ana Sayfa', headerTitle: 'UniTrack AI', tabBarIcon: ({ color }) => <Home color={color} size={22} /> }}
       />
       <Tab.Screen
         name="ProjectsRoot"
@@ -166,20 +163,6 @@ const MainTabNavigator = ({ rootNavigation, onOpenDrawer }: { rootNavigation: an
         component={ReportsStackNavigator}
         options={{ title: 'Raporlar', headerShown: false, tabBarIcon: ({ color }) => <FileText color={color} size={22} /> }}
       />
-      {(role === 'TEACHER' || role === 'ADMIN') && (
-        <Tab.Screen
-          name="PendingRoot"
-          component={PendingStudentsScreen}
-          options={{ title: 'Onaylar', headerTitle: 'Onay Bekleyenler', tabBarIcon: ({ color }) => <UserCheck color={color} size={22} /> }}
-        />
-      )}
-      {role === 'ADMIN' && (
-        <Tab.Screen
-          name="SettingsRoot"
-          component={SettingsScreen}
-          options={{ title: 'Ayarlar', headerTitle: 'Bölüm Yönetimi', tabBarIcon: ({ color }) => <Settings color={color} size={22} /> }}
-        />
-      )}
       <Tab.Screen
         name="ProfileRoot"
         component={ProfileScreen}
@@ -249,6 +232,46 @@ export const RootNavigator = () => {
               options={{
                 headerShown: true,
                 title: 'Tüm Kullanıcılar',
+                headerStyle: { backgroundColor: '#0f172a' },
+                headerTintColor: '#818cf8',
+                headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },
+              }}
+            />
+            <Stack.Screen
+              name="CoursesModal"
+              component={CoursesStackNavigator}
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="PendingStudents"
+              component={PendingStudentsScreen}
+              options={{
+                headerShown: true,
+                title: 'Onay Bekleyenler',
+                headerStyle: { backgroundColor: '#0f172a' },
+                headerTintColor: '#818cf8',
+                headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },
+              }}
+            />
+            <Stack.Screen
+              name="SettingsModal"
+              component={SettingsScreen}
+              options={{
+                headerShown: true,
+                title: 'Bölüm Yönetimi',
+                headerStyle: { backgroundColor: '#0f172a' },
+                headerTintColor: '#818cf8',
+                headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },
+              }}
+            />
+            <Stack.Screen
+              name="ActivityLogs"
+              component={ActivityLogsScreen}
+              options={{
+                headerShown: true,
+                title: 'Aktivite Logları',
                 headerStyle: { backgroundColor: '#0f172a' },
                 headerTintColor: '#818cf8',
                 headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },

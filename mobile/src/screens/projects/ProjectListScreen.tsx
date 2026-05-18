@@ -8,7 +8,7 @@ import apiClient from '../../lib/apiClient';
 import {
   FolderKanban, Plus, ChevronRight, Archive,
   Link2, Users, CheckCircle2, Clock, XCircle, Circle,
-  Search, X, ChevronDown,
+  Search, X, ChevronDown, Trash2,
 } from 'lucide-react-native';
 import { Project, PaginatedResponse, ProjectCategory } from '../../types/project';
 
@@ -134,6 +134,29 @@ export const ProjectListScreen = ({ navigation }: any) => {
   const copyShareCode = (code: string) => {
     Clipboard.setString(code);
     Alert.alert('Kopyalandı', `Bağlantı kodu kopyalandı: ${code}`);
+  };
+
+  const handleHardDelete = async (projectId: string, title: string) => {
+    Alert.alert(
+      '⚠️ Kalıcı Silme',
+      `"${title}" projesini KALICI olarak silmek istediğinize emin misiniz? Bu işlem GERİ ALINAMAZ!`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Kalıcı Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/v1/projects/${projectId}/hard`);
+              Alert.alert('Başarılı', 'Proje kalıcı olarak silindi.');
+              fetchProjects();
+            } catch (error) {
+              Alert.alert('Hata', safeErrorMsg(error, 'Kalıcı silme başarısız.'));
+            }
+          },
+        },
+      ],
+    );
   };
 
   const filteredProjects = projects.filter(p =>
@@ -389,6 +412,17 @@ export const ProjectListScreen = ({ navigation }: any) => {
                                   </TouchableOpacity>
                                 )}
                               </View>
+                            )}
+
+                            {/* Admin: Kalıcı Sil */}
+                            {role === 'ADMIN' && (
+                              <TouchableOpacity
+                                className="mt-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-red-600/40 bg-red-600/10 py-2"
+                                onPress={() => handleHardDelete(project.id, project.title)}
+                              >
+                                <Trash2 size={12} color="#f87171" />
+                                <Text className="text-red-400 text-xs font-semibold">Kalıcı Sil</Text>
+                              </TouchableOpacity>
                             )}
                           </View>
                         </TouchableOpacity>

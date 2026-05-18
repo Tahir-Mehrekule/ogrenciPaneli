@@ -54,6 +54,21 @@ export default function RegisterPage() {
       });
   }, []);
 
+  // Öğrenci numarasından bölümü otomatik belirle
+  useEffect(() => {
+    if (selectedRole !== "STUDENT" || departments.length === 0) return;
+    const parsed = parseStudentNumber(formData.student_no);
+    if (!parsed) {
+      setFormData((prev) => ({ ...prev, department_ids: [] }));
+      return;
+    }
+    const matched = departments.find((d) => d.code === parsed.departmentCode);
+    setFormData((prev) => ({
+      ...prev,
+      department_ids: matched ? [matched.id] : [],
+    }));
+  }, [formData.student_no, selectedRole, departments]);
+
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const email = e.target.value;
     setFormData((prev) => ({ ...prev, email }));
@@ -105,7 +120,7 @@ export default function RegisterPage() {
         last_name: string;
         email: string;
         password: string;
-        role: SelectedRole;
+        role: string;
         department_ids: string[];
         student_no?: string;
       } = {
@@ -113,7 +128,7 @@ export default function RegisterPage() {
         last_name: formData.last_name.trim(),
         email: formData.email,
         password: formData.password,
-        role: selectedRole,
+        role: selectedRole.toLowerCase(),
         department_ids: formData.department_ids,
       };
       if (isStudent) payload.student_no = formData.student_no;
@@ -295,82 +310,105 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Bölüm seçici */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-            {isStudent ? "Bölüm" : "Bölümler"}
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setDeptDropdownOpen((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 transition hover:border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-            >
-              <span className="truncate">
-                {selectedDeptNames.length > 0
-                  ? selectedDeptNames.join(", ")
-                  : "Bölüm seçin..."}
-              </span>
-              <ChevronDown
-                className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform ${
-                  deptDropdownOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {deptDropdownOpen && (
-              <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                {departments.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">Bölüm bulunamadı</p>
+        {/* Bölüm — öğrenci için otomatik, öğretmen için manuel */}
+        {isStudent ? (
+          (() => {
+            const parsed = parseStudentNumber(formData.student_no);
+            const matchedDept = parsed
+              ? departments.find((d) => d.code === parsed.departmentCode)
+              : null;
+            if (!parsed || formData.student_no.length < 9) return null;
+            return (
+              <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/8 px-4 py-3 text-sm dark:bg-indigo-500/10">
+                <p className="text-xs font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 mb-1">
+                  Bölüm otomatik belirlendi
+                </p>
+                {matchedDept ? (
+                  <p className="font-medium text-gray-800 dark:text-gray-100">
+                    {matchedDept.name}
+                    <span className="ml-2 font-mono text-xs text-indigo-400">({parsed.departmentCode})</span>
+                  </p>
                 ) : (
-                  departments.map((dept) => {
-                    const checked = formData.department_ids.includes(dept.id);
-                    return (
-                      <button
-                        key={dept.id}
-                        type="button"
-                        onClick={() => {
-                          toggleDepartment(dept.id);
-                          if (isStudent) setDeptDropdownOpen(false);
-                        }}
-                        className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 ${
-                          checked
-                            ? "font-semibold text-indigo-600 dark:text-indigo-400"
-                            : "text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        {dept.name}
-                        {checked && (
-                          <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                        )}
-                      </button>
-                    );
-                  })
+                  <p className="text-amber-600 dark:text-amber-400">
+                    Kod <span className="font-mono">{parsed.departmentCode}</span> ile eşleşen bölüm bulunamadı.
+                  </p>
                 )}
+              </div>
+            );
+          })()
+        ) : (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+              Bölümler
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDeptDropdownOpen((v) => !v)}
+                className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 transition hover:border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+              >
+                <span className="truncate">
+                  {selectedDeptNames.length > 0
+                    ? selectedDeptNames.join(", ")
+                    : "Bölüm seçin..."}
+                </span>
+                <ChevronDown
+                  className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform ${
+                    deptDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {deptDropdownOpen && (
+                <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                  {departments.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-gray-400">Bölüm bulunamadı</p>
+                  ) : (
+                    departments.map((dept) => {
+                      const checked = formData.department_ids.includes(dept.id);
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => toggleDepartment(dept.id)}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 ${
+                            checked
+                              ? "font-semibold text-indigo-600 dark:text-indigo-400"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {dept.name}
+                          {checked && (
+                            <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedDeptNames.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {formData.department_ids.map((id) => {
+                  const name = departments.find((d) => d.id === id)?.name ?? "";
+                  return (
+                    <span
+                      key={id}
+                      className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                    >
+                      {name}
+                      <button type="button" onClick={() => toggleDepartment(id)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
-
-          {/* Teacher dept chips */}
-          {!isStudent && selectedDeptNames.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {formData.department_ids.map((id) => {
-                const name = departments.find((d) => d.id === id)?.name ?? "";
-                return (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
-                  >
-                    {name}
-                    <button type="button" onClick={() => toggleDepartment(id)}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Şifre */}
         <div className="space-y-1.5">

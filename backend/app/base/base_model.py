@@ -1,15 +1,19 @@
 """
 Base model modülü.
 
-Tüm SQLAlchemy modellerinin türeyeceği minimal base sınıf.
-Ortak alanlar: id, created_at, updated_at, is_active, is_deleted.
+Tüm SQLAlchemy modellerinin türeyeceği base sınıf.
+Ortak alanlar: id, name, short_name, description, tags,
+               created_at, updated_at, is_active, is_deleted.
+
+Child model aynı sütunu tekrar tanımlarsa (ör. Department.name → unique=True)
+override eder; BaseModel'deki tanım o tablo için geçersiz olur.
 """
 
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Boolean, DateTime
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Boolean, DateTime, String, Text
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.core.database import Base
 
@@ -18,16 +22,15 @@ class BaseModel(Base):
     """
     Tüm modellerin türeyeceği abstract base sınıf.
 
-    Alanlar:
+    Ortak alanlar:
     - id: UUID primary key
-    - created_at: Oluşturma tarihi (otomatik)
-    - updated_at: Son güncelleme tarihi (otomatik)
-    - is_active: Aktif/pasif durumu — soft disable için (True=aktif)
-    - is_deleted: Soft delete flag — geri dönüşümlü silme için (False=mevcut)
-
-    is_active vs is_deleted farkı:
-    - is_active=False → öğretmen pasifleştirir, kayıt hâlâ erişilebilir
-    - is_deleted=True → admin hard-delete öncesi işaretler (veya soft delete)
+    - name: Kayıt adı (nullable — child override edebilir)
+    - short_name: Kısa ad / kod (nullable)
+    - description: Detaylı açıklama (nullable — child override edebilir)
+    - tags: Etiketler (JSONB dizisi, nullable)
+    - created_at, updated_at: Zaman damgaları
+    - is_active: Soft disable
+    - is_deleted: Soft delete
     """
 
     __abstract__ = True
@@ -38,6 +41,33 @@ class BaseModel(Base):
         default=uuid.uuid4,
         index=True,
         comment="Benzersiz kayıt kimliği (UUID)",
+    )
+
+    name = Column(
+        String(255),
+        nullable=True,
+        index=True,
+        comment="Kayıt adı",
+    )
+
+    short_name = Column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="Kısa ad veya kod",
+    )
+
+    description = Column(
+        Text,
+        nullable=True,
+        comment="Detaylı açıklama",
+    )
+
+    tags = Column(
+        JSONB,
+        nullable=True,
+        default=list,
+        comment="Etiketler (JSON dizisi)",
     )
 
     created_at = Column(

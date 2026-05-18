@@ -36,6 +36,9 @@ from app.features.department.department_model import Department  # noqa: F401
 from app.features.project_category.project_category_model import ProjectCategory  # noqa: F401
 from app.features.student_prefix.student_prefix_model import StudentYearPrefix  # noqa: F401
 from app.features.user_department.user_department_model import UserDepartment  # noqa: F401
+from app.features.class_section.class_section_model import ClassSection  # noqa: F401
+from app.features.auth.revoked_token_model import RevokedToken  # noqa: F401
+from app.features.auth.password_reset_model import PasswordResetToken  # noqa: F401
 
 # Alembic Config objesi (alembic.ini'den okunur)
 config = context.config
@@ -85,8 +88,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,       # Sütun tipi değişikliklerini algıla
-            compare_server_default=True,  # Default değer değişikliklerini algıla
+            compare_type=True,
         )
 
         with context.begin_transaction():

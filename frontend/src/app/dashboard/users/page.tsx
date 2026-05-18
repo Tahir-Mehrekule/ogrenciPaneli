@@ -123,7 +123,7 @@ export default function UsersPage() {
         sort_by: sortBy,
         order: sortOrder,
       });
-      if (tab !== "all") params.set("role", tab);
+      if (tab !== "all" && !useMyStudents) params.set("role", tab.toLowerCase());
       if (search) params.set("search", search);
       if (activeFilter) params.set("is_active", activeFilter);
       if (deptFilter) params.set("department_id", deptFilter);

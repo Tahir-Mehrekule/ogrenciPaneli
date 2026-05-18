@@ -131,7 +131,7 @@ class UserFilterParams(FilterParams):
     - grade_label: Sınıf etiketi filtresi
     - student_no: Öğrenci numarası filtresi
     """
-    role: Optional[UserRole] = Field(
+    role: Optional[str] = Field(
         default=None,
         description="Rol filtresi (student, teacher, admin)"
     )
@@ -140,7 +140,11 @@ class UserFilterParams(FilterParams):
     @classmethod
     def _normalize_role_filter(cls, v):
         if isinstance(v, str):
-            return v.lower()
+            v = v.strip().lower()
+            valid = {r.value for r in UserRole}
+            if v and v not in valid:
+                raise ValueError(f"Geçersiz rol: {v}. Geçerli: {', '.join(valid)}")
+            return v
         return v
 
     department_id: Optional[UUID] = Field(

@@ -96,7 +96,16 @@
       "Bash(findstr \"LISTENING\")",
       "Bash(powershell *)",
       "Bash(findstr -i \"application startup error\")",
-      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:19000/api/v1/auth/me\" -Method GET -ErrorAction SilentlyContinue -ErrorVariable apiErr; if \\($apiErr\\) { $apiErr[0].Message } else { \"API OK\" })",
+      "Bash(docker port *)",
+      "PowerShell($body = '{\"email\":\"ahmetsametgulec@ahievran.edu.tr\",\"password\":\"Test1234!\"}'; $resp = Invoke-RestMethod -Method POST -Uri \"http://localhost:19000/api/v1/auth/login\" -ContentType \"application/json\" -Body $body; $token = $resp.access_token; $headers = @{ \"Authorization\" = \"Bearer $token\" }; $result = Invoke-RestMethod -Method GET -Uri \"http://localhost:19000/api/v1/users/my-students\" -Headers $headers; $result | ConvertTo-Json -Depth 5)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(findstr /i \"my-students\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(findstr \":3000\")",
+      "PowerShell(Get-Process -Id 35052 -ErrorAction SilentlyContinue)",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue; if \\($resp\\) { \"Status: $\\($resp.StatusCode\\)\" } else { \"UNREACHABLE\" })"
     ]
   }
 }

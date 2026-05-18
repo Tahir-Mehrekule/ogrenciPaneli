@@ -109,13 +109,15 @@ export const TeacherDashboard = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [coursesRes, projectsRes] = await Promise.all([
+        const [coursesRes, projectsRes, studentsRes] = await Promise.all([
           apiClient.get("/api/v1/courses"),
           apiClient.get("/api/v1/projects?per_page=100"),
+          apiClient.get("/api/v1/users/my-students?size=1"),
         ]);
 
         const courses: unknown[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];
+        const studentTotal: number = studentsRes.data?.total ?? 0;
 
         const pending = projects.filter((p) => p.status?.toUpperCase() === "PENDING");
         const recent = [...projects]
@@ -126,7 +128,7 @@ export const TeacherDashboard = () => {
           courses: courses.length,
           totalProjects: projects.length,
           pendingProjects: pending.length,
-          students: 0,
+          students: studentTotal,
         });
         setPendingProjects(pending.slice(0, 5));
         setRecentProjects(recent);
@@ -399,7 +401,7 @@ export const TeacherDashboard = () => {
         <div className="flex flex-wrap gap-2">
           {[
             { label: "Yeni Ders Oluştur", href: "/dashboard/courses/new", icon: BookOpen },
-            { label: "Öğrencileri Görüntüle", href: "/dashboard/students", icon: Users },
+            { label: "Öğrencileri Görüntüle", href: "/dashboard/users?role=student&onlyMine=true", icon: Users },
             { label: "Rapor İncele", href: "/dashboard/reports", icon: FolderKanban },
           ].map((action) => {
             const Icon = action.icon;

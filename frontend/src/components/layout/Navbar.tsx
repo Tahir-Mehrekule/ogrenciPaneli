@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Bell, Menu, CheckCircle, Inbox, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
     try {
       const res = await apiClient.get("/api/v1/notifications/unread-count");
@@ -45,22 +45,29 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
           : res.data?.count ?? res.data?.detail ?? 0;
       setUnreadCount(Number(cnt));
     } catch {}
-  };
+  }, [user]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await apiClient.get("/api/v1/notifications");
       setNotifications(res.data?.items || []);
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
-    fetchUnreadCount();
+    const initialTimer = setTimeout(() => {
+      void fetchUnreadCount();
+    }, 0);
     const interval = setInterval(() => {
-      if (!document.hidden) fetchUnreadCount();
+      if (!document.hidden) {
+        void fetchUnreadCount();
+      }
     }, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [fetchUnreadCount]);
 
   // Close on outside click
   useEffect(() => {

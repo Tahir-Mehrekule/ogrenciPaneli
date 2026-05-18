@@ -21,6 +21,7 @@ export default function NewProjectPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseProjectType, setCourseProjectType] = useState<CourseProjectType | null>(null);
@@ -71,6 +72,7 @@ export default function NewProjectPage() {
         description: description.trim(),
         ...(selectedCourseId ? { course_id: selectedCourseId } : {}),
         ...(pt ? { project_type: pt } : {}),
+        ...(githubUrl.trim() ? { github_url: githubUrl.trim() } : {}),
       });
 
       // Direkt onaya gönder seçildiyse submit endpoint'ini de çağır
@@ -84,10 +86,10 @@ export default function NewProjectPage() {
 
       setSubmittedForApproval(submitForApproval);
       setCreatedProjectId(data.id);
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
       if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: any) => d.msg).join(", "));
+      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
       else setError("Proje oluşturulamadı.");
     } finally {
       setIsLoading(false);
@@ -226,6 +228,20 @@ export default function NewProjectPage() {
             </div>
 
             <div>
+              <label htmlFor="prj-github" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                GitHub Repo <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+              </label>
+              <input
+                id="prj-github"
+                type="url"
+                placeholder="https://github.com/kullanıcı/repo"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+              />
+            </div>
+
+            <div>
               <label htmlFor="prj-course" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ders (Opsiyonel)</label>
               <select
                 id="prj-course"
@@ -319,7 +335,7 @@ export default function NewProjectPage() {
                   // Validasyon
                   if (!title.trim() || title.length < 3) { setError("Proje başlığı en az 3 karakter olmalı."); return; }
                   if (!description.trim() || description.length < 10) { setError("Açıklama en az 10 karakter olmalı."); return; }
-                  handleSubmit(e as any, true);
+                  handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>, true);
                 }}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >

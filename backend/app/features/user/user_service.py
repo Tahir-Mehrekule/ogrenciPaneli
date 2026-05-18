@@ -24,6 +24,7 @@ from app.features.user.user_dto import (
     UserFilterParams,
     ImportStudentData,
     BulkImportResult,
+    AdminCreateUserRequest,
 )
 
 
@@ -157,6 +158,13 @@ class UserService(BaseService[User, UserRepo]):
 
         # department_ids ayrı işlenir
         update_data = {}
+        if data.email is not None:
+            normalized_email = data.email.strip().lower()
+            if normalized_email != target_user.email:
+                from app.features.auth.auth_repo import AuthRepo
+                if AuthRepo(self.db).email_exists(normalized_email):
+                    raise ConflictException(f"'{normalized_email}' email adresi zaten kayıtlı.")
+                update_data["email"] = normalized_email
         if data.first_name is not None:
             update_data["first_name"] = data.first_name.strip()
         if data.last_name is not None:
@@ -246,6 +254,199 @@ class UserService(BaseService[User, UserRepo]):
             # TEACHER → soft delete
             self.repo.update(user_id, {"is_active": False})
             return {"message": f"Kullanıcı pasifleştirildi: {target_user.full_name}"}
+
+    def deactivate_user(self, user_id: UUID, current_user: User) -> dict:
+        """Admin: kullanıcıyı pasifleştirir (is_active=False). Veri korunur."""
+        from app.common.exceptions import ForbiddenException
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        target_user = self.repo.get_by_id_or_404(user_id)
+        self.manager.validate_self_delete(current_user, target_user)
+        self.repo.update(user_id, {"is_active": False})
+        return {"message": f"Kullanıcı pasifleştirildi: {target_user.full_name}"}
+
+    def restore_user(self, user_id: UUID, current_user: User) -> dict:
+        """Admin: pasifleştirilmiş kullanıcıyı geri aktif hale getirir."""
+        from app.common.exceptions import ForbiddenException
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        target_user = self.repo.get_by_id(user_id, active_only=False)
+        if target_user is None:
+            from app.common.exceptions import NotFoundException
+            raise NotFoundException(f"Kullanıcı bulunamadı: {user_id}")
+        self.repo.update(user_id, {"is_active": True})
+        return {"message": f"Kullanıcı geri aktif edildi: {target_user.full_name}"}
+
+    def get_cascade_info(self, user_id: UUID, current_user: User) -> dict:
+        """
+        Soft delete öncesi etkilenecek bağlı kayıtların sayısını döner:
+        - created_projects: bu kullanıcının oluşturduğu proje sayısı
+        - memberships: aktif proje üyelik sayısı
+        - reports: gönderdiği rapor sayısı
+        """
+        target_user = self.repo.get_by_id(user_id, active_only=False)
+        if target_user is None:
+            raise NotFoundException(f"Kullanıcı bulunamadı: {user_id}")
+
+        from app.features.project.project_repo import ProjectRepo
+        from app.features.project_member.project_member_repo import ProjectMemberRepo
+        from app.features.report.report_repo import ReportRepo
+
+        _, created_projects = ProjectRepo(self.db).get_many(filters={"created_by": user_id})
+        _, memberships = ProjectMemberRepo(self.db).get_many(filters={"user_id": user_id})
+        _, report_count = ReportRepo(self.db).get_many(filters={"submitted_by": user_id})
+        return {
+            "created_projects": created_projects,
+            "memberships": memberships,
+            "reports": report_count,
+        }
+
+    def create_user_as_admin(
+        self, data: AdminCreateUserRequest, current_user: User,
+    ) -> UserListResponse:
+        """
+        Admin manuel olarak yeni TEACHER veya STUDENT ekler (Paket Admin A3).
+
+        Akış:
+        1. Rol kontrol (ADMIN değil → ForbiddenException)
+        2. Hedef rol kontrol (sadece STUDENT/TEACHER kabul)
+        3. STUDENT için student_no zorunlu + duplicate kontrol
+        4. Email duplicate kontrol
+        5. En az 1 department_id zorunlu (her iki rol için)
+        6. Department UUID'leri varlık kontrolü
+        7. STUDENT için class_section_id varlık kontrolü (opsiyonel)
+        8. (STUDENT) student_no'dan grade_label/entry_year parse (kullanıcı vermediyse)
+        9. User insert + UserDepartment bağla
+        10. (STUDENT) course_ids verildiyse CourseEnrollment insert
+        11. log_activity(USER_REGISTER)
+        """
+        from app.core.security import hash_password
+        from app.features.department.department_repo import DepartmentRepo
+        from app.features.user_department.user_department_model import UserDepartment
+        from app.common.validators import parse_student_number
+        from app.common.activity_log_helper import log_activity
+        from app.common.enums import ActivityAction, EntityType
+
+        # 1
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Sadece ADMIN yeni kullanıcı ekleyebilir.")
+
+        # 2
+        if data.role not in (UserRole.STUDENT, UserRole.TEACHER):
+            raise BadRequestException(
+                "Bu endpoint sadece STUDENT veya TEACHER ekleme içindir."
+            )
+
+        # 5 — department zorunlu (her iki rol için)
+        if not data.department_ids:
+            raise BadRequestException(
+                "En az bir bölüm seçilmelidir."
+            )
+
+        # 6 — department varlık kontrolü
+        dept_repo = DepartmentRepo(self.db)
+        departments = []
+        for did in data.department_ids:
+            dept = dept_repo.get_by_id(did)
+            if not dept:
+                raise BadRequestException(f"Bölüm bulunamadı: {did}")
+            departments.append(dept)
+
+        # AuthRepo, email/student_no duplicate kontrol metodlarını barındırır
+        from app.features.auth.auth_repo import AuthRepo
+        auth_repo = AuthRepo(self.db)
+
+        # 4 — email duplicate
+        email = data.email.strip().lower()
+        if auth_repo.email_exists(email):
+            raise ConflictException(f"'{email}' email adresi zaten kayıtlı.")
+
+        # 3 + 8 — STUDENT özel kontroller
+        entry_year = None
+        grade_label = data.grade_label
+        if data.role == UserRole.STUDENT:
+            if not data.student_no:
+                raise BadRequestException("STUDENT için öğrenci no zorunlu.")
+            if auth_repo.student_no_exists(data.student_no):
+                raise ConflictException(f"'{data.student_no}' öğrenci no zaten kayıtlı.")
+            parsed = parse_student_number(data.student_no)
+            if parsed:
+                entry_year = parsed["entry_year"]
+                if grade_label is None:
+                    # parse'tan gelmiyor, prefix repo'dan dene
+                    from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
+                    match = StudentPrefixRepo(self.db).match_student_no(data.student_no)
+                    if match:
+                        grade_label = match.label
+                        entry_year = match.entry_year
+
+        # 7 — class_section_id varlık kontrolü
+        if data.class_section_id is not None:
+            from app.features.class_section.class_section_repo import ClassSectionRepo
+            cs = ClassSectionRepo(self.db).get_by_id(data.class_section_id)
+            if not cs:
+                raise BadRequestException(f"Şube bulunamadı: {data.class_section_id}")
+
+        # 9 — User + UserDepartment
+        user_dict = {
+            "email": email,
+            "password_hash": hash_password(data.password),
+            "first_name": data.first_name.strip(),
+            "last_name": data.last_name.strip(),
+            "role": data.role,
+        }
+        if data.role == UserRole.STUDENT:
+            user_dict.update({
+                "student_no": data.student_no,
+                "grade_label": grade_label,
+                "entry_year": entry_year,
+                "class_section_id": data.class_section_id,
+            })
+        new_user = self.repo.create(user_dict)
+
+        for dept in departments:
+            self.db.add(UserDepartment(user_id=new_user.id, department_id=dept.id))
+
+        # 10 — TEACHER için seçilen derslerin teacher_id'sini bu kullanıcıya devret.
+        # (ADMIN_PLAN_2 / Paket C2: single-FK transfer pattern.)
+        # STUDENT için CourseEnrollment insert YAPILMIYOR; öğrenciye bölüm
+        # bazlı otomatik ders erişimi `course_service.list_courses` ile sağlanır.
+        if data.role == UserRole.TEACHER and data.course_ids:
+            from app.features.course.course_model import Course
+            existing = (
+                self.db.query(Course)
+                .filter(Course.id.in_(data.course_ids))
+                .all()
+            )
+            if len(existing) != len(set(data.course_ids)):
+                raise NotFoundException("Atanmaya çalışılan derslerden bazıları bulunamadı.")
+            for c in existing:
+                c.teacher_id = new_user.id
+                log_activity(
+                    self.db, ActivityAction.COURSE_UPDATE,
+                    user_id=current_user.id,
+                    entity_type=EntityType.COURSE,
+                    entity_id=c.id,
+                    details={
+                        "teacher_changed_to": str(new_user.id),
+                        "via": "admin_create_user",
+                    },
+                )
+            self.db.flush()
+
+        self.db.commit()
+        self.db.refresh(new_user)
+
+        # 11 — log
+        log_activity(
+            self.db, ActivityAction.USER_REGISTER,
+            user_id=current_user.id,
+            entity_type=EntityType.USER,
+            entity_id=new_user.id,
+            details={"email": new_user.email, "role": new_user.role.value, "via": "admin_create"},
+        )
+
+        return UserListResponse.model_validate(new_user)
 
     def import_students(self, data: list[ImportStudentData]) -> BulkImportResult:
         """JSON formatında gelen öğrencileri toplu olarak ekler."""

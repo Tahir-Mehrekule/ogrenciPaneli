@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useContext } from "react";
+import { useSearchParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
-import { Search, X, Pencil, Trash2 } from "lucide-react";
+import { Search, X, Trash2, UserPlus, UserX, RotateCcw, Eye, Save } from "lucide-react";
 import toast from "react-hot-toast";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
@@ -10,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { AuthContext } from "@/context/AuthContext";
 import { GRADE_OPTIONS } from "@/constants/grades";
+import AdminCreateUserModal from "@/components/users/AdminCreateUserModal";
 
 type TabRole = "all" | "STUDENT" | "TEACHER";
 
@@ -32,8 +34,15 @@ interface DepartmentOption {
   name: string;
 }
 
-interface EditState {
+type StatusAction = "deactivate" | "restore";
+
+interface StatusTarget {
   user: UserItem;
+  action: StatusAction;
+}
+
+interface DetailEditState {
+  email: string;
   first_name: string;
   last_name: string;
   role: string;
@@ -48,6 +57,9 @@ const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
 };
 
+const normalizeRole = (role?: string) => (role ?? "").toUpperCase();
+const roleToApiValue = (role?: string) => (role ?? "").toLowerCase();
+
 const SORT_OPTIONS: SortOption[] = [
   { value: "created_at", label: "Kayıt Tarihi" },
   { value: "full_name", label: "Ad Soyad" },
@@ -56,9 +68,21 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function UsersPage() {
   const { user: currentUser } = useContext(AuthContext);
-  const isAdmin = currentUser?.role === "ADMIN";
+  const currentRole = normalizeRole(currentUser?.role);
+  const isAdmin = currentRole === "ADMIN";
+  const isTeacher = currentRole === "TEACHER";
 
-  const [tab, setTab] = useState<TabRole>("all");
+  // Query param desteği (Admin Plan B4): ?role=student&onlyMine=true ile geldiğinde
+  // teacher için "Öğrencilerim" görünümü açılır.
+  const searchParams = useSearchParams();
+  const onlyMineParam = searchParams.get("onlyMine") === "true";
+  const roleParam = (searchParams.get("role") || "").toLowerCase();
+  const initialTab: TabRole = roleParam === "student" ? "STUDENT"
+    : roleParam === "teacher" ? "TEACHER" : "all";
+  // Teacher onlyMine=true → my-students endpoint'i kullan
+  const useMyStudents = isTeacher && onlyMineParam;
+
+  const [tab, setTab] = useState<TabRole>(initialTab);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -74,10 +98,14 @@ export default function UsersPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
-  const [editState, setEditState] = useState<EditState | null>(null);
-  const [editLoading, setEditLoading] = useState(false);
+  const [viewUser, setViewUser] = useState<UserItem | null>(null);
+  const [detailEdit, setDetailEdit] = useState<DetailEditState | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -101,7 +129,11 @@ export default function UsersPage() {
       if (deptFilter) params.set("department_id", deptFilter);
       if (gradeFilter && tab === "STUDENT") params.set("grade_label", gradeFilter);
 
-      const { data } = await apiClient.get(`/api/v1/users?${params}`);
+      // Teacher "Öğrencilerim" görünümünde my-students endpoint'i — bölüm bazlı süzme
+      const endpoint = useMyStudents
+        ? `/api/v1/users/my-students?${params}`
+        : `/api/v1/users?${params}`;
+      const { data } = await apiClient.get(endpoint);
       setUsers(data.items);
       setTotal(data.total);
       setTotalPages(data.pages);
@@ -110,7 +142,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, pageSize, search, activeFilter, deptFilter, gradeFilter, sortBy, sortOrder]);
+  }, [tab, page, pageSize, search, activeFilter, deptFilter, gradeFilter, sortBy, sortOrder, useMyStudents]);
 
   useEffect(() => { setPage(1); }, [tab, search, activeFilter, deptFilter, gradeFilter, sortBy, sortOrder]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
@@ -122,48 +154,58 @@ export default function UsersPage() {
     setGradeFilter("");
   };
 
-  const openEdit = (u: UserItem) => {
-    setEditState({
-      user: u,
-      first_name: u.first_name ?? "",
-      last_name: u.last_name ?? "",
-      role: u.role,
-      department_ids: u.departments.map((d) => d.id),
-      student_no: u.student_no ?? "",
-      grade_label: u.grade_label ?? "",
-    });
+  const toDetailEditState = (u: UserItem): DetailEditState => ({
+    email: u.email ?? "",
+    first_name: u.first_name ?? "",
+    last_name: u.last_name ?? "",
+    role: normalizeRole(u.role),
+    department_ids: u.departments.map((d) => d.id),
+    student_no: u.student_no ?? "",
+    grade_label: u.grade_label ?? "",
+  });
+
+  const openUserDetail = (u: UserItem) => {
+    setViewUser(u);
+    setDetailEdit(isAdmin ? toDetailEditState(u) : null);
   };
 
-  const handleSave = async () => {
-    if (!editState) return;
-    setEditLoading(true);
+  const closeUserDetail = () => {
+    if (detailSaving) return;
+    setViewUser(null);
+    setDetailEdit(null);
+  };
+
+  const handleDetailSave = async () => {
+    if (!isAdmin || !viewUser || !detailEdit) return;
+    setDetailSaving(true);
     try {
-      const { user: u, first_name, last_name, role, department_ids, student_no, grade_label } = editState;
+      await apiClient.patch(`/api/v1/users/${viewUser.id}`, {
+        email: detailEdit.email.trim().toLowerCase() || undefined,
+        first_name: detailEdit.first_name.trim() || undefined,
+        last_name: detailEdit.last_name.trim() || undefined,
+        role: normalizeRole(detailEdit.role) !== normalizeRole(viewUser.role)
+          ? roleToApiValue(detailEdit.role)
+          : undefined,
+        department_ids: detailEdit.department_ids.length > 0 ? detailEdit.department_ids : undefined,
+      });
 
-      if (isAdmin) {
-        await apiClient.patch(`/api/v1/users/${u.id}`, {
-          first_name: first_name.trim() || undefined,
-          last_name: last_name.trim() || undefined,
-          role: role !== u.role ? role : undefined,
-          department_ids: department_ids.length > 0 ? department_ids : undefined,
+      if (normalizeRole(detailEdit.role) === "STUDENT" || normalizeRole(viewUser.role) === "STUDENT") {
+        await apiClient.patch(`/api/v1/users/${viewUser.id}/student-info`, {
+          student_no: detailEdit.student_no.trim() || undefined,
+          grade_label: detailEdit.grade_label || undefined,
         });
       }
 
-      if (u.role === "STUDENT") {
-        await apiClient.patch(`/api/v1/users/${u.id}/student-info`, {
-          student_no: student_no.trim() || undefined,
-          grade_label: grade_label || undefined,
-        });
-      }
-
-      toast.success("Kullanıcı güncellendi.");
-      setEditState(null);
+      const { data: refreshedUser } = await apiClient.get<UserItem>(`/api/v1/users/${viewUser.id}`);
+      setViewUser(refreshedUser);
+      setDetailEdit(toDetailEditState(refreshedUser));
       fetchUsers();
+      toast.success("Kullanıcı güncellendi.");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       toast.error(msg ?? "Güncelleme başarısız.");
     } finally {
-      setEditLoading(false);
+      setDetailSaving(false);
     }
   };
 
@@ -178,12 +220,35 @@ export default function UsersPage() {
           : `${deleteTarget.full_name} pasifleştirildi.`
       );
       setDeleteTarget(null);
+      setViewUser(null);
       fetchUsers();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       toast.error(msg ?? "Silme işlemi başarısız.");
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleStatusChange = async () => {
+    if (!statusTarget) return;
+    setStatusLoading(true);
+    try {
+      const endpoint = statusTarget.action === "deactivate" ? "deactivate" : "restore";
+      await apiClient.post(`/api/v1/users/${statusTarget.user.id}/${endpoint}`);
+      toast.success(
+        statusTarget.action === "deactivate"
+          ? `${statusTarget.user.full_name} pasif duruma getirildi.`
+          : `${statusTarget.user.full_name} tekrar aktif edildi.`
+      );
+      setStatusTarget(null);
+      setViewUser(null);
+      fetchUsers();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg ?? "Durum güncellenemedi.");
+    } finally {
+      setStatusLoading(false);
     }
   };
 
@@ -209,15 +274,17 @@ export default function UsersPage() {
     if (key === "grade") setGradeFilter("");
   };
 
-  const canEdit = (u: UserItem) => isAdmin || u.role === "STUDENT";
-
   const columns: Column<UserItem>[] = [
     {
       key: "full_name",
       header: "Ad Soyad",
       sortable: true,
+      className: "max-w-[180px]",
       render: (u) => (
-        <span className={`font-medium ${!u.is_active ? "text-gray-500" : "text-gray-100"}`}>
+        <span
+          className={`block max-w-[180px] truncate font-medium ${!u.is_active ? "text-gray-500" : "text-gray-100"}`}
+          title={u.full_name}
+        >
           {u.full_name}
         </span>
       ),
@@ -228,22 +295,26 @@ export default function UsersPage() {
       render: (u) => (
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            u.role === "STUDENT"
+            normalizeRole(u.role) === "STUDENT"
               ? "bg-emerald-900/20 text-emerald-400 border border-emerald-800/50"
-              : u.role === "TEACHER"
+              : normalizeRole(u.role) === "TEACHER"
               ? "bg-indigo-900/20 text-indigo-400 border border-indigo-800/50"
               : "bg-purple-900/20 text-purple-400 border border-purple-800/50"
           } ${!u.is_active ? "opacity-50" : ""}`}
         >
-          {ROLE_LABEL[u.role] ?? u.role}
+          {ROLE_LABEL[normalizeRole(u.role)] ?? u.role}
         </span>
       ),
     },
     {
       key: "departments",
       header: "Bölüm",
+      className: "max-w-[180px]",
       render: (u) => (
-        <span className={`${!u.is_active ? "text-gray-600" : "text-gray-400"}`}>
+        <span
+          className={`block max-w-[180px] truncate ${!u.is_active ? "text-gray-600" : "text-gray-400"}`}
+          title={u.departments.map((d) => d.name).join(", ") || "Bölüm yok"}
+        >
           {u.departments.map((d) => d.name).join(", ") || "—"}
         </span>
       ),
@@ -285,8 +356,12 @@ export default function UsersPage() {
       key: "email",
       header: "E-posta",
       sortable: true,
+      className: "max-w-[220px]",
       render: (u) => (
-        <span className={`${!u.is_active ? "text-gray-600" : "text-gray-400"}`}>
+        <span
+          className={`block max-w-[220px] truncate ${!u.is_active ? "text-gray-600" : "text-gray-400"}`}
+          title={u.email}
+        >
           {u.email}
         </span>
       ),
@@ -294,23 +369,20 @@ export default function UsersPage() {
     {
       key: "actions",
       header: "",
+      headerClassName: "sticky right-0 z-20 w-16 bg-gray-800/95",
+      className: "sticky right-0 z-10 w-16 bg-gray-900/95 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.9)]",
       render: (u) => (
-        <div className="flex items-center gap-1.5 justify-end">
-          {canEdit(u) && (
-            <button
-              onClick={(e) => { e.stopPropagation(); openEdit(u); }}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-700 hover:text-indigo-400 transition-colors"
-              title="Düzenle"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          )}
+        <div className="flex min-w-[2.5rem] items-center justify-end">
           <button
-            onClick={(e) => { e.stopPropagation(); setDeleteTarget(u); }}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-700 hover:text-red-400 transition-colors"
-            title={isAdmin ? "Kalıcı Sil" : "Pasifleştir"}
+            onClick={(e) => {
+              e.stopPropagation();
+              openUserDetail(u);
+            }}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-700 hover:text-indigo-400 transition-colors"
+            title="Detayları Görüntüle"
+            aria-label="Detayları Görüntüle"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Eye className="h-4 w-4" />
           </button>
         </div>
       ),
@@ -319,12 +391,34 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Tüm Kullanıcılar</h1>
-        <p className="mt-1 text-sm text-gray-400">
-          Sistemdeki tüm hesapları yönetin
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            {useMyStudents ? "Öğrencilerim" : "Tüm Kullanıcılar"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-400">
+            {useMyStudents
+              ? "Bölümünüze atanmış öğrenciler"
+              : "Sistemdeki tüm hesapları yönetin"}
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 shadow"
+          >
+            <UserPlus className="h-4 w-4" />
+            Yeni Kullanıcı Ekle
+          </button>
+        )}
       </div>
+
+      <AdminCreateUserModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => fetchUsers()}
+      />
+
 
       {/* Rol Tabları */}
       <div className="flex gap-1 rounded-xl border border-gray-800 bg-gray-900/50 p-1 w-fit backdrop-blur-sm shadow-sm">
@@ -441,141 +535,193 @@ export default function UsersPage() {
         }
       />
 
-      {/* Düzenleme Modalı */}
-      {editState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Kullanıcı Düzenle">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => !editLoading && setEditState(null)}
-          />
-          <FocusTrapContainer className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Kullanıcı Düzenle</h2>
-              <button
-                onClick={() => setEditState(null)}
-                disabled={editLoading}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
+      {viewUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Kullanıcı Detayı">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={closeUserDetail} />
+          <FocusTrapContainer className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-2xl">
+            <div className={`h-1 w-full ${viewUser.is_active ? "bg-gradient-to-r from-emerald-400 to-teal-400" : "bg-gradient-to-r from-slate-500 to-slate-600"}`} />
+            <div className="flex items-start justify-between gap-4 border-b border-gray-800 p-5">
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-semibold text-white">{viewUser.full_name}</h3>
+                <p className="mt-1 truncate text-sm text-gray-400">{viewUser.email}</p>
+              </div>
+              <button onClick={closeUserDetail} className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white" aria-label="Kapat">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* ADMIN: Ad / Soyad / Rol / Bölümler */}
-            {isAdmin && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="usr-edit-firstname" className="block text-xs text-gray-400 mb-1">Ad</label>
+            <div className="flex-1 overflow-y-auto p-5">
+              {isAdmin ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="detail-email" className="mb-1 block text-xs text-gray-400">E-posta</label>
                     <input
-                      id="usr-edit-firstname"
-                      value={editState.first_name}
-                      onChange={(e) => setEditState((s) => s && { ...s, first_name: e.target.value })}
+                      id="detail-email"
+                      value={detailEdit?.email ?? viewUser.email}
+                      onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, email: e.target.value } : prev))}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label htmlFor="usr-edit-lastname" className="block text-xs text-gray-400 mb-1">Soyad</label>
+                    <label htmlFor="detail-first-name" className="mb-1 block text-xs text-gray-400">Ad</label>
                     <input
-                      id="usr-edit-lastname"
-                      value={editState.last_name}
-                      onChange={(e) => setEditState((s) => s && { ...s, last_name: e.target.value })}
+                      id="detail-first-name"
+                      value={detailEdit?.first_name ?? viewUser.first_name}
+                      onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, first_name: e.target.value } : prev))}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label htmlFor="usr-edit-role" className="block text-xs text-gray-400 mb-1">Rol</label>
-                  <select
-                    id="usr-edit-role"
-                    value={editState.role}
-                    onChange={(e) => setEditState((s) => s && { ...s, role: e.target.value })}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
-                  >
-                    <option value="STUDENT">Öğrenci</option>
-                    <option value="TEACHER">Öğretmen</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
-                </div>
-
-                {departments.length > 0 && (
                   <div>
-                    <p className="block text-xs text-gray-400 mb-1.5" id="usr-dept-group-label">Bölümler</p>
-                    <div role="group" aria-labelledby="usr-dept-group-label" className="flex flex-col gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800/50 p-2">
-                      {departments.map((d) => (
-                        <label key={d.id} className="flex items-center gap-2 cursor-pointer px-1">
-                          <input
-                            type="checkbox"
-                            checked={editState.department_ids.includes(d.id)}
-                            onChange={(e) => {
-                              const ids = editState.department_ids;
-                              setEditState((s) => s && {
-                                ...s,
-                                department_ids: e.target.checked
-                                  ? [...ids, d.id]
-                                  : ids.filter((x) => x !== d.id),
-                              });
-                            }}
-                            className="accent-indigo-500"
-                          />
-                          <span className="text-sm text-gray-300">{d.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Öğrenci bilgileri: sadece STUDENT rolündeki kullanıcılar için */}
-            {editState.user.role === "STUDENT" && (
-              <>
-                {isAdmin && <hr className="border-gray-700" />}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="usr-edit-student-no" className="block text-xs text-gray-400 mb-1">Öğrenci No</label>
+                    <label htmlFor="detail-last-name" className="mb-1 block text-xs text-gray-400">Soyad</label>
                     <input
-                      id="usr-edit-student-no"
-                      value={editState.student_no}
-                      onChange={(e) => setEditState((s) => s && { ...s, student_no: e.target.value })}
-                      placeholder="123456789"
-                      maxLength={9}
-                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 font-mono"
+                      id="detail-last-name"
+                      value={detailEdit?.last_name ?? viewUser.last_name}
+                      onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, last_name: e.target.value } : prev))}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div>
-                    <label htmlFor="usr-edit-grade" className="block text-xs text-gray-400 mb-1">Sınıf</label>
+                    <label htmlFor="detail-role" className="mb-1 block text-xs text-gray-400">Rol</label>
                     <select
-                      id="usr-edit-grade"
-                      value={editState.grade_label}
-                      onChange={(e) => setEditState((s) => s && { ...s, grade_label: e.target.value })}
+                      id="detail-role"
+                      value={detailEdit?.role ?? normalizeRole(viewUser.role)}
+                      onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, role: e.target.value } : prev))}
                       className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
                     >
-                      <option value="">Seçiniz</option>
-                      {GRADE_OPTIONS.map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
+                      <option value="STUDENT">Öğrenci</option>
+                      <option value="TEACHER">Öğretmen</option>
+                      <option value="ADMIN">Admin</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">Durum</label>
+                    <div className={`rounded-lg border px-3 py-2 text-sm ${viewUser.is_active ? "border-emerald-700/40 bg-emerald-500/10 text-emerald-300" : "border-slate-700 bg-slate-800 text-slate-300"}`}>
+                      {viewUser.is_active ? "Aktif" : "Pasif"}
+                    </div>
+                  </div>
+                  {departments.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <p className="mb-1.5 block text-xs text-gray-400" id="detail-dept-group-label">Bölümler</p>
+                      <div role="group" aria-labelledby="detail-dept-group-label" className="grid max-h-36 grid-cols-1 gap-1.5 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800/50 p-2 sm:grid-cols-2">
+                        {departments.map((d) => {
+                          const checked = detailEdit?.department_ids.includes(d.id) ?? false;
+                          return (
+                            <label key={d.id} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-800">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  setDetailEdit((prev) => {
+                                    if (!prev) return prev;
+                                    const nextIds = e.target.checked
+                                      ? [...prev.department_ids, d.id]
+                                      : prev.department_ids.filter((id) => id !== d.id);
+                                    return { ...prev, department_ids: nextIds };
+                                  });
+                                }}
+                                className="accent-indigo-500"
+                              />
+                              <span className="text-sm text-gray-300">{d.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {normalizeRole(detailEdit?.role ?? viewUser.role) === "STUDENT" && (
+                    <>
+                      <div>
+                        <label htmlFor="detail-student-no" className="mb-1 block text-xs text-gray-400">Öğrenci No</label>
+                        <input
+                          id="detail-student-no"
+                          value={detailEdit?.student_no ?? ""}
+                          onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, student_no: e.target.value } : prev))}
+                          maxLength={9}
+                          placeholder="123456789"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-200 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="detail-grade" className="mb-1 block text-xs text-gray-400">Sınıf</label>
+                        <select
+                          id="detail-grade"
+                          value={detailEdit?.grade_label ?? ""}
+                          onChange={(e) => setDetailEdit((prev) => (prev ? { ...prev, grade_label: e.target.value } : prev))}
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                        >
+                          <option value="">Seçiniz</option>
+                          {GRADE_OPTIONS.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Rol</p>
+                    <p className="mt-1 text-sm font-medium text-gray-200">{ROLE_LABEL[normalizeRole(viewUser.role)] ?? viewUser.role}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Durum</p>
+                    <p className={viewUser.is_active ? "mt-1 text-sm font-medium text-emerald-400" : "mt-1 text-sm font-medium text-gray-400"}>{viewUser.is_active ? "Aktif" : "Pasif"}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Bölümler</p>
+                    <p className="mt-1 text-sm text-gray-200">{viewUser.departments.map((d) => d.name).join(", ") || "—"}</p>
+                  </div>
+                  {normalizeRole(viewUser.role) === "STUDENT" && (
+                    <>
+                      <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Öğrenci No</p>
+                        <p className="mt-1 font-mono text-sm text-gray-200">{viewUser.student_no ?? "—"}</p>
+                      </div>
+                      <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Sınıf</p>
+                        <p className="mt-1 text-sm text-gray-200">{viewUser.grade_label ?? "—"}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
-            <div className="flex justify-end gap-3 pt-1">
-              <button
-                onClick={() => setEditState(null)}
-                disabled={editLoading}
-                className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors disabled:opacity-50"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={editLoading}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-              >
-                {editLoading ? "Kaydediliyor..." : "Kaydet"}
-              </button>
+            <div className="flex flex-col gap-2 border-t border-gray-800 bg-gray-900/95 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-gray-500">
+                Kayıt: {new Date(viewUser.created_at).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {isAdmin && (
+                  <button
+                    onClick={() => setStatusTarget({ user: viewUser, action: viewUser.is_active ? "deactivate" : "restore" })}
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${viewUser.is_active ? "border-amber-700/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" : "border-emerald-700/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"}`}
+                  >
+                    {viewUser.is_active ? <UserX className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+                    {viewUser.is_active ? "Pasif Yap" : "Aktif Et"}
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={() => setDeleteTarget(viewUser)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-800/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Kalıcı Sil
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={handleDetailSave}
+                    disabled={detailSaving}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    <Save className="h-4 w-4" />
+                    {detailSaving ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+                )}
+              </div>
             </div>
           </FocusTrapContainer>
         </div>
@@ -603,6 +749,26 @@ export default function UsersPage() {
         confirmText={isAdmin ? "Kalıcı Sil" : "Pasifleştir"}
         isDestructive={isAdmin}
         loading={deleteLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={!!statusTarget}
+        onClose={() => setStatusTarget(null)}
+        onConfirm={handleStatusChange}
+        title={statusTarget?.action === "deactivate" ? "Kullanıcıyı Pasife Al" : "Kullanıcıyı Aktif Et"}
+        description={
+          statusTarget ? (
+            <span>
+              <strong className="text-white">{statusTarget.user.full_name}</strong> adlı kullanıcı
+              {statusTarget.action === "deactivate"
+                ? " pasif duruma getirilecek. Hesap korunur ama aktif kullanıcı listelerinde görünmez."
+                : " tekrar aktif duruma getirilecek."}
+            </span>
+          ) : ""
+        }
+        confirmText={statusTarget?.action === "deactivate" ? "Pasife Al" : "Aktif Et"}
+        isDestructive={statusTarget?.action === "deactivate"}
+        loading={statusLoading}
       />
     </div>
   );

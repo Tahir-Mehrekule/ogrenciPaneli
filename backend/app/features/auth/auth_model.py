@@ -1,5 +1,6 @@
 
-from sqlalchemy import Column, String, Enum, Integer
+from sqlalchemy import Column, String, Enum, Integer, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.base.base_model import BaseModel
@@ -72,6 +73,20 @@ class User(BaseModel):
         String(50),
         nullable=True,
         comment="Sınıf etiketi (ör: '2. Sınıf') — prefix tablosundan kayıt anında otomatik set edilir"
+    )
+
+    class_section_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("class_sections.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Atanmış şube — bölüm + sınıf + şube kombinasyonu (opsiyonel)",
+    )
+
+    class_section = relationship(
+        "ClassSection",
+        foreign_keys=[class_section_id],
+        lazy="select",
     )
 
     @property

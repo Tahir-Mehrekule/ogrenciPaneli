@@ -29,3 +29,17 @@ class DepartmentRepo(BaseRepository[Department]):
     def name_exists(self, name: str) -> bool:
         """Verilen bölüm adı zaten kayıtlı mı kontrol eder."""
         return self.get_by_name(name) is not None
+
+    def get_by_code(self, code: str) -> Department | None:
+        """3 haneli koda göre kayıt getirir (duplicate kontrolü ve öğrenci no parser için)."""
+        return (
+            self.db.query(Department)
+            .filter(Department.code == code.strip())
+            .filter(Department.is_active == True)
+            .filter(Department.is_deleted == False)
+            .first()
+        )
+
+    def code_exists(self, code: str) -> bool:
+        """Verilen 3 haneli bölüm kodu zaten kayıtlı mı kontrol eder."""
+        return self.get_by_code(code) is not None

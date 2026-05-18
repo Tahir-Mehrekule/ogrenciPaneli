@@ -28,6 +28,7 @@ from app.features.user.user_dto import (
     UserFilterParams,
     ImportStudentData,
     BulkImportResult,
+    AdminCreateUserRequest,
 )
 
 
@@ -50,6 +51,25 @@ def list_users(
 ):
     service = UserService(db)
     return service.list_users(params)
+
+
+@router.post(
+    "",
+    response_model=UserListResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Admin → Yeni kullanıcı (öğretmen/öğrenci) ekle",
+    description=(
+        "Admin manuel olarak yeni TEACHER veya STUDENT oluşturur. "
+        "Şifre admin tarafından belirlenir; email + student_no unique kontrol edilir. "
+        "Sadece ADMIN erişebilir."
+    ),
+)
+def admin_create_user(
+    data: AdminCreateUserRequest,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    return UserService(db).create_user_as_admin(data, current_user)
 
 
 # ── Statik path'ler /{user_id}'dan ÖNCE tanımlanmalı ────────────────────────��
@@ -157,6 +177,19 @@ def update_student_info(
     return service.update_student_info(user_id, data, current_user)
 
 
+@router.get(
+    "/{user_id}/cascade-info",
+    summary="Soft delete öncesi bağlı kayıt sayıları",
+)
+def user_cascade_info(
+    user_id: UUID,
+    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Bu kullanıcıyı silmeden önce kaç proje/üyelik/rapor etkileneceğini döner."""
+    return UserService(db).get_cascade_info(user_id, current_user)
+
+
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_200_OK,
@@ -175,3 +208,31 @@ def delete_user(
 ):
     service = UserService(db)
     return service.delete_user(user_id, current_user)
+
+
+@router.post(
+    "/{user_id}/deactivate",
+    status_code=status.HTTP_200_OK,
+    summary="Kullanıcıyı pasifleştir (admin soft delete)",
+)
+def deactivate_user(
+    user_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin: is_active=False yapar. Veri korunur, geri yüklenebilir."""
+    return UserService(db).deactivate_user(user_id, current_user)
+
+
+@router.post(
+    "/{user_id}/restore",
+    status_code=status.HTTP_200_OK,
+    summary="Pasifleştirilmiş kullanıcıyı geri yükle",
+)
+def restore_user(
+    user_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin: is_active=True yapar."""
+    return UserService(db).restore_user(user_id, current_user)

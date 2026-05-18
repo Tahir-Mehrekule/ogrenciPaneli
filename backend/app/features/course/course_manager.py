@@ -36,9 +36,12 @@ class CourseManager(BaseManager):
             raise ForbiddenException("Bu ders üzerinde işlem yapmaya yetkiniz yok")
 
     def validate_can_create_course(self, user: User) -> None:
-        """Sadece TEACHER ve ADMIN ders oluşturabilir."""
-        if user.role == UserRole.STUDENT:
-            raise ForbiddenException("Sadece öğretmenler ve adminler ders oluşturabilir")
+        """
+        Admin Plan A5: Sadece ADMIN ders oluşturabilir.
+        Öğretmen artık ders oluşturamaz — atandığı derse erişebilir.
+        """
+        if user.role != UserRole.ADMIN:
+            raise ForbiddenException("Sadece sistem yöneticisi (ADMIN) ders oluşturabilir.")
 
     def validate_enrollment(self, course, user: User) -> None:
         """Derse kayıt validasyonu."""

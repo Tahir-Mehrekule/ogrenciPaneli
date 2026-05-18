@@ -39,26 +39,53 @@ class ProjectRepo(BaseRepository[Project]):
     def get_many_filtered(
         self,
         filters: dict = None,
+        exclude_status=None,
         search: str = None,
         search_fields: list[str] = None,
         grade_label: Optional[str] = None,
+        student_search: Optional[str] = None,
+        branch_code: Optional[str] = None,
         page: int = 1,
         size: int = 20,
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[Project], int]:
         """
-        grade_label filtresi için User tablosuna JOIN yapan özel listeleme.
-        grade_label verilmezse BaseRepo.get_many() ile aynı davranır.
+        grade_label, student_search ve branch_code User tablosuna JOIN ister.
+        branch_code ayrıca class_sections'a join eder.
+        Diğer filtreler verilmezse BaseRepo.get_many() ile aynı davranır.
         """
         from app.features.auth.auth_model import User
+        from app.features.class_section.class_section_model import ClassSection
 
         query = self._not_deleted(self.db.query(Project))
         query = self._active_filter(query, active_only=True)
 
-        if grade_label:
+        # JOIN'i tek sefer yap (grade_label/student_search/branch_code varsa)
+        if grade_label or student_search or branch_code:
             query = query.join(User, Project.created_by == User.id)
+
+        if grade_label:
             query = query.filter(User.grade_label == grade_label)
+
+        if branch_code:
+            query = (
+                query.join(ClassSection, User.class_section_id == ClassSection.id)
+                     .filter(ClassSection.branch_code == branch_code)
+            )
+
+        if student_search:
+            term = f"%{student_search.strip()}%"
+            query = query.filter(
+                or_(
+                    User.first_name.ilike(term),
+                    User.last_name.ilike(term),
+                    User.email.ilike(term),
+                )
+            )
+
+        if exclude_status is not None:
+            query = query.filter(Project.status != exclude_status)
 
         if filters:
             for key, value in filters.items():

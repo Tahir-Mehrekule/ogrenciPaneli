@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 class SystemStatsResponse(BaseModel):
     """Sistem genel istatistik yanıtı."""
     total_users: int
+    active_users: int
+    total_departments: int
     total_projects: int
     total_courses: int
     total_tasks: int
@@ -52,6 +54,8 @@ class ReportStatusBreakdown(BaseModel):
 class DetailedStatsResponse(BaseModel):
     """Detaylı sistem istatistikleri — dağılımlar ve oranlar."""
     total_users: int
+    active_users: int
+    total_departments: int
     total_projects: int
     total_courses: int
     total_tasks: int

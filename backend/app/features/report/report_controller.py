@@ -110,3 +110,56 @@ def review_report(
 ):
     """Raporu inceler ve geri bildirim ekler. Sadece TEACHER/ADMIN."""
     return ReportService(db).review_report(report_id, data, current_user)
+
+
+@router.get(
+    "/{report_id}/cascade-info",
+    summary="Soft delete öncesi bağlı kayıt sayıları",
+)
+def report_cascade_info(
+    report_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bu raporu silmeden önce kaç bağlı kayıt etkileneceğini döner (örn. yüklenen dosyalar)."""
+    return ReportService(db).get_cascade_info(report_id, current_user)
+
+
+@router.delete(
+    "/{report_id}",
+    summary="Rapor sil (soft delete)",
+)
+def delete_report(
+    report_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Soft delete (is_deleted=True). STUDENT yalnız kendi DRAFT raporunu, TEACHER/ADMIN tümünü silebilir."""
+    return ReportService(db).delete_report(report_id, current_user)
+
+
+@router.delete(
+    "/{report_id}/hard",
+    summary="Raporu kalıcı sil (hard delete)",
+)
+def hard_delete_report(
+    report_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Raporu DB'den tamamen siler. Sadece ADMIN."""
+    return ReportService(db).hard_delete_report(report_id, current_user)
+
+
+@router.post(
+    "/{report_id}/restore",
+    response_model=ReportResponse,
+    summary="Silinmiş raporu geri yükle",
+)
+def restore_report(
+    report_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Soft delete edilmiş raporu geri yükler. Sadece ADMIN."""
+    return ReportService(db).restore_report(report_id, current_user)

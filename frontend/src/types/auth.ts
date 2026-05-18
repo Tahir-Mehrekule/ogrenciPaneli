@@ -13,6 +13,7 @@ export type UserRole = "STUDENT" | "TEACHER" | "ADMIN";
 export interface DepartmentInfo {
   id: string;
   name: string;
+  code?: string; // 3 haneli bölüm kodu (paket 5B sonrası mevcut; eski client'lar için opsiyonel)
 }
 
 // --- Login İsteği ---

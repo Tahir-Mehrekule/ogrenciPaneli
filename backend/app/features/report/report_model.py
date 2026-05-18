@@ -5,7 +5,7 @@ Report (haftalık rapor) veritabanı modeli.
 Unique constraint: (project_id, submitted_by, week_number, year) — haftada bir rapor.
 """
 
-from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -93,9 +93,23 @@ class Report(BaseModel):
         comment="Öğretmenin geri bildirimi"
     )
 
+    teacher_reviewed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Öğretmenin inceleme zamanı"
+    )
+
+    teacher_reviewed_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="İnceleyen öğretmen"
+    )
+
     # İlişkiler
     project = relationship("Project", foreign_keys=[project_id], lazy="select")
     author = relationship("User", foreign_keys=[submitted_by], lazy="select")
+    reviewer = relationship("User", foreign_keys=[teacher_reviewed_by], lazy="select")
 
     def __repr__(self):
         return f"<Report(project={self.project_id}, week={self.week_number}/{self.year}, status={self.status})>"

@@ -37,10 +37,10 @@ router = APIRouter(
 )
 def create_course(
     data: CourseCreate,
-    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
+    current_user=Depends(role_required([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """Yeni ders oluşturur. Sadece TEACHER/ADMIN."""
+    """Yeni ders oluşturur. Admin Plan A5: Sadece ADMIN."""
     return CourseService(db).create_course(data, current_user)
 
 

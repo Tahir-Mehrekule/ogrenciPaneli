@@ -49,4 +49,20 @@ def get_detailed_stats(
     return AdminService(db).get_detailed_stats()
 
 
+@router.post(
+    "/scheduler/trigger-review-pending",
+    summary="(Debug) Haftalık inceleme bildirimi şimdi tetikle",
+    description=(
+        "Paket 4B scheduler işini manuel olarak çalıştırır. "
+        "Üretim'de Pazartesi 09:00'da otomatik çalışır; bu endpoint test/debug içindir."
+    ),
+)
+def trigger_review_pending(
+    _=Depends(role_required([UserRole.ADMIN])),
+):
+    from app.core.scheduler import trigger_review_pending_now
+    trigger_review_pending_now()
+    return {"status": "ok", "message": "Review-pending job tetiklendi. notification tablosunu kontrol edin."}
+
+
 

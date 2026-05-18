@@ -4,13 +4,14 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { SkeletonDetail } from "@/components/ui/Skeleton";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
-import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown } from "lucide-react";
+import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
+import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown, Github, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 type ProjectStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
@@ -22,6 +23,8 @@ interface Project {
   id: string; title: string; description: string;
   status: ProjectStatus; created_by: string;
   project_type?: ProjectType; created_by_name?: string;
+  github_url?: string | null;
+  rejection_reason?: string | null;
 }
 interface Task { id: string; title: string; description: string; status: TaskStatus; due_date: string | null; ai_suggested: boolean; }
 
@@ -51,7 +54,7 @@ const TASK_STATUS_NEXT: Record<TaskStatus, TaskStatus> = {
 
 // ── Proje Düzenleme Modalı (FE-2) ────────────────────────────────────────────
 interface EditProjectModalProps {
-  project: { id: string; title: string; description: string };
+  project: { id: string; title: string; description: string; github_url?: string | null };
   onClose: () => void;
   onUpdated: () => void;
 }
@@ -59,6 +62,7 @@ interface EditProjectModalProps {
 function EditProjectModal({ project, onClose, onUpdated }: EditProjectModalProps) {
   const [title, setTitle] = useState(project.title);
   const [description, setDescription] = useState(project.description);
+  const [githubUrl, setGithubUrl] = useState(project.github_url ?? "");
   const [loading, setLoading] = useState(false);
 
   const inputCls =
@@ -74,6 +78,7 @@ function EditProjectModal({ project, onClose, onUpdated }: EditProjectModalProps
       await apiClient.patch(`/api/v1/projects/${project.id}`, {
         title: title.trim(),
         description: description.trim(),
+        ...(githubUrl.trim() ? { github_url: githubUrl.trim() } : {}),
       });
       toast.success("Proje başarıyla güncellendi.");
       onUpdated();
@@ -127,6 +132,20 @@ function EditProjectModal({ project, onClose, onUpdated }: EditProjectModalProps
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 className={inputCls + " resize-none"}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="edit-github">
+                GitHub URL <span className="text-gray-400 font-normal">(opsiyonel)</span>
+              </label>
+              <input
+                id="edit-github"
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/kullanici/repo"
+                className={inputCls}
               />
             </div>
 
@@ -200,6 +219,8 @@ export default function ProjectDetailPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   // Ekip üyeleri
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -212,6 +233,10 @@ export default function ProjectDetailPage() {
   // Onay diyaloğu: hangi aksiyon bekliyor?
   type PendingAction = "submit" | "reject" | "ai" | null;
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
+  // Soft / Hard delete modalları
+  const [showSoftDelete, setShowSoftDelete] = useState(false);
+  const [showHardDelete, setShowHardDelete] = useState(false);
 
   const fetchMembers = useCallback(async (projectType?: ProjectType) => {
     if (projectType !== "team") return;
@@ -244,8 +269,8 @@ export default function ProjectDetailPage() {
       await apiClient.post(`/api/v1/projects/${id}/submit`);
       toast.success("Proje onay için gönderildi.");
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "İşlem başarısız.");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "İşlem başarısız.");
     } finally {
       setPendingAction(null);
     }
@@ -256,14 +281,31 @@ export default function ProjectDetailPage() {
     fetchData();
   };
 
+  const handleSoftDelete = async () => {
+    await apiClient.delete(`/api/v1/projects/${id}`);
+    toast.success("Proje silindi (geri yüklenebilir).");
+    router.push("/dashboard/projects");
+  };
+
+  const handleHardDelete = async () => {
+    await apiClient.delete(`/api/v1/projects/${id}/hard`);
+    toast.success("Proje kalıcı olarak silindi.");
+    router.push("/dashboard/projects");
+  };
+
   const handleReject = async () => {
+    if (rejectReason.trim().length < 10) return;
+    setRejecting(true);
     try {
-      await apiClient.post(`/api/v1/projects/${id}/reject`);
-      router.push("/dashboard/projects");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Reddetme başarısız.");
-    } finally {
+      await apiClient.post(`/api/v1/projects/${id}/reject`, { reason: rejectReason.trim() });
+      toast.success("Proje reddedildi.");
       setPendingAction(null);
+      setRejectReason("");
+      fetchData();
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Reddetme başarısız.");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -274,8 +316,8 @@ export default function ProjectDetailPage() {
       await apiClient.post('/api/v1/ai/suggest', { project_id: project.id });
       toast.success("AI tarafından önerilen görevler projeye eklendi.");
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "AI görev önerisi alınamadı.");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "AI görev önerisi alınamadı.");
     } finally {
       setAiLoading(false);
       setPendingAction(null);
@@ -299,8 +341,8 @@ export default function ProjectDetailPage() {
       toast.success("Davet gönderildi.");
       setMemberSearchQuery(""); setMemberSearchResults([]);
       fetchMembers("team");
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Davet gönderilemedi.");
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Davet gönderilemedi.");
     } finally { setInviteLoading(null); }
   };
 
@@ -309,7 +351,7 @@ export default function ProjectDetailPage() {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/accept`);
       toast.success("Daveti kabul ettiniz.");
       fetchMembers("team");
-    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
   const handleRejectInvite = async (memberId: string) => {
@@ -317,7 +359,7 @@ export default function ProjectDetailPage() {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/reject`);
       toast.success("Davet reddedildi.");
       fetchMembers("team");
-    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
   const handleCancelInvite = async (memberId: string) => {
@@ -325,7 +367,7 @@ export default function ProjectDetailPage() {
       await apiClient.delete(`/api/v1/projects/${id}/members/${memberId}/cancel-invite`);
       toast.success("Davet iptal edildi.");
       fetchMembers("team");
-    } catch (err: any) { toast.error(err.response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
   const toggleTaskStatus = async (task: Task) => {
@@ -382,6 +424,17 @@ export default function ProjectDetailPage() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">{project.title}</h2>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{project.description}</p>
+              {project.github_url && (
+                <a
+                  href={project.github_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:border-indigo-500 transition-colors"
+                >
+                  <Github className="h-4 w-4" />
+                  GitHub Reposu
+                </a>
+              )}
             </div>
 
             {/* Aksiyon Butonları */}
@@ -440,6 +493,28 @@ export default function ProjectDetailPage() {
               >
                 {aiLoading ? "Analiz ediliyor..." : "✨ AI ile Görev Planla"}
               </button>
+
+              {/* Soft Delete (TEACHER + ADMIN) */}
+              {(role === "TEACHER" || role === "ADMIN") && (
+                <button
+                  onClick={() => setShowSoftDelete(true)}
+                  title="Projeyi sil (geri yüklenebilir)"
+                  className="flex items-center gap-2 rounded-xl border border-amber-600/40 bg-amber-600/10 px-4 py-2 text-sm font-semibold text-amber-400 hover:bg-amber-600/20 transition-colors whitespace-nowrap"
+                >
+                  <Trash2 className="h-4 w-4" /> Sil
+                </button>
+              )}
+
+              {/* Kalıcı Sil (ADMIN) */}
+              {role === "ADMIN" && (
+                <button
+                  onClick={() => setShowHardDelete(true)}
+                  title="Projeyi kalıcı olarak sil"
+                  className="flex items-center gap-2 rounded-xl border border-red-600/40 bg-red-600/10 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-600/20 transition-colors whitespace-nowrap"
+                >
+                  <Trash2 className="h-4 w-4" /> Kalıcı Sil
+                </button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -478,13 +553,19 @@ export default function ProjectDetailPage() {
       {normalizedStatus === "REJECTED" && (
         <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 flex items-start gap-3">
           <span className="text-xl mt-0.5">❌</span>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-red-400 mb-1">Proje Reddedildi</p>
             <p className="text-xs text-gray-400 leading-relaxed">
               {role === "STUDENT"
-                ? "Bu proje öğretmeniniz tarafından reddedildi. Yeni bir proje oluşturabilir veya öğretmeninizle iletişime geçebilirsiniz."
+                ? "Bu proje öğretmeniniz tarafından reddedildi. İçeriği güncelleyip tekrar onaya gönderebilirsiniz."
                 : "Bu projeyi reddettiniz."}
             </p>
+            {project.rejection_reason && (
+              <div className="mt-2 rounded-lg border border-red-800/40 bg-red-950/30 px-3 py-2">
+                <p className="text-xs font-semibold text-red-300 mb-0.5">Reddetme Sebebi:</p>
+                <p className="text-xs text-gray-300 leading-relaxed">{project.rejection_reason}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -741,17 +822,42 @@ export default function ProjectDetailPage() {
         cancelText="Vazgeç"
       />
 
-      {/* Reddet Onayı */}
-      <ConfirmDialog
-        isOpen={pendingAction === "reject"}
-        onClose={() => setPendingAction(null)}
-        onConfirm={handleReject}
-        title="Projeyi Reddet"
-        description="Bu projeyi reddetmek istediğinize emin misiniz? Öğrenci bilgilendirilecek ve projeyi düzenleyebilecek."
-        confirmText="Evet, Reddet"
-        cancelText="Vazgeç"
-        isDestructive
-      />
+      {/* Reddet Modalı — sebep zorunlu */}
+      {pendingAction === "reject" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setPendingAction(null)} />
+          <div className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Projeyi Reddet</h3>
+            <p className="text-sm text-gray-400">
+              <span className="font-medium text-gray-200">{project?.title}</span> projesini reddediyorsunuz.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-300">
+                Reddetme Sebebi <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Öğrenciye iletilecek reddetme sebebini yazın... (min 10 karakter)"
+                className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-200 outline-none focus:border-red-500 resize-none"
+              />
+              <p className="text-xs text-gray-500 text-right">{rejectReason.length}/2000</p>
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <button onClick={() => { setPendingAction(null); setRejectReason(""); }} className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800">Vazgeç</button>
+              <button
+                onClick={handleReject}
+                disabled={rejecting || rejectReason.trim().length < 10}
+                className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejecting ? "Reddediliyor..." : "Reddet"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Görev Planlama Onayı */}
       <ConfirmDialog
@@ -762,6 +868,31 @@ export default function ProjectDetailPage() {
         description="Proje açıklaması analiz edilerek üyelere otomatik görevler atanacak. Mevcut görevler etkilenmez. Devam edilsin mi?"
         confirmText="Evet, Planla"
         cancelText="Vazgeç"
+      />
+
+      {/* Soft Delete Modal */}
+      <SoftDeleteModal
+        open={showSoftDelete}
+        onClose={() => setShowSoftDelete(false)}
+        onConfirm={handleSoftDelete}
+        title="Projeyi Sil"
+        entityName={project?.title ?? "Proje"}
+        cascadeUrl={id ? `/api/v1/projects/${id}/cascade-info` : null}
+        cascadeLabels={{ tasks: "Görevler", reports: "Raporlar", members: "Üyeler" }}
+        confirmLabel="Sil"
+      />
+
+      {/* Hard Delete Modal (Admin) */}
+      <SoftDeleteModal
+        open={showHardDelete}
+        onClose={() => setShowHardDelete(false)}
+        onConfirm={handleHardDelete}
+        title="Projeyi Kalıcı Sil"
+        entityName={project?.title ?? "Proje"}
+        cascadeUrl={id ? `/api/v1/projects/${id}/cascade-info` : null}
+        cascadeLabels={{ tasks: "Görevler", reports: "Raporlar", members: "Üyeler" }}
+        confirmLabel="Kalıcı Sil"
+        destructive
       />
 
       {/* FE-2: Proje Düzenleme Modalı */}

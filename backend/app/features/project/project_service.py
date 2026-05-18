@@ -124,11 +124,29 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         elif params.created_by:
             filters["created_by"] = params.created_by
 
+        # Admin Plan: TEACHER ve ADMIN için DRAFT projeler default GİZLİ.
+        # Sadece sahip öğrenci kendi DRAFT'ını görür. Frontend status=DRAFT istese
+        # bile staff sonucu boş döner.
+        effective_exclude_status = params.exclude_status
+        if current_user.role in (UserRole.TEACHER, UserRole.ADMIN):
+            from app.common.enums import ProjectStatus
+            if effective_exclude_status is None:
+                effective_exclude_status = ProjectStatus.DRAFT
+            if filters.get("status") == ProjectStatus.DRAFT:
+                # Staff DRAFT görmek istiyorsa erken-dönüş ile boş set ver
+                return PaginatedResponse(
+                    items=[], total=0, page=params.page,
+                    size=params.size, pages=0,
+                )
+
         projects, total = self.repo.get_many_filtered(
             filters=filters,
+            exclude_status=effective_exclude_status,
             search=params.search,
             search_fields=["title", "description"],
             grade_label=params.grade_label,
+            student_search=params.student_search,
+            branch_code=params.branch_code,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -236,26 +254,25 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
         return self._to_response(updated)
 
-    def reject_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
+    def reject_project(self, project_id: UUID, current_user: User, reason: str) -> ProjectResponse:
         """Projeyi reddeder: PENDING → REJECTED. Sadece TEACHER/ADMIN."""
         from datetime import datetime, timezone
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_status_transition(project.status, ProjectStatus.REJECTED)
-        # BL-4: Reddedilme zamanını kaydet
         updated = self.repo.update(project_id, {
             "status": ProjectStatus.REJECTED,
             "rejected_at": datetime.now(timezone.utc),
+            "rejection_reason": reason,
         })
         log_activity(self.db, ActivityAction.PROJECT_REJECT, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
-                     details={"title": project.title})
-        # Proje sahibine bildirim gönder
+                     details={"title": project.title, "reason": reason})
         send_notification(
             db=self.db,
             user_id=project.created_by,
             type=NotificationType.PROJECT_REJECTED,
             title="Projeniz Reddedildi",
-            message=f"'{project.title}' adlı projeniz reddedildi. Lütfen detaylı bilgi alıp tekrar deneyin.",
+            message=f"'{project.title}' adlı projeniz reddedildi. Sebep: {reason[:100]}",
             related_id=project.id
         )
 
@@ -275,11 +292,62 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         return self._to_response(updated)
 
     def delete_project(self, project_id: UUID, current_user: User) -> dict:
-        """Projeyi kalıcı siler (hard delete). Sadece DRAFT/REJECTED projeler silinebilir."""
+        """Projeyi yumuşak siler (is_deleted=True). Sadece DRAFT/REJECTED projeler silinebilir."""
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_deletable(project, current_user)
-        self.repo.delete(project_id)
+        self.repo.soft_delete(project_id)
+        log_activity(self.db, ActivityAction.PROJECT_DELETE, user_id=current_user.id,
+                     entity_type=EntityType.PROJECT, entity_id=project_id,
+                     details={"title": project.title})
         return {"message": f"Proje başarıyla silindi: {project.title}"}
+
+    def hard_delete_project(self, project_id: UUID, current_user: User) -> dict:
+        """Projeyi kalıcı siler (hard delete). Sadece ADMIN kullanabilir."""
+        from app.common.exceptions import ForbiddenException
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        project = self.repo.get_by_id_or_404(project_id, active_only=False)
+        self.repo.delete(project_id)
+        log_activity(self.db, ActivityAction.PROJECT_DELETE, user_id=current_user.id,
+                     entity_type=EntityType.PROJECT, entity_id=project_id,
+                     details={"title": project.title, "permanent": True})
+        return {"message": f"Proje kalıcı olarak silindi: {project.title}"}
+
+    def restore_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
+        """Silinmiş projeyi geri yükler. Sadece ADMIN kullanabilir."""
+        from app.common.exceptions import ForbiddenException
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        restored = self.repo.restore(project_id)
+        log_activity(self.db, ActivityAction.PROJECT_RESTORE, user_id=current_user.id,
+                     entity_type=EntityType.PROJECT, entity_id=project_id,
+                     details={"title": restored.title})
+        return self._to_response(restored)
+
+    def get_cascade_info(self, project_id: UUID, current_user: User) -> dict:
+        """
+        Soft delete öncesi etkilenecek bağlı kayıtların sayısını döner:
+        - tasks: bu projeye ait görev sayısı
+        - reports: bu projeye ait rapor sayısı
+        - members: aktif üye sayısı (sahip dahil)
+        """
+        project = self.repo.get_by_id_or_404(project_id)
+        # STUDENT yalnız kendi projesi için cascade-info sorabilir
+        if (
+            current_user.role == UserRole.STUDENT
+            and str(project.created_by) != str(current_user.id)
+        ):
+            from app.common.exceptions import ForbiddenException
+            raise ForbiddenException("Bu proje için bilgi alma yetkiniz yok")
+
+        from app.features.task.task_repo import TaskRepo
+        from app.features.report.report_repo import ReportRepo
+        from app.features.project_member.project_member_repo import ProjectMemberRepo
+
+        _, task_count = TaskRepo(self.db).get_many(filters={"project_id": project_id})
+        _, report_count = ReportRepo(self.db).get_many(filters={"project_id": project_id})
+        _, member_count = ProjectMemberRepo(self.db).get_many(filters={"project_id": project_id})
+        return {"tasks": task_count, "reports": report_count, "members": member_count}
 
     def get_by_share_code(self, share_code: str) -> ProjectResponse:
         """Share link kodu ile projeyi getirir."""

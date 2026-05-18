@@ -43,17 +43,37 @@ class CourseService(BaseService[Course, CourseRepo]):
     def create_course(self, data: CourseCreate, current_user: User) -> CourseResponse:
         """
         Yeni ders oluşturur.
-        Sadece TEACHER/ADMIN oluşturabilir.
+        Admin Plan A5: Sadece ADMIN oluşturabilir. Teacher artık ders oluşturamaz.
+        Admin Plan A4: ADMIN, atanacak öğretmeni `teacher_id` ile belirler (zorunlu).
         Ders kodu büyük harfe dönüştürülür ve benzersiz olmalıdır.
         """
         self.manager.validate_can_create_course(current_user)
         self.manager.validate_course_code_unique(data.code)
 
+        # A4: ADMIN için teacher_id zorunlu — Pydantic'te Optional ama burada
+        # business rule olarak şart koşuluyor (UI dropdown'u zorunlu eder).
+        if current_user.role == UserRole.ADMIN:
+            if not data.teacher_id:
+                from app.common.exceptions import BadRequestException
+                raise BadRequestException("Ders oluştururken bir öğretmen atanmalı.")
+            # Atanan kullanıcının TEACHER rolünde olduğunu doğrula
+            from app.features.auth.auth_repo import AuthRepo
+            target = AuthRepo(self.db).get_by_id_or_404(data.teacher_id)
+            if target.role != UserRole.TEACHER:
+                from app.common.exceptions import BadRequestException
+                raise BadRequestException(
+                    "Atamak istediğiniz kişi TEACHER rolünde değil."
+                )
+            effective_teacher_id = data.teacher_id
+        else:
+            # Teorik olarak buraya gelinmemeli (validate_can_create_course admin-only); güvenlik için.
+            effective_teacher_id = current_user.id
+
         course_data = {
             "name": data.name,
             "code": data.code.upper(),
             "semester": data.semester,
-            "teacher_id": current_user.id,
+            "teacher_id": effective_teacher_id,
             "department_id": data.department_id,
             "project_type": data.project_type,
             "require_youtube": data.require_youtube,

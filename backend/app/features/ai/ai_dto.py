@@ -54,3 +54,27 @@ class ReportAnalysisResponse(BaseModel):
     recommendations: List[str] = Field(description="Gelecek haftalar için tavsiyeler", default_factory=list)
     generated_at: datetime = Field(description="Önerinin oluşturulma tarihi")
     model_used: str = Field(description="Kullanılan AI modeli")
+
+
+# ─────────────── Öğretmen Cevap Önerisi (Paket 4A) ───────────────
+
+FeedbackTone = str  # "constructive" | "encouraging" | "critical"
+
+
+class FeedbackSuggestRequest(BaseModel):
+    """AI cevap önerisi isteği — öğretmen rapor altına yazacağı metin için."""
+    report_id: UUID = Field(description="Cevap önerisi istenen raporun UUID'si")
+    tone: FeedbackTone = Field(
+        default="constructive",
+        description="Ton: constructive (yapıcı) | encouraging (cesaret verici) | critical (eleştirel)",
+        pattern="^(constructive|encouraging|critical)$",
+    )
+
+
+class FeedbackSuggestResponse(BaseModel):
+    """AI cevap önerisi response'u."""
+    report_id: UUID
+    tone: FeedbackTone
+    suggested_feedback: str = Field(description="AI'ın ürettiği geri bildirim taslağı")
+    generated_at: datetime
+    model_used: str

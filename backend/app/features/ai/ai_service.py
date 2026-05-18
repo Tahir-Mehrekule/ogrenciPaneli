@@ -14,7 +14,11 @@ from app.common.enums import ProjectStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_repo import ProjectRepo
 from app.features.ai.ai_manager import AIManager
-from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse, ReportAnalysisRequest, ReportAnalysisResponse
+from app.features.ai.ai_dto import (
+    AISuggestRequest, AISuggestResponse,
+    ReportAnalysisRequest, ReportAnalysisResponse,
+    FeedbackSuggestRequest, FeedbackSuggestResponse,
+)
 from app.features.ai.ai_config import DEFAULT_MODEL
 from app.features.auth.auth_model import User
 
@@ -140,6 +144,49 @@ class AIService:
             tasks=tasks,
             generated_at=generated_at,
             model_used=plan.get("model", DEFAULT_MODEL),
+        )
+
+    def suggest_feedback(self, data: FeedbackSuggestRequest, current_user: User) -> FeedbackSuggestResponse:
+        """
+        Öğretmen rapor altına yazacağı geri bildirim taslağını AI ile üretir.
+
+        - Sadece TEACHER ve ADMIN kullanabilir
+        - Rapor SUBMITTED olmalı (DRAFT'a feedback yazılmaz)
+        - Üretilen metin textarea'ya yerleştirilir, öğretmen düzenler ve kendisi gönderir
+        """
+        from app.features.report.report_repo import ReportRepo
+        from app.common.enums import ReportStatus
+
+        report_repo = ReportRepo(self.db)
+        report = report_repo.get_by_id_or_404(data.report_id)
+
+        if current_user.role not in [UserRole.TEACHER, UserRole.ADMIN]:
+            raise ForbiddenException("AI cevap önerisi sadece öğretmen/admin için.")
+        if report.status == ReportStatus.DRAFT:
+            raise BadRequestException("DRAFT rapora geri bildirim taslağı üretilemez. Önce öğrenci teslim etmeli.")
+
+        # Ders bilgisini al
+        course_name = ""
+        try:
+            if report.project and report.project.course:
+                course_name = report.project.course.name
+        except Exception:
+            course_name = "Bilinmeyen Ders"
+
+        text = self.manager.call_openrouter_for_feedback(
+            course_name=course_name or "Bilinmeyen Ders",
+            week_number=report.week_number,
+            year=report.year,
+            report_content=report.content,
+            tone=data.tone,
+        )
+
+        return FeedbackSuggestResponse(
+            report_id=data.report_id,
+            tone=data.tone,
+            suggested_feedback=text,
+            generated_at=datetime.now(timezone.utc),
+            model_used=DEFAULT_MODEL,
         )
 
     def analyze_report(self, data: ReportAnalysisRequest, current_user: User) -> ReportAnalysisResponse:

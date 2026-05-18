@@ -6,7 +6,9 @@ BaseRepository[Report]'dan türer — CRUD ve get_many otomatik gelir.
 """
 
 from uuid import UUID
+from typing import Optional
 
+from sqlalchemy import desc, asc, or_
 from sqlalchemy.orm import Session
 
 from app.base.base_repo import BaseRepository
@@ -45,3 +47,70 @@ class ReportRepo(BaseRepository[Report]):
             .filter(Report.year == year)
             .first()
         )
+
+    def get_many_filtered(
+        self,
+        filters: dict = None,
+        in_filters: dict = None,
+        search: str = None,
+        search_fields: list[str] = None,
+        grade_label: Optional[str] = None,
+        branch_code: Optional[str] = None,
+        page: int = 1,
+        size: int = 20,
+        sort_by: str = "created_at",
+        order: str = "desc",
+    ) -> tuple[list[Report], int]:
+        """
+        grade_label ve branch_code, raporu submit eden User'a JOIN ister.
+        branch_code → User.class_section → ClassSection.branch_code üzerinden filtrelenir.
+        """
+        from app.features.auth.auth_model import User
+        from app.features.class_section.class_section_model import ClassSection
+
+        query = self._not_deleted(self.db.query(Report))
+        query = self._active_filter(query, active_only=True)
+
+        if grade_label or branch_code:
+            query = query.join(User, Report.submitted_by == User.id)
+
+        if grade_label:
+            query = query.filter(User.grade_label == grade_label)
+
+        if branch_code:
+            query = (
+                query.join(ClassSection, User.class_section_id == ClassSection.id)
+                     .filter(ClassSection.branch_code == branch_code)
+            )
+
+        if filters:
+            for key, value in filters.items():
+                column = getattr(Report, key, None)
+                if column is not None and value is not None:
+                    query = query.filter(column == value)
+
+        if in_filters:
+            for key, values in in_filters.items():
+                column = getattr(Report, key, None)
+                if column is not None and values:
+                    query = query.filter(column.in_(values))
+
+        if search and search_fields:
+            term = f"%{search.strip()}%"
+            conditions = [
+                getattr(Report, f).ilike(term)
+                for f in search_fields
+                if getattr(Report, f, None) is not None
+            ]
+            if conditions:
+                query = query.filter(or_(*conditions))
+
+        total = query.count()
+
+        sort_col = getattr(Report, sort_by, None)
+        if sort_col is not None:
+            query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
+
+        skip = (page - 1) * size
+        items = query.offset(skip).limit(size).all()
+        return items, total

@@ -5,6 +5,7 @@ Haftalık rapor oluşturma, güncelleme ve inceleme için şemalar.
 """
 
 from uuid import UUID
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -43,6 +44,14 @@ class ReviewRequest(BaseModel):
     )
 
 
+class ReportFeedbackRequest(BaseModel):
+    """Öğretmenin rapor geri bildirimi. reviewer_note zorunlu."""
+    feedback: str = Field(
+        min_length=5,
+        description="Öğretmenin geri bildirimi"
+    )
+
+
 class ReportResponse(BaseResponse):
     """
     Rapor response'u. BaseResponse'tan: id, created_at, updated_at.
@@ -55,6 +64,8 @@ class ReportResponse(BaseResponse):
     youtube_url: Optional[str] = None
     status: ReportStatus
     reviewer_note: Optional[str] = None
+    teacher_reviewed_at: Optional[datetime] = None
+    teacher_reviewed_by: Optional[UUID] = None
     is_active: bool
     # Ders bilgisi (project → course üzerinden zenginleştirilir)
     course_name: Optional[str] = None
@@ -70,3 +81,13 @@ class ReportFilterParams(FilterParams):
     status: Optional[ReportStatus] = Field(default=None, description="Durum filtresi")
     week_number: Optional[int] = Field(default=None, ge=1, le=53, description="Hafta numarası filtresi")
     year: Optional[int] = Field(default=None, description="Yıl filtresi")
+    grade_label: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        description="Raporlayan öğrencinin sınıf etiketi (User.grade_label) — sekme filtresi",
+    )
+    branch_code: Optional[str] = Field(
+        default=None,
+        max_length=10,
+        description="Raporlayan öğrencinin şube kodu (class_section.branch_code) — alt-filtre",
+    )

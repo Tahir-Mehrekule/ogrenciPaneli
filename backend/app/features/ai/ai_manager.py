@@ -15,8 +15,11 @@ from app.features.ai.ai_config import (
     DEFAULT_MODEL,
     SYSTEM_PROMPT,
     REPORT_ANALYSIS_SYSTEM_PROMPT,
+    FEEDBACK_SUGGESTION_SYSTEM_PROMPT,
+    FEEDBACK_TONES,
     build_user_prompt,
     build_report_analysis_prompt,
+    build_feedback_suggestion_prompt,
     get_headers,
 )
 from app.features.ai.ai_dto import AITaskSuggestion
@@ -91,6 +94,55 @@ class AIManager(BaseManager):
             raise AppException(detail="AI servisine bağlanırken hata oluştu.", status_code=503)
 
         return self._parse_report_response(response.json())
+
+    def call_openrouter_for_feedback(
+        self, course_name: str, week_number: int, year: int,
+        report_content: str, tone: str,
+    ) -> str:
+        """OpenRouter API'ye istek atarak öğretmen cevap önerisi alır.
+        Düz metin (300-600 char) döner — JSON beklemez."""
+        tone_desc = FEEDBACK_TONES.get(tone, FEEDBACK_TONES["constructive"])
+        user_prompt = build_feedback_suggestion_prompt(
+            course_name, week_number, year, report_content, tone, tone_desc,
+        )
+
+        payload = {
+            "model": DEFAULT_MODEL,
+            "messages": [
+                {"role": "system", "content": FEEDBACK_SUGGESTION_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.6,
+            "max_tokens": 512,
+        }
+
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    OPENROUTER_ENDPOINT,
+                    headers=get_headers(),
+                    json=payload,
+                )
+                response.raise_for_status()
+        except httpx.TimeoutException:
+            raise AppException(detail="AI servisi yanıt vermedi.", status_code=503)
+        except httpx.HTTPStatusError as e:
+            raise AppException(detail=f"AI servisi hatası: {e.response.status_code}", status_code=503)
+        except Exception:
+            raise AppException(detail="AI servisine bağlanırken hata oluştu.", status_code=503)
+
+        raw = response.json()
+        try:
+            text = raw["choices"][0]["message"]["content"].strip()
+            # Olası kod bloğu temizliği
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("text"):
+                    text = text[4:]
+                text = text.strip()
+            return text
+        except (KeyError, IndexError, TypeError):
+            raise AppException(detail="AI yanıtı işlenemedi.", status_code=500)
 
     def _parse_response(self, raw: dict) -> list[AITaskSuggestion]:
         """OpenRouter API yanıtını AITaskSuggestion listesine dönüştürür."""

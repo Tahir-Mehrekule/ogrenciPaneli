@@ -17,6 +17,7 @@ class Department(BaseModel):
 
     Alanlar:
     - name: Bölüm adı — unique (örn: "Bilgisayar Mühendisliği")
+    - code: 3 haneli bölüm kodu — unique (örn: "235"). Öğrenci no parser bu koda göre çalışır.
 
     BaseModel'den miras: id, created_at, updated_at, is_active
     """
@@ -31,6 +32,14 @@ class Department(BaseModel):
         comment="Bölüm adı — unique (örn: Bilgisayar Mühendisliği)"
     )
 
+    code = Column(
+        String(3),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="3 haneli bölüm kodu — unique (örn: 235). Öğrenci no parser kullanır."
+    )
+
     user_departments = relationship(
         "UserDepartment",
         back_populates="department",
@@ -38,4 +47,4 @@ class Department(BaseModel):
     )
 
     def __repr__(self):
-        return f"<Department(id={self.id}, name={self.name})>"
+        return f"<Department(id={self.id}, code={self.code}, name={self.name})>"

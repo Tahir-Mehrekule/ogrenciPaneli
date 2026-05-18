@@ -88,7 +88,7 @@ class FilterParams(BaseModel):
     - search: Arama terimi (opsiyonel)
     """
     page: int = Field(default=1, ge=1, description="Sayfa numarası")
-    size: int = Field(default=20, ge=1, le=100, description="Sayfa başına kayıt sayısı")
+    size: int = Field(default=20, ge=1, le=500, description="Sayfa başına kayıt sayısı")
     sort_by: str = Field(default="created_at", description="Sıralama alanı")
     order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sıralama yönü")
     search: str | None = Field(default=None, description="Arama terimi")

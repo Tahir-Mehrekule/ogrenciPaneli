@@ -122,9 +122,25 @@ class Project(BaseModel):
     )
 
     project_type = Column(
-        SAEnum(ProjectType, name="project_type"),
+        SAEnum(
+            ProjectType,
+            name="project_type",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=True,
         comment="Bireysel mi ekip mi? Ders ayarından miras alınır; null = eski proje (bölüm yok)"
+    )
+
+    github_url = Column(
+        String(500),
+        nullable=True,
+        comment="GitHub repo URL (opsiyonel)"
+    )
+
+    rejection_reason = Column(
+        Text,
+        nullable=True,
+        comment="Reddetme sebebi — öğretmenin notu"
     )
 
     # İlişkiler

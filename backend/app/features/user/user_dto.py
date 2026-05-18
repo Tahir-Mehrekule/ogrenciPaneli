@@ -7,7 +7,7 @@ Admin panelinde kullanıcıları listeleme, güncelleme ve filtreleme işlemleri
 
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import UserRole
 from app.base.base_dto import FilterParams, BaseResponse
@@ -66,6 +66,12 @@ class UserUpdateRequest(BaseModel):
         min_length=2,
         max_length=100,
         description="Ad"
+    )
+    email: Optional[str] = Field(
+        default=None,
+        min_length=5,
+        max_length=255,
+        description="Email adresi (benzersiz)"
     )
     last_name: Optional[str] = Field(
         default=None,
@@ -129,13 +135,21 @@ class UserFilterParams(FilterParams):
         default=None,
         description="Rol filtresi (student, teacher, admin)"
     )
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _normalize_role_filter(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
     department_id: Optional[UUID] = Field(
         default=None,
         description="Bölüm ID filtresi"
     )
     is_active: Optional[bool] = Field(
-        default=True,
-        description="Aktif/pasif filtresi (varsayılan: sadece aktifler)"
+        default=None,
+        description="Aktif/pasif filtresi. Boş bırakılırsa tüm durumlar döner."
     )
     grade_label: Optional[str] = Field(
         default=None,
@@ -151,3 +165,79 @@ class ExportFilterParams(UserFilterParams):
     """Export için parametreler. Sayfalama devre dışı bırakılabilir."""
     page: int = Field(default=1, description="Sayfa numarası (Tümünü indirmek için 1)")
     size: int = Field(default=10000, description="Kayıt sayısı (Tümünü indirmek için yüksek bir sayı)")
+
+
+# ─────────────── Admin → Kullanıcı Oluştur (Paket 5 / Admin Plan A3) ───────────────
+
+class AdminCreateUserRequest(BaseModel):
+    """
+    Admin yeni öğretmen veya öğrenci ekler.
+
+    Şifre admin formda girer (Karar A). Email + student_no unique kontrol edilir.
+    STUDENT için student_no + en az 1 department zorunlu.
+    TEACHER için en az 1 department zorunlu.
+    """
+    role: UserRole = Field(
+        description="Rol — sadece STUDENT veya TEACHER kabul edilir (ADMIN ayrı flow)",
+    )
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _normalize_role(cls, v):
+        # Frontend uppercase ("TEACHER") veya lowercase ("teacher") gönderebilir;
+        # backend enum lowercase olduğu için case-insensitive normalize edilir.
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    email: str = Field(min_length=5, max_length=255, description="Email (okul maili formatında)")
+    password: str = Field(
+        min_length=8, max_length=72,
+        description="Geçici şifre (admin belirler, kullanıcı sonradan değiştirebilir)",
+    )
+    first_name: str = Field(min_length=2, max_length=100)
+    last_name: str = Field(min_length=2, max_length=100)
+    department_ids: list[UUID] = Field(
+        default_factory=list,
+        description="Bölüm ID'leri. TEACHER ve STUDENT için en az 1 zorunlu.",
+    )
+    # Sadece STUDENT için
+    student_no: Optional[str] = Field(
+        default=None,
+        min_length=9, max_length=9, pattern=r"^\d{9}$",
+        description="9 haneli öğrenci numarası (STUDENT için zorunlu)",
+    )
+    grade_label: Optional[str] = Field(
+        default=None, max_length=50,
+        description="Sınıf etiketi (örn: '2. Sınıf'). Verilmezse student_no'dan parse edilir.",
+    )
+    class_section_id: Optional[UUID] = Field(
+        default=None,
+        description="Şube ID (opsiyonel, STUDENT için)",
+    )
+    course_ids: list[UUID] = Field(
+        default_factory=list,
+        description=(
+            "TEACHER için: bu öğretmene atanacak ders ID'leri "
+            "(course.teacher_id bu kullanıcıya set edilir). "
+            "STUDENT için: kullanılmaz — bölüm bazlı otomatik erişim hakimdir."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_role_specific_fields(self):
+        """
+        ADMIN_PLAN_2 / Paket C2:
+        - STUDENT tek bölüme atanmalı (multi yerine).
+        - TEACHER >=1 bölüme atanabilir.
+        - STUDENT için course_ids ignore edilir (bölüm bazlı erişim).
+        """
+        if self.role == UserRole.STUDENT:
+            if len(self.department_ids) != 1:
+                raise ValueError("Öğrenci tam olarak bir bölüme atanmalıdır.")
+            # STUDENT için course_ids backend'de işlenmez; defensive temizlik:
+            self.course_ids = []
+        elif self.role == UserRole.TEACHER:
+            if len(self.department_ids) < 1:
+                raise ValueError("Öğretmen en az bir bölüme atanmalıdır.")
+        return self

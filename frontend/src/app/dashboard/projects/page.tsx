@@ -7,7 +7,9 @@ import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
-import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import ClassTabs from "@/components/ui/ClassTabs";
+import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck, Github } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 type ProjectStatus =
@@ -30,6 +32,7 @@ interface Project {
   course_code: string | null;
   project_type: string | null;
   created_at: string;
+  github_url: string | null;
 }
 
 interface CourseOption {
@@ -53,6 +56,9 @@ const STATUS_CONFIG: Record<
 const SORT_OPTIONS: SortOption[] = [
   { value: "created_at", label: "Oluşturma Tarihi" },
   { value: "title", label: "Proje Adı" },
+  { value: "status", label: "Durum" },
+  { value: "created_by_name", label: "Öğrenci" },
+  { value: "course_name", label: "Ders" },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -87,16 +93,23 @@ export default function ProjectsPage() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
+  const [branchFilter, setBranchFilter] = useState<string | null>(null);
+  const [showAllBranches, setShowAllBranches] = useState(false);
   const [courseFilter, setCourseFilter] = useState("");
-  const [sortBy, setSortBy] = useState("created_at");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
 
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [rejectModal, setRejectModal] = useState<{ id: string; title: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   const isStaff = role === "TEACHER" || role === "ADMIN";
+
+  const { sorted: sortedProjects, sortKey: sortBy, sortOrder, toggleSort } =
+    useSortableTable(projects, { defaultKey: "created_at", defaultOrder: "desc" });
 
   // Ders filtre seçeneklerini yükle (teacher/admin için)
   useEffect(() => {
@@ -115,24 +128,40 @@ export default function ProjectsPage() {
         sort_by: sortBy,
         order: sortOrder,
       });
-      if (search)       params.set("search", search);
-      if (statusFilter) params.set("status", statusFilter);
+      if (search)         params.set("search", search);
+      if (studentSearch)  params.set("student_search", studentSearch);
+      if (statusFilter) {
+        // ADMIN_PLAN_2 E1: backend ProjectStatus enum lowercase ("draft"/"pending"/...); 422'yi önle.
+        params.set("status", statusFilter.toLowerCase());
+      } else if (role !== "STUDENT") {
+        // Admin Plan B2: staff (TEACHER+ADMIN) DRAFT görmez; sadece sahip öğrenci kendi DRAFT'ını görür.
+        params.set("exclude_status", "draft");
+      }
       if (gradeFilter)  params.set("grade_label", gradeFilter);
+      if (branchFilter) params.set("branch_code", branchFilter);
       if (courseFilter) params.set("course_id", courseFilter);
       const { data } = await apiClient.get(`/api/v1/projects?${params}`);
       setProjects(data.items);
       setTotal(data.total);
       setTotalPages(data.pages);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Projeler yüklenemedi.");
+    } catch (err: unknown) {
+      // ADMIN_PLAN_2 E1: Pydantic 422 detail bazen array dönebilir; array-safe handler.
+      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
+      const msg =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d?.msg || JSON.stringify(d)).join(", ")
+          : "Projeler yüklenemedi.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, gradeFilter, courseFilter, page, pageSize, sortBy, sortOrder]);
+  }, [search, studentSearch, statusFilter, gradeFilter, branchFilter, courseFilter, page, pageSize, sortBy, sortOrder, role]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, gradeFilter, courseFilter, sortBy, sortOrder]);
+  }, [search, studentSearch, statusFilter, gradeFilter, branchFilter, courseFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchProjects();
@@ -143,40 +172,51 @@ export default function ProjectsPage() {
     try {
       await apiClient.post(`/api/v1/projects/${id}/approve`);
       fetchProjects();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Onaylama başarısız.");
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Onaylama başarısız.");
     }
   };
 
-  const handleReject = async (id: string, e: React.MouseEvent) => {
+  const handleReject = (id: string, title: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Bu projeyi reddetmek istediğinize emin misiniz?")) return;
+    setRejectModal({ id, title });
+    setRejectReason("");
+  };
+
+  const confirmReject = async () => {
+    if (!rejectModal || rejectReason.trim().length < 10) return;
+    setRejecting(true);
     try {
-      await apiClient.post(`/api/v1/projects/${id}/reject`);
+      await apiClient.post(`/api/v1/projects/${rejectModal.id}/reject`, { reason: rejectReason.trim() });
+      setRejectModal(null);
       fetchProjects();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Reddetme başarısız.");
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Reddetme başarısız.");
+    } finally {
+      setRejecting(false);
     }
   };
 
   const activeFilters: ActiveFilter[] = [
     ...(search ? [{ key: "search", label: "Arama", displayValue: search }] : []),
+    ...(studentSearch ? [{ key: "student", label: "Öğrenci", displayValue: studentSearch }] : []),
     ...(statusFilter
-      ? [
-          {
-            key: "status",
-            label: "Durum",
-            displayValue:
-              STATUS_CONFIG[statusFilter.toUpperCase() as ProjectStatus]
-                ?.label ?? statusFilter,
-          },
-        ]
+      ? [{ key: "status", label: "Durum", displayValue: STATUS_CONFIG[statusFilter.toUpperCase() as ProjectStatus]?.label ?? statusFilter }]
+      : []),
+    ...(gradeFilter ? [{ key: "grade", label: "Sınıf", displayValue: gradeFilter }] : []),
+    ...(branchFilter ? [{ key: "branch", label: "Şube", displayValue: `${branchFilter} Şubesi` }] : []),
+    ...(courseFilter
+      ? [{ key: "course", label: "Ders", displayValue: courseOptions.find((c) => c.id === courseFilter)?.name ?? courseFilter }]
       : []),
   ];
 
   const clearFilter = (key: string) => {
     if (key === "search") setSearch("");
+    if (key === "student") setStudentSearch("");
     if (key === "status") setStatusFilter("");
+    if (key === "grade") { setGradeFilter(""); setBranchFilter(null); setShowAllBranches(false); }
+    if (key === "branch") setBranchFilter(null);
+    if (key === "course") setCourseFilter("");
   };
 
   const columns: Column<Project>[] = [
@@ -186,7 +226,21 @@ export default function ProjectsPage() {
       sortable: true,
       render: (p) => (
         <div className="flex flex-col gap-0.5">
-          <span className="font-medium text-gray-100">{p.title}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium text-gray-100">{p.title}</span>
+            {p.github_url && (
+              <a
+                href={p.github_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="GitHub Reposu"
+                className="text-gray-500 hover:text-indigo-400 transition-colors"
+              >
+                <Github className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
           <span className="text-xs text-gray-500 line-clamp-1 max-w-[220px]">
             {p.description}
           </span>
@@ -195,8 +249,9 @@ export default function ProjectsPage() {
     },
     ...(isStaff
       ? [{
-          key: "student" as keyof Project,
+          key: "created_by_name",
           header: "Öğrenci",
+          sortable: true,
           render: (p: Project) => (
             <span className="text-sm text-gray-300">
               {p.created_by_name ?? "—"}
@@ -205,8 +260,9 @@ export default function ProjectsPage() {
         }]
       : []),
     {
-      key: "course",
+      key: "course_name",
       header: "Ders",
+      sortable: true,
       render: (p) => (
         <div className="flex flex-col gap-0.5">
           {p.course_code && (
@@ -223,6 +279,7 @@ export default function ProjectsPage() {
     {
       key: "status",
       header: "Durum",
+      sortable: true,
       render: (p) => <StatusBadge status={p.status} />,
     },
     {
@@ -251,7 +308,7 @@ export default function ProjectsPage() {
                 <CheckCircle className="h-3.5 w-3.5" /> Onayla
               </button>
               <button
-                onClick={(e) => handleReject(p.id, e)}
+                onClick={(e) => handleReject(p.id, p.title, e)}
                 title="Reddet"
                 className="flex items-center gap-1 rounded-lg bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800 transition-colors"
               >
@@ -330,13 +387,26 @@ export default function ProjectsPage() {
             className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
           />
         </div>
+        {/* Öğrenci ara (sadece staff) */}
+        {isStaff && (
+          <div className="relative min-w-44">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Öğrenci ara (ad/e-posta)"
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200"
+            />
+          </div>
+        )}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 outline-none focus:border-indigo-400"
         >
-          <option value="">Tüm Durumlar</option>
-          <option value="DRAFT">Taslak</option>
+          <option value="">{role !== "STUDENT" ? "Taslak Hariç Tümü" : "Tüm Durumlar"}</option>
+          {role === "STUDENT" && <option value="DRAFT">Taslak</option>}
           <option value="PENDING">Bekliyor</option>
           <option value="APPROVED">Onaylı</option>
           <option value="REJECTED">Reddedildi</option>
@@ -371,10 +441,11 @@ export default function ProjectsPage() {
           </select>
         )}
 
-        {(search || statusFilter || gradeFilter || courseFilter) && (
+        {(search || studentSearch || statusFilter || gradeFilter || courseFilter) && (
           <button
             onClick={() => {
               setSearch("");
+              setStudentSearch("");
               setStatusFilter("");
               setGradeFilter("");
               setCourseFilter("");
@@ -392,17 +463,33 @@ export default function ProjectsPage() {
         onRemoveFilter={clearFilter}
         onClearAll={() => {
           setSearch("");
+          setStudentSearch("");
           setStatusFilter("");
+          setGradeFilter("");
+          setBranchFilter(null);
+          setShowAllBranches(false);
+          setCourseFilter("");
         }}
         sortBy={sortBy}
         sortOrder={sortOrder}
         sortOptions={SORT_OPTIONS}
-        onSortChange={(by, order) => {
-          setSortBy(by);
-          setSortOrder(order);
-        }}
+        onSortChange={toggleSort}
         resultCount={total}
       />
+
+      {/* Sınıf sekmeleri (staff için) */}
+      {isStaff && (
+        <ClassTabs
+          activeGrade={gradeFilter || null}
+          activeBranch={branchFilter}
+          showAllBranches={showAllBranches}
+          onChange={({ grade, branch, showAll }) => {
+            setGradeFilter(grade ?? "");
+            setBranchFilter(branch);
+            setShowAllBranches(showAll);
+          }}
+        />
+      )}
 
       {/* Hata */}
       {error && (
@@ -415,7 +502,7 @@ export default function ProjectsPage() {
       {viewMode === "table" && (
         <DataTable
           columns={columns}
-          data={projects}
+          data={sortedProjects}
           total={total}
           page={page}
           pageSize={pageSize}
@@ -423,10 +510,7 @@ export default function ProjectsPage() {
           sortBy={sortBy}
           sortOrder={sortOrder}
           loading={loading}
-          onSort={(col, order) => {
-            setSortBy(col);
-            setSortOrder(order);
-          }}
+          onSort={toggleSort}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
             setPageSize(size);
@@ -510,9 +594,23 @@ export default function ProjectsPage() {
                               )}
                             </span>
                           </div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {project.title}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {project.title}
+                            </h3>
+                            {project.github_url && (
+                              <a
+                                href={project.github_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title="GitHub Reposu"
+                                className="text-gray-500 hover:text-indigo-400 transition-colors"
+                              >
+                                <Github className="h-4 w-4" />
+                              </a>
+                            )}
+                          </div>
                           <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
                             {project.description}
                           </p>
@@ -530,7 +628,7 @@ export default function ProjectsPage() {
                                   Onayla
                                 </button>
                                 <button
-                                  onClick={(e) => handleReject(project.id, e)}
+                                  onClick={(e) => handleReject(project.id, project.title, e)}
                                   className="flex-1 rounded-lg bg-red-700 py-1.5 text-xs font-semibold text-white hover:bg-red-800"
                                 >
                                   Reddet
@@ -579,6 +677,48 @@ export default function ProjectsPage() {
       {viewMode === "card" && loading && (
         <div className="flex items-center justify-center py-20">
           <p className="text-sm text-gray-400">Projeler yükleniyor...</p>
+        </div>
+      )}
+
+      {/* B2 — Reddetme Sebebi Modalı */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setRejectModal(null)} />
+          <div className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Projeyi Reddet</h3>
+            <p className="text-sm text-gray-400">
+              <span className="font-medium text-gray-200">{rejectModal.title}</span> projesini reddediyorsunuz.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-300">
+                Reddetme Sebebi <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Öğrenciye iletilecek reddetme sebebini yazın... (min 10 karakter)"
+                className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-gray-200 outline-none focus:border-red-500 resize-none"
+              />
+              <p className="text-xs text-gray-500 text-right">{rejectReason.length}/2000</p>
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => setRejectModal(null)}
+                className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={rejecting || rejectReason.trim().length < 10}
+                className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejecting ? "Reddediliyor..." : "Reddet"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

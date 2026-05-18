@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import role_required
+from app.core.dependencies import role_required, get_current_user
 from app.common.enums import UserRole
 from app.features.department.department_service import DepartmentService
 from app.features.department.department_dto import (
@@ -22,6 +22,12 @@ from app.features.department.department_dto import (
 
 router = APIRouter(
     prefix="/api/v1/admin/departments",
+    tags=["Departments"],
+)
+
+# Public (auth-required, tüm roller) okuma router'ı — dropdown'lar için
+public_router = APIRouter(
+    prefix="/api/v1/departments",
     tags=["Departments"],
 )
 
@@ -94,3 +100,23 @@ def delete_department(
     db: Session = Depends(get_db),
 ):
     DepartmentService(db).delete(department_id)
+
+
+# ─────────────── Public (auth-required) okuma endpoint'leri ───────────────
+# Dropdown'larda kullanılır: course/new, register vs.
+# Auth-required (her giriş yapmış kullanıcı), CRUD admin-only kalır.
+
+@public_router.get(
+    "",
+    response_model=list[DepartmentResponse],
+    summary="Bölüm listesi (public — auth gerekmez)",
+    description=(
+        "Bölüm dropdown'ları için kullanılır (register, course/new vb.). "
+        "Bilgi PII değildir, auth gerekmez. "
+        "Yazma işlemleri (POST/PATCH/DELETE) `/api/v1/admin/departments` altındadır."
+    ),
+)
+def list_departments_public(
+    db: Session = Depends(get_db),
+):
+    return DepartmentService(db).list_all()

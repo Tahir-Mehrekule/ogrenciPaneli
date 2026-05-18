@@ -89,3 +89,38 @@ def build_report_analysis_prompt(title: str, content: str) -> str:
     """Rapor içeriğinden kullanıcı prompt'unu oluşturur."""
     return f"Rapor Başlığı: {title}\n\nRapor İçeriği:\n{content}\n\nLütfen bu raporu analiz et ve istenen JSON formatında yanıt ver."
 
+
+# ─────────────── Öğretmen Cevap Önerisi (Paket 4A) ───────────────
+
+FEEDBACK_TONES = {
+    "constructive": "Yapıcı ve dengeli: hem olumlu yönleri hem gelişim alanlarını vurgula.",
+    "encouraging":  "Cesaret verici ve destekleyici: özellikle motivasyon yükseltici ifadeler kullan.",
+    "critical":     "Daha eleştirel ve dürüst: eksikleri açıkça belirt, gerekirse sert ama saygılı ol.",
+}
+
+FEEDBACK_SUGGESTION_SYSTEM_PROMPT = """Sen tecrübeli bir öğretim üyesisin.
+Sana bir öğrencinin haftalık proje raporu, dersin adı ve istenen geri bildirim tonu verilecek.
+Senin görevin: öğretmen yerine, raporun altına yazılabilecek 2-4 cümlelik kısa bir Türkçe geri bildirim taslağı üretmek.
+
+KURALLAR:
+- Çıktın doğrudan öğretmenin metinle göndereceği geri bildirim olsun (paragraf, açıklama vermeden).
+- İstenen tonu (yapıcı/cesaret verici/eleştirel) hissedilir derecede uygula.
+- En az 30 karakter, en fazla 600 karakter olsun.
+- Bullet, başlık, JSON, kod bloğu KULLANMA — sadece düz metin.
+- Öğrencinin ismine veya 3. şahıslara hitap etme; "Bu hafta..." gibi rapor odaklı yaz.
+"""
+
+
+def build_feedback_suggestion_prompt(
+    course_name: str, week_number: int, year: int,
+    report_content: str, tone_label: str, tone_desc: str,
+) -> str:
+    """Öğretmen cevap önerisi için user prompt'u oluşturur."""
+    return (
+        f"Ders: {course_name}\n"
+        f"Hafta: {week_number} ({year} akademik yılı)\n"
+        f"İstenen Ton: {tone_label} — {tone_desc}\n\n"
+        f"Rapor İçeriği:\n{report_content}\n\n"
+        f"Lütfen yukarıdaki rapora yönelik 2-4 cümlelik geri bildirim taslağını sadece düz metin olarak yaz."
+    )
+

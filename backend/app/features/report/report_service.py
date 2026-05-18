@@ -113,10 +113,27 @@ class ReportService(BaseService[Report, ReportRepo]):
         if current_user.role == UserRole.STUDENT:
             filters["submitted_by"] = current_user.id
 
-        reports, total = self.repo.get_many(
+        # Admin Plan: TEACHER ve ADMIN için DRAFT raporlar default GİZLİ.
+        # Sadece sahip öğrenci kendi DRAFT'ını görür.
+        in_filters = None
+        if current_user.role in (UserRole.TEACHER, UserRole.ADMIN):
+            if filters.get("status") == ReportStatus.DRAFT:
+                # Staff DRAFT istemiş → erken-dönüş ile boş set
+                return PaginatedResponse(
+                    items=[], total=0, page=params.page,
+                    size=params.size, pages=0,
+                )
+            if "status" not in filters:
+                # status filtresi yoksa SUBMITTED + REVIEWED ile sınırla
+                in_filters = {"status": [ReportStatus.SUBMITTED, ReportStatus.REVIEWED]}
+
+        reports, total = self.repo.get_many_filtered(
             filters=filters,
+            in_filters=in_filters,
             search=params.search,
             search_fields=["content"],
+            grade_label=params.grade_label,
+            branch_code=params.branch_code,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -194,6 +211,63 @@ class ReportService(BaseService[Report, ReportRepo]):
                     f"'{course.name}' dersi için rapora en az bir dosya eklenmesi zorunludur."
                 )
 
+    def delete_report(self, report_id: UUID, current_user: User) -> dict:
+        """
+        Raporu soft delete eder (is_deleted=True).
+
+        Yetki:
+        - STUDENT: sadece kendi DRAFT raporunu silebilir
+        - TEACHER/ADMIN: tüm raporları silebilir
+        """
+        from app.common.exceptions import BadRequestException
+        report = self.repo.get_by_id_or_404(report_id)
+
+        if current_user.role == UserRole.STUDENT:
+            if str(report.submitted_by) != str(current_user.id):
+                raise ForbiddenException("Bu raporu silme yetkiniz yok")
+            if report.status != ReportStatus.DRAFT:
+                raise BadRequestException("Sadece DRAFT raporlar silinebilir")
+
+        self.repo.soft_delete(report_id)
+        log_activity(self.db, ActivityAction.REPORT_DELETE, user_id=current_user.id,
+                     entity_type=EntityType.REPORT, entity_id=report_id,
+                     details={"week_number": report.week_number, "year": report.year})
+        return {"message": f"{report.year} - {report.week_number}. hafta raporu silindi"}
+
+    def hard_delete_report(self, report_id: UUID, current_user: User) -> dict:
+        """Raporu kalıcı siler. Sadece ADMIN."""
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        report = self.repo.get_by_id_or_404(report_id, active_only=False)
+        self.repo.delete(report_id)
+        log_activity(self.db, ActivityAction.REPORT_DELETE, user_id=current_user.id,
+                     entity_type=EntityType.REPORT, entity_id=report_id,
+                     details={"week_number": report.week_number, "year": report.year, "permanent": True})
+        return {"message": f"{report.year} - {report.week_number}. hafta raporu kalıcı olarak silindi"}
+
+    def restore_report(self, report_id: UUID, current_user: User) -> ReportResponse:
+        """Silinmiş raporu geri yükler. Sadece ADMIN."""
+        if current_user.role != UserRole.ADMIN:
+            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        restored = self.repo.restore(report_id)
+        return self._to_response(restored)
+
+    def get_cascade_info(self, report_id: UUID, current_user: User) -> dict:
+        """
+        Soft delete öncesi etkilenecek bağlı kayıtların sayısını döner.
+        Reports için tek child entity: yüklenen dosyalar.
+        """
+        report = self.repo.get_by_id_or_404(report_id)
+        # Yetki: student sadece kendi raporu için sorabilir
+        if (
+            current_user.role == UserRole.STUDENT
+            and str(report.submitted_by) != str(current_user.id)
+        ):
+            raise ForbiddenException("Bu rapor için bilgi alma yetkiniz yok")
+
+        _, file_count = FileRepo(self.db).get_many(filters={"report_id": report_id})
+        return {"files": file_count}
+
     def review_report(self, report_id: UUID, data: ReviewRequest, current_user: User) -> ReportResponse:
         """
         Raporu inceler ve geri bildirim ekler: SUBMITTED → REVIEWED.
@@ -207,9 +281,12 @@ class ReportService(BaseService[Report, ReportRepo]):
                 f"Sadece SUBMITTED raporlar incelenebilir. Mevcut durum: {report.status.value}"
             )
 
+        from datetime import datetime, timezone
         updated = self.repo.update(report_id, {
             "status": ReportStatus.REVIEWED,
             "reviewer_note": data.reviewer_note,
+            "teacher_reviewed_at": datetime.now(timezone.utc),
+            "teacher_reviewed_by": current_user.id,
         })
         
         log_activity(self.db, ActivityAction.REPORT_REVIEW, user_id=current_user.id,

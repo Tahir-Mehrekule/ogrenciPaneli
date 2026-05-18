@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging_config import setup_logging
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.common.exception_handlers import register_exception_handlers
 
 # Logging yapılandırmasını uygulama başlangıcında kur
@@ -32,12 +33,14 @@ from app.features.notification.notification_controller import router as notifica
 from app.features.file.file_controller import router as file_router
 from app.features.admin.admin_controller import router as admin_router
 from app.features.activity_log.activity_log_controller import router as activity_log_router
-from app.features.department.department_controller import router as department_router
+from app.features.department.department_controller import router as department_router, public_router as department_public_router
 from app.features.project_category.project_category_controller import router as project_category_router
 from app.features.student_prefix.student_prefix_controller import router as student_prefix_router
+from app.features.class_section.class_section_controller import router as class_section_router
 
 # Router'ı olmayan ama SQLAlchemy mapper'ın tanıması gereken modeller
 from app.features.user_department.user_department_model import UserDepartment  # noqa: F401
+from app.features.class_section.class_section_model import ClassSection  # noqa: F401
 
 
 # --- Uygulama Oluşturma ---
@@ -82,8 +85,31 @@ app.include_router(file_router)
 app.include_router(admin_router)
 app.include_router(activity_log_router)
 app.include_router(department_router)
+app.include_router(department_public_router)
 app.include_router(project_category_router)
 app.include_router(student_prefix_router)
+app.include_router(class_section_router)
+
+
+# --- Startup / Shutdown Hooks (Paket 4B scheduler) ---
+@app.on_event("startup")
+def _on_startup() -> None:
+    """APScheduler haftalık rapor inceleme bildirimi için başlatılır."""
+    try:
+        start_scheduler()
+    except Exception as e:
+        # Scheduler başarısız olursa API çalışmaya devam etmeli
+        import logging
+        logging.getLogger(__name__).exception(f"Scheduler başlatılamadı: {e}")
+
+
+@app.on_event("shutdown")
+def _on_shutdown() -> None:
+    """Uygulama kapanırken scheduler'ı temiz durdur."""
+    try:
+        stop_scheduler()
+    except Exception:
+        pass
 
 
 # --- Health Check ---

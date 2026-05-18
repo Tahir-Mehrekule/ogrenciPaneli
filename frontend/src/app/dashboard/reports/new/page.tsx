@@ -80,13 +80,13 @@ export default function NewReportPage() {
       }
 
       router.push("/dashboard/reports");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err.response?.status === 409) {
         setError("Bu proje için bu hafta zaten bir rapor oluşturdunuz. Mevcut raporunuzu raporlar sayfasından düzenleyebilirsiniz.");
       } else {
-        const detail = err.response?.data?.detail;
+        const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
         if (typeof detail === "string") setError(detail);
-        else if (Array.isArray(detail)) setError(detail.map((d: any) => d.msg).join(", "));
+        else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
         else setError("Rapor oluşturulamadı.");
       }
     } finally {

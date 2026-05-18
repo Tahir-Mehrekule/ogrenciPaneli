@@ -13,7 +13,11 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
 from app.common.enums import UserRole
 from app.features.ai.ai_service import AIService
-from app.features.ai.ai_dto import AISuggestRequest, AISuggestResponse, ReportAnalysisRequest, ReportAnalysisResponse
+from app.features.ai.ai_dto import (
+    AISuggestRequest, AISuggestResponse,
+    ReportAnalysisRequest, ReportAnalysisResponse,
+    FeedbackSuggestRequest, FeedbackSuggestResponse,
+)
 
 
 router = APIRouter(
@@ -88,3 +92,22 @@ def analyze_report(
     Rapor özetleme ve analiz.
     """
     return AIService(db).analyze_report(data, current_user)
+
+
+@router.post(
+    "/suggest-feedback",
+    response_model=FeedbackSuggestResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Öğretmen Cevap Önerisi (Paket 4A)",
+    description=(
+        "Öğretmenin rapor altına yazacağı geri bildirim taslağını AI ile üretir. "
+        "İstenen tona göre (constructive/encouraging/critical) 2-4 cümlelik düz metin döner. "
+        "Sadece TEACHER ve ADMIN kullanabilir. Rapor SUBMITTED olmalıdır."
+    ),
+)
+def suggest_feedback(
+    data: FeedbackSuggestRequest,
+    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    return AIService(db).suggest_feedback(data, current_user)

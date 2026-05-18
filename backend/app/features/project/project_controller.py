@@ -19,6 +19,7 @@ from app.features.project.project_dto import (
     ProjectUpdate,
     ProjectResponse,
     ProjectFilterParams,
+    ProjectRejectRequest,
 )
 
 
@@ -121,11 +122,12 @@ def approve_project(
 )
 def reject_project(
     project_id: UUID,
+    body: ProjectRejectRequest,
     current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """Projeyi reddeder: PENDING → REJECTED. Sadece TEACHER/ADMIN."""
-    return ProjectService(db).reject_project(project_id, current_user)
+    """Projeyi reddeder: PENDING → REJECTED. Sadece TEACHER/ADMIN. Sebep zorunlu (min 10 karakter)."""
+    return ProjectService(db).reject_project(project_id, current_user, body.reason)
 
 
 @router.post(
@@ -145,17 +147,57 @@ def reopen_project(
     return ProjectService(db).reopen_project(project_id, current_user)
 
 
+@router.get(
+    "/{project_id}/cascade-info",
+    summary="Soft delete öncesi bağlı kayıt sayıları",
+)
+def project_cascade_info(
+    project_id: UUID,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bu projeyi silmeden önce kaç görev/rapor/üye etkileneceğini döner."""
+    return ProjectService(db).get_cascade_info(project_id, current_user)
+
+
 @router.delete(
     "/{project_id}",
-    summary="Proje sil",
+    summary="Proje sil (soft delete)",
 )
 def delete_project(
     project_id: UUID,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Soft delete. Sadece DRAFT/REJECTED projeler silinebilir."""
+    """Soft delete (is_deleted=True). Sadece DRAFT/REJECTED projeler silinebilir. İlişkili kayıtlar da soft delete edilir."""
     return ProjectService(db).delete_project(project_id, current_user)
+
+
+@router.delete(
+    "/{project_id}/hard",
+    summary="Projeyi kalıcı sil (hard delete)",
+)
+def hard_delete_project(
+    project_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Projeyi ve ilişkili kayıtları DB'den tamamen siler. Sadece ADMIN."""
+    return ProjectService(db).hard_delete_project(project_id, current_user)
+
+
+@router.post(
+    "/{project_id}/restore",
+    response_model=ProjectResponse,
+    summary="Silinmiş projeyi geri yükle",
+)
+def restore_project(
+    project_id: UUID,
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Soft delete edilmiş projeyi geri yükler. Sadece ADMIN."""
+    return ProjectService(db).restore_project(project_id, current_user)
 
 
 @router.get(

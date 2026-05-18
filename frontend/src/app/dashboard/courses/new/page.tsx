@@ -3,14 +3,23 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { BookOpen } from "lucide-react";
+import { GRADE_OPTIONS } from "@/constants/grades";
+import { SEMESTER_OPTIONS, BRANCH_OPTIONS } from "@/constants/courseOptions";
 
 type ProjectType = "individual" | "team" | "both";
 
 interface Department {
   id: string;
   name: string;
+}
+
+interface TeacherOption {
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 const PROJECT_TYPE_OPTIONS: { value: ProjectType; label: string; desc: string }[] = [
@@ -21,29 +30,65 @@ const PROJECT_TYPE_OPTIONS: { value: ProjectType; label: string; desc: string }[
 
 export default function NewCoursePage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [semester, setSemester] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [branch, setBranch] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [teacherId, setTeacherId] = useState("");
   const [projectType, setProjectType] = useState<ProjectType>("both");
   const [requireYoutube, setRequireYoutube] = useState(false);
   const [requireFile, setRequireFile] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Admin Plan A5: Sadece admin ders oluşturabilir → diğer roller redirect
   useEffect(() => {
-    apiClient.get("/api/v1/departments?size=100").then((res) => {
-      setDepartments(res.data?.items ?? []);
-    }).catch(() => {});
+    if (authLoading) return;
+    if (!isAdmin) {
+      router.replace("/dashboard/courses");
+    }
+  }, [isAdmin, authLoading, router]);
+
+  useEffect(() => {
+    apiClient.get<Department[]>("/api/v1/departments")
+      .then((res) => {
+        const data = res.data;
+        setDepartments(Array.isArray(data) ? data : (data as { items?: Department[] })?.items ?? []);
+      })
+      .catch((err) => {
+        console.error("Bölümler yüklenemedi:", err);
+      });
   }, []);
+
+  // Admin için öğretmen listesi
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiClient.get<{ items: TeacherOption[] }>("/api/v1/users?role=teacher&is_active=true&size=200")
+      .then(({ data }) => setTeachers(data?.items ?? []))
+      .catch((err) => {
+        console.error("Öğretmen listesi yüklenemedi:", err);
+      });
+  }, [isAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !code || !semester) {
       setError("Ders adı, kodu ve dönemi zorunludur.");
+      return;
+    }
+    if (!departmentId) {
+      setError("Bölüm seçimi zorunludur.");
+      return;
+    }
+    if (!teacherId) {
+      setError("Atanacak öğretmen seçimi zorunludur.");
       return;
     }
     try {
@@ -55,16 +100,17 @@ export default function NewCoursePage() {
         semester,
         grade_level: gradeLevel || undefined,
         branch: branch || undefined,
-        department_id: departmentId || undefined,
+        department_id: departmentId,
+        teacher_id: teacherId,
         project_type: projectType,
         require_youtube: requireYoutube,
         require_file: requireFile,
       });
       router.push("/dashboard/courses");
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
       if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: any) => d.msg).join(", "));
+      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
       else setError("Ders oluşturulamadı.");
     } finally {
       setIsLoading(false);
@@ -126,25 +172,29 @@ export default function NewCoursePage() {
               <label htmlFor="crs-semester" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Dönem
               </label>
-              <input
+              <select
                 id="crs-semester"
-                type="text"
-                placeholder="2025-2026 Güz"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
                 className={inputClass}
-              />
+              >
+                <option value="">— Dönem seçin —</option>
+                {SEMESTER_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
 
             {/* Bölüm */}
             <div>
               <label htmlFor="crs-department" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Bölüm <span className="text-gray-400 font-normal">(Opsiyonel)</span>
+                Bölüm <span className="text-red-500 font-semibold">*</span>
               </label>
               <select
                 id="crs-department"
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
+                required
                 className={inputClass}
               >
                 <option value="">— Bölüm seçin —</option>
@@ -153,7 +203,31 @@ export default function NewCoursePage() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                Seçilen bölümdeki öğrenciler bu dersi otomatik görür.
+                Zorunlu. Seçilen bölümdeki öğrenciler bu dersi otomatik görür.
+              </p>
+            </div>
+
+            {/* Öğretmen atama (Admin Plan A4) */}
+            <div>
+              <label htmlFor="crs-teacher" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Atanacak Öğretmen <span className="text-red-500 font-semibold">*</span>
+              </label>
+              <select
+                id="crs-teacher"
+                value={teacherId}
+                onChange={(e) => setTeacherId(e.target.value)}
+                required
+                className={inputClass}
+              >
+                <option value="">— Öğretmen seçin —</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.full_name} ({t.email})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Zorunlu. Öğretmen sadece atandığı dersleri görür.
               </p>
             </div>
 
@@ -163,27 +237,33 @@ export default function NewCoursePage() {
                 <label htmlFor="crs-grade" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Sınıf / Yıl <span className="text-gray-400 font-normal">(Opsiyonel)</span>
                 </label>
-                <input
+                <select
                   id="crs-grade"
-                  type="text"
-                  placeholder="2. Sınıf"
                   value={gradeLevel}
                   onChange={(e) => setGradeLevel(e.target.value)}
                   className={inputClass}
-                />
+                >
+                  <option value="">— Seçin —</option>
+                  {GRADE_OPTIONS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label htmlFor="crs-branch" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Şube <span className="text-gray-400 font-normal">(Opsiyonel)</span>
                 </label>
-                <input
+                <select
                   id="crs-branch"
-                  type="text"
-                  placeholder="A Şubesi"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
                   className={inputClass}
-                />
+                >
+                  <option value="">— Seçin —</option>
+                  {BRANCH_OPTIONS.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

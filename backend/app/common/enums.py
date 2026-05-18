@@ -119,6 +119,7 @@ class NotificationType(str, enum.Enum):
     PROJECT_REJECTED = "project_rejected"
     TASK_ASSIGNED = "task_assigned"
     REPORT_REVIEWED = "report_reviewed"
+    REPORT_REVIEW_PENDING = "report_review_pending"  # 4B: haftalık scheduler — incelenmeyen rapor uyarısı
     SYSTEM_ALERT = "system_alert"
 
 
@@ -134,8 +135,12 @@ class ActivityAction(str, enum.Enum):
     PROJECT_CREATE = "project_create"
     PROJECT_APPROVE = "project_approve"
     PROJECT_REJECT = "project_reject"
+    PROJECT_DELETE = "project_delete"
+    PROJECT_RESTORE = "project_restore"
     REPORT_SUBMIT = "report_submit"
     REPORT_REVIEW = "report_review"
+    REPORT_DELETE = "report_delete"
+    REPORT_RESTORE = "report_restore"
     COURSE_CREATE = "course_create"
     COURSE_UPDATE = "course_update"
     COURSE_DELETE = "course_delete"

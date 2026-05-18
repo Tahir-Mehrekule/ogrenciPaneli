@@ -55,8 +55,8 @@ export default function CourseEditPage() {
         setProjectType(data.project_type ?? "both");
         setRequireYoutube(data.require_youtube);
         setRequireFile(data.require_file);
-      } catch (err: any) {
-        setError(err.response?.data?.detail || "Ders bilgileri yüklenemedi.");
+      } catch (err: unknown) {
+        setError((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Ders bilgileri yüklenemedi.");
       } finally {
         setLoading(false);
       }
@@ -82,10 +82,10 @@ export default function CourseEditPage() {
         require_file: requireFile,
       });
       setSuccess("Ders bilgileri başarıyla güncellendi!");
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
       if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: any) => d.msg).join(", "));
+      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
       else setError("Güncelleme başarısız.");
     } finally {
       setSaving(false);
@@ -97,8 +97,8 @@ export default function CourseEditPage() {
     try {
       await apiClient.delete(`/api/v1/courses/${courseId}`);
       router.push("/dashboard/courses");
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Ders silinemedi.");
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Ders silinemedi.");
     }
   };
 

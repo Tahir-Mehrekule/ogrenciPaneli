@@ -11,14 +11,15 @@ import {
   FolderKanban,
   FileText,
   Settings,
-  BarChart3,
   Users,
   GraduationCap,
-  CheckSquare,
+  Building2,
+  ScrollText,
   X,
   ChevronRight,
   LogOut,
 } from "lucide-react";
+import NotificationBell from "@/components/ui/NotificationBell";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -115,12 +116,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
             UniTrack <span className="text-indigo-400">AI</span>
           </span>
         </Link>
-        <button
-          onClick={onClose}
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 lg:hidden"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Bildirim çanı (4B) */}
+          <NotificationBell />
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 lg:hidden"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Nav */}
@@ -133,7 +138,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
             <NavSection label="Eğitim">
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Ders Kataloğu" isActive={isActive("/dashboard/courses")} onClick={onClose} />
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Projelerim" isActive={isActive("/dashboard/projects")} onClick={onClose} />
-              <NavItem href="/dashboard/tasks" icon={CheckSquare} label="Görevlerim" isActive={isActive("/dashboard/tasks")} onClick={onClose} />
               <NavItem href="/dashboard/reports" icon={FileText} label="Haftalık Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
             </NavSection>
           </>
@@ -145,8 +149,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
               <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
             </NavSection>
             <NavSection label="Sınıf Yönetimi">
-              <NavItem href="/dashboard/courses" icon={BookOpen} label="Derslerim" isActive={isActive("/dashboard/courses")} onClick={onClose} />
-              <NavItem href="/dashboard/students" icon={GraduationCap} label="Öğrencilerim" isActive={isActive("/dashboard/students")} onClick={onClose} />
+              <NavItem href="/dashboard/courses" icon={BookOpen} label="Tüm Dersler" isActive={isActive("/dashboard/courses")} onClick={onClose} />
+              <NavItem href="/dashboard/users?role=student&onlyMine=true" icon={GraduationCap} label="Öğrencilerim" isActive={isActive("/dashboard/users")} onClick={onClose} />
             </NavSection>
             <NavSection label="Proje Takibi">
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Gelen Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
@@ -159,19 +163,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
           <>
             <NavSection label="Genel">
               <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
-              <NavItem href="/dashboard/admin" icon={BarChart3} label="Sistem İstatistikleri" isActive={isActive("/dashboard/admin")} onClick={onClose} />
             </NavSection>
             <NavSection label="İçerik">
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Tüm Dersler" isActive={isActive("/dashboard/courses")} onClick={onClose} />
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Tüm Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
-              <NavItem href="/dashboard/tasks" icon={CheckSquare} label="Tüm Görevler" isActive={isActive("/dashboard/tasks")} onClick={onClose} />
               <NavItem href="/dashboard/reports" icon={FileText} label="Tüm Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
             </NavSection>
             <NavSection label="Kullanıcılar">
-              <NavItem href="/dashboard/students" icon={GraduationCap} label="Öğrenciler" isActive={isActive("/dashboard/students")} onClick={onClose} />
               <NavItem href="/dashboard/users" icon={Users} label="Tüm Kullanıcılar" isActive={isActive("/dashboard/users")} onClick={onClose} />
+              <NavItem href="/dashboard/admin/departments" icon={Building2} label="Bölümler" isActive={isActive("/dashboard/admin/departments")} onClick={onClose} />
             </NavSection>
             <NavSection label="Sistem">
+              <NavItem href="/dashboard/admin/logs" icon={ScrollText} label="Aktivite Logları" isActive={isActive("/dashboard/admin/logs")} onClick={onClose} />
               <NavItem href="/dashboard/settings" icon={Settings} label="Ayarlar" isActive={isActive("/dashboard/settings")} onClick={onClose} />
             </NavSection>
           </>

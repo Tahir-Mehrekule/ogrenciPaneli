@@ -60,10 +60,10 @@ class Course(BaseModel):
 
     department_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("departments.id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("departments.id", ondelete="RESTRICT"),
+        nullable=False,
         index=True,
-        comment="Dersin bölümü — öğrenciler bölüm eşleşmesi ile dersi otomatik görür"
+        comment="Dersin bölümü — zorunlu. Öğrenciler bölüm eşleşmesi ile dersi otomatik görür."
     )
 
     grade_level = Column(
@@ -95,7 +95,11 @@ class Course(BaseModel):
     )
 
     project_type = Column(
-        Enum(ProjectType, name="project_type"),
+        Enum(
+            ProjectType,
+            name="project_type",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=ProjectType.BOTH,
         server_default="both",
@@ -108,3 +112,36 @@ class Course(BaseModel):
 
     def __repr__(self):
         return f"<Course(id={self.id}, code={self.code}, name={self.name})>"
+
+
+class CourseEnrollment(BaseModel):
+    """
+    Öğrenci - Ders kayıt eşleşme tablosu (course_enrollments).
+    
+    Hangi öğrencinin hangi derse kayıtlı olduğunu tutar.
+    """
+
+    __tablename__ = "course_enrollments"
+
+    course_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Ders ID"
+    )
+
+    student_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Öğrenci ID"
+    )
+
+    # İlişkiler
+    course = relationship("Course", lazy="select")
+    student = relationship("User", foreign_keys=[student_id], lazy="select")
+
+    def __repr__(self):
+        return f"<CourseEnrollment(id={self.id}, course_id={self.course_id}, student_id={self.student_id})>"

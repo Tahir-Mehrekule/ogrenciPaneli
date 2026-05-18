@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import type { DepartmentInfo } from "@/types/auth";
+import { parseStudentNumber } from "@/lib/studentNumberParser";
 
 type SelectedRole = "STUDENT" | "TEACHER";
 
@@ -46,9 +47,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     apiClient
-      .get<DepartmentInfo[]>("/api/v1/admin/departments")
+      .get<DepartmentInfo[]>("/api/v1/departments")
       .then(({ data }) => setDepartments(data))
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Bölümler yüklenemedi:", err);
+      });
   }, []);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +100,15 @@ export default function RegisterPage() {
 
     try {
       setIsLoading(true);
-      const payload: any = {
+      const payload: {
+        first_name: string;
+        last_name: string;
+        email: string;
+        password: string;
+        role: SelectedRole;
+        department_ids: string[];
+        student_no?: string;
+      } = {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         email: formData.email,
@@ -110,8 +121,8 @@ export default function RegisterPage() {
       await register(payload);
       toast.success("Hesabınız oluşturuldu!");
       router.push("/dashboard");
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || "Kayıt sırasında hata oluştu.");
+    } catch (error: unknown) {
+      toast.error((error as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Kayıt sırasında hata oluştu.");
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +256,42 @@ export default function RegisterPage() {
                 className={inputBase}
               />
             </div>
-            <p className="text-xs text-gray-400">9 haneli numara — sınıfınız otomatik belirlenir</p>
+            {(() => {
+              const parsed = parseStudentNumber(formData.student_no);
+              if (formData.student_no.length === 0) {
+                return <p className="text-xs text-gray-400">9 haneli numara — sınıfınız otomatik belirlenir</p>;
+              }
+              if (!parsed) {
+                if (formData.student_no.length < 9) {
+                  return (
+                    <p className="text-xs text-gray-400">
+                      {formData.student_no.length}/9 hane — devam edin
+                    </p>
+                  );
+                }
+                return <p className="text-xs text-red-500">Geçersiz öğrenci no formatı.</p>;
+              }
+              const matchedDept = departments.find((d) => d.code === parsed.departmentCode);
+              return (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs space-y-0.5">
+                  <p className="font-medium text-emerald-600 dark:text-emerald-400">Tespit edildi:</p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    <span className="font-mono">{parsed.yearPrefix}</span> · {parsed.academicYear} girişli
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    <span className="font-mono">{parsed.departmentCode}</span> ·{" "}
+                    {matchedDept ? (
+                      <span className="font-medium">{matchedDept.name}</span>
+                    ) : (
+                      <span className="text-amber-500">Bu kodla bölüm bulunamadı</span>
+                    )}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Sıra: <span className="font-mono">{parsed.sequence}</span> ({parsed.sequenceInt})
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -308,7 +354,7 @@ export default function RegisterPage() {
           {/* Teacher dept chips */}
           {!isStudent && selectedDeptNames.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {formData.department_ids.map((id, i) => {
+              {formData.department_ids.map((id) => {
                 const name = departments.find((d) => d.id === id)?.name ?? "";
                 return (
                   <span

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { Button } from './Button';
 
 export interface Column<T> {
@@ -7,6 +7,8 @@ export interface Column<T> {
   header: string;
   render: (item: T) => React.ReactNode;
   sortable?: boolean;
+  className?: string;
+  headerClassName?: string;
 }
 
 interface DataTableProps<T> {
@@ -60,10 +62,11 @@ export function DataTable<T>({
             <thead className="bg-gray-800/80 text-xs uppercase text-gray-400 border-b border-gray-700/50">
               <tr>
                 {columns.map((col) => (
-                  <th 
-                    key={col.key} 
-                    className={`px-6 py-4 font-medium tracking-wider ${col.sortable ? 'cursor-pointer hover:bg-gray-700/50 transition-colors select-none group' : ''}`}
+                  <th
+                    key={col.key}
+                    className={`px-6 py-4 font-medium tracking-wider ${col.headerClassName ?? ''} ${col.sortable ? 'cursor-pointer hover:bg-gray-700/50 transition-colors select-none' : ''}`}
                     onClick={() => col.sortable && handleSort(col.key)}
+                    title={col.sortable ? 'Sıralamak için tıklayın' : undefined}
                   >
                     <div className="flex items-center gap-2">
                       {col.header}
@@ -73,8 +76,8 @@ export function DataTable<T>({
                         </span>
                       )}
                       {col.sortable && sortBy !== col.key && (
-                        <span className="text-gray-600 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronUp className="w-4 h-4" />
+                        <span className="text-gray-500 flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                          <ChevronsUpDown className="w-3.5 h-3.5" />
                         </span>
                       )}
                     </div>
@@ -110,7 +113,7 @@ export function DataTable<T>({
                   className={`hover:bg-gray-800/30 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-6 py-4 whitespace-nowrap">
+                    <td key={col.key} className={`px-6 py-4 whitespace-nowrap ${col.className ?? ''}`}>
                       {col.render(item)}
                     </td>
                   ))}

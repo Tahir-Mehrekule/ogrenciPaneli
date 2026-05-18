@@ -34,9 +34,12 @@ class CourseCreate(BaseModel):
         description="Dönem bilgisi",
         examples=["2025-2026 Güz"],
     )
-    department_id: Optional[UUID] = Field(
+    department_id: UUID = Field(
+        description="Dersin bölümü — bu bölümdeki öğrenciler dersi otomatik görür (zorunlu)",
+    )
+    teacher_id: Optional[UUID] = Field(
         default=None,
-        description="Dersin bölümü — bu bölümdeki öğrenciler dersi otomatik görür",
+        description="Atanan öğretmen. ADMIN için zorunlu; boşsa current_user (eski davranış).",
     )
     project_type: ProjectType = Field(
         default=ProjectType.BOTH,
@@ -94,7 +97,7 @@ class CourseResponse(BaseResponse):
     semester: str
     teacher_id: UUID
     teacher_name: str = ""
-    department_id: Optional[UUID] = None
+    department_id: UUID
     is_active: bool
     project_type: ProjectType = ProjectType.BOTH
     require_youtube: bool = False

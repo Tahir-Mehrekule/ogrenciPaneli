@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent } from "@/components/ui/Card";
-import { BookOpen, Plus, Users, User } from "lucide-react";
+import { BookOpen, Plus, User } from "lucide-react";
 
 type ProjectType = "individual" | "team" | "both";
 
@@ -49,8 +49,8 @@ export default function CoursesPage() {
     try {
       const { data } = await apiClient.get<PaginatedResponse>("/api/v1/courses");
       setCourses(data.items);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Dersler yüklenirken bir hata oluştu.");
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Dersler yüklenirken bir hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -69,6 +69,8 @@ export default function CoursesPage() {
   }
 
   const isEditable = role === "TEACHER" || role === "ADMIN";
+  // Admin Plan A5/B6: Sadece ADMIN ders oluşturabilir. Teacher butonu görmez.
+  const canCreateCourse = role === "ADMIN";
 
   return (
     <div className="space-y-6">
@@ -76,7 +78,7 @@ export default function CoursesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {isEditable ? "Verdiğim Dersler" : "Derslerim"}
+            {isEditable ? "Tüm Dersler" : "Derslerim"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {isEditable
@@ -84,7 +86,7 @@ export default function CoursesPage() {
               : "Bölümünüze atanmış dersler aşağıda listeleniyor."}
           </p>
         </div>
-        {isEditable && (
+        {canCreateCourse && (
           <button
             onClick={() => router.push("/dashboard/courses/new")}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"

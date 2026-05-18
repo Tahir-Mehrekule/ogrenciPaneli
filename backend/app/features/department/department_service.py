@@ -22,11 +22,14 @@ class DepartmentService(BaseService[Department, DepartmentRepo]):
         super().__init__(DepartmentRepo, db)
 
     def create(self, data: DepartmentCreate) -> DepartmentResponse:
-        """Yeni bölüm oluşturur. Aynı isimde bölüm varsa hata fırlatır."""
+        """Yeni bölüm oluşturur. Aynı isimde veya aynı 3 haneli kodda bölüm varsa hata fırlatır."""
         name = data.name.strip()
+        code = data.code.strip()
         if self.repo.name_exists(name):
             raise ConflictException(f"'{name}' bölümü zaten mevcut")
-        department = self.repo.create({"name": name})
+        if self.repo.code_exists(code):
+            raise ConflictException(f"'{code}' kodlu bölüm zaten mevcut")
+        department = self.repo.create({"name": name, "code": code})
         return DepartmentResponse.model_validate(department)
 
     def list_all(self) -> list[DepartmentResponse]:
@@ -40,7 +43,7 @@ class DepartmentService(BaseService[Department, DepartmentRepo]):
         return DepartmentResponse.model_validate(department)
 
     def update(self, department_id: UUID, data: DepartmentUpdate) -> DepartmentResponse:
-        """Bölüm adını günceller. Yeni isim çakışıyorsa hata fırlatır."""
+        """Bölüm adı/kodunu günceller. Yeni isim veya kod çakışıyorsa hata fırlatır."""
         update_data = data.model_dump(exclude_none=True)
         if "name" in update_data:
             name = update_data["name"].strip()
@@ -48,6 +51,12 @@ class DepartmentService(BaseService[Department, DepartmentRepo]):
             if existing and existing.id != department_id:
                 raise ConflictException(f"'{name}' bölümü zaten mevcut")
             update_data["name"] = name
+        if "code" in update_data:
+            code = update_data["code"].strip()
+            existing = self.repo.get_by_code(code)
+            if existing and existing.id != department_id:
+                raise ConflictException(f"'{code}' kodlu bölüm zaten mevcut")
+            update_data["code"] = code
         department = self.repo.update(department_id, update_data)
         return DepartmentResponse.model_validate(department)
 

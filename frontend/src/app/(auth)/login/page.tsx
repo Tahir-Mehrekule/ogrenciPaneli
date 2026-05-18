@@ -26,9 +26,9 @@ export default function LoginPage() {
       await login(formData);
       toast.success("Giriş başarılı!");
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(
-        error.response?.data?.detail || "E-posta veya şifre hatalı."
+        (error as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "E-posta veya şifre hatalı."
       );
     } finally {
       setIsLoading(false);

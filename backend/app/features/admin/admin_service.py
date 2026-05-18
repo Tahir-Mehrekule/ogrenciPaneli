@@ -19,6 +19,7 @@ from app.features.course.course_model import Course, CourseEnrollment
 from app.features.task.task_model import Task
 from app.features.report.report_model import Report
 from app.features.file.file_model import FileUpload
+from app.features.department.department_model import Department
 from app.common.enums import UserRole, ProjectStatus, TaskStatus, ReportStatus
 from app.common.exceptions import NotFoundException, BadRequestException
 
@@ -38,6 +39,8 @@ class AdminService:
     def get_system_stats(self) -> SystemStatsResponse:
         """Tüm tablolardan sistem istatistiklerini hesaplar."""
         total_users = self.db.query(User).count()
+        active_users = self.db.query(User).filter(User.is_active == True).count()
+        total_departments = self.db.query(Department).filter(*_alive(Department)).count()
         total_projects = self.db.query(Project).filter(*_alive(Project)).count()
         total_courses = self.db.query(Course).filter(*_alive(Course)).count()
         total_tasks = self.db.query(Task).filter(*_alive(Task)).count()
@@ -59,6 +62,8 @@ class AdminService:
 
         return SystemStatsResponse(
             total_users=total_users,
+            active_users=active_users,
+            total_departments=total_departments,
             total_projects=total_projects,
             total_courses=total_courses,
             total_tasks=total_tasks,
@@ -73,6 +78,8 @@ class AdminService:
         """Detaylı sistem istatistikleri — GROUP BY sorgularıyla dağılımları hesaplar."""
         # ── Toplam sayılar ──
         total_users = self.db.query(User).count()
+        active_users = self.db.query(User).filter(User.is_active == True).count()
+        total_departments = self.db.query(Department).filter(*_alive(Department)).count()
         total_projects = self.db.query(Project).filter(*_alive(Project)).count()
         total_courses = self.db.query(Course).filter(*_alive(Course)).count()
         total_tasks = self.db.query(Task).filter(*_alive(Task)).count()
@@ -151,6 +158,8 @@ class AdminService:
 
         return DetailedStatsResponse(
             total_users=total_users,
+            active_users=active_users,
+            total_departments=total_departments,
             total_projects=total_projects,
             total_courses=total_courses,
             total_tasks=total_tasks,

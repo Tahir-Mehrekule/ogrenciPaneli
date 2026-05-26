@@ -11,11 +11,20 @@ import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { SkeletonDetail } from "@/components/ui/Skeleton";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
-import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown, Github, Trash2 } from "lucide-react";
+import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown, Github, Trash2, User, Calendar, GripVertical } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 
 type ProjectStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
-type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
+type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
 type ProjectType = "individual" | "team" | "both";
 type MemberStatus = "ACTIVE" | "INVITED" | "JOIN_REQUESTED" | "REJECTED";
 
@@ -25,8 +34,19 @@ interface Project {
   project_type?: ProjectType; created_by_name?: string;
   github_url?: string | null;
   rejection_reason?: string | null;
+  course_id?: string | null;
+  department_id?: string | null;
 }
-interface Task { id: string; title: string; description: string; status: TaskStatus; due_date: string | null; ai_suggested: boolean; }
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  due_date: string | null;
+  ai_suggested: boolean;
+  assigned_to?: string | null;
+  assignee_name?: string | null;
+}
 
 interface MemberUser { id: string; name: string; email: string; grade_label?: string; }
 interface ProjectMember { id: string; user_id: string; role: string; status: MemberStatus; user?: MemberUser; }
@@ -43,13 +63,28 @@ const PROJECT_STATUS: Record<ProjectStatus, { label: string; className: string }
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   TODO: "Yapılacak",
   IN_PROGRESS: "Devam Ediyor",
+  REVIEW: "İncelemede",
   DONE: "Tamamlandı",
 };
 
-const TASK_STATUS_NEXT: Record<TaskStatus, TaskStatus> = {
-  TODO: "IN_PROGRESS",
-  IN_PROGRESS: "DONE",
-  DONE: "TODO",
+// Backend TASK_TRANSITIONS ile uyumlu, rol-aware ileri geçiş.
+// STUDENT REVIEW → DONE yapamaz (öğretmen onayı gerekir).
+const TASK_STATUS_NEXT_BY_ROLE: Record<string, Partial<Record<TaskStatus, TaskStatus>>> = {
+  STUDENT: {
+    TODO: "IN_PROGRESS",
+    IN_PROGRESS: "REVIEW",
+    REVIEW: "IN_PROGRESS",
+  },
+  TEACHER: {
+    TODO: "IN_PROGRESS",
+    IN_PROGRESS: "REVIEW",
+    REVIEW: "DONE",
+  },
+  ADMIN: {
+    TODO: "IN_PROGRESS",
+    IN_PROGRESS: "REVIEW",
+    REVIEW: "DONE",
+  },
 };
 
 // ── Proje Düzenleme Modalı (FE-2) ────────────────────────────────────────────
@@ -162,51 +197,609 @@ function EditProjectModal({ project, onClose, onUpdated }: EditProjectModalProps
   );
 }
 
-// Görev oluşturma mini formu
-const NewTaskForm = ({ projectId, onCreated }: { projectId: string; onCreated: () => void }) => {
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [loading, setLoading] = useState(false);
+// ── Üye Davet Modalı ─────────────────────────────────────────────────────────
+interface InviteMemberModalProps {
+  projectId: string;
+  departmentId?: string | null;
+  excludeUserIds: Set<string>;
+  currentUserId?: string;
+  onClose: () => void;
+  onInvited: () => void;
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || title.length < 3 || !desc.trim() || desc.length < 5) return;
+function InviteMemberModal({ projectId, departmentId, excludeUserIds, currentUserId, onClose, onInvited }: InviteMemberModalProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<UserSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState<string | null>(null);
+  // Modal açıkken davet edilenleri anlık tutmak için lokal set
+  const [invitedLocal, setInvitedLocal] = useState<Set<string>>(new Set());
+
+  const fetchUsers = useCallback(async (q: string) => {
     try {
       setLoading(true);
-      await apiClient.post("/api/v1/tasks", { title: title.trim(), description: desc.trim(), project_id: projectId });
-      setTitle(""); setDesc("");
-      onCreated();
-    } finally { setLoading(false); }
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("q", q.trim());
+      if (departmentId) params.set("department_id", departmentId);
+      params.set("limit", "50");
+      const { data } = await apiClient.get<UserSearchResult[]>(`/api/v1/users/search?${params.toString()}`);
+      const filtered = (data ?? []).filter((u) => u.id !== currentUserId);
+      setResults(filtered);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [departmentId, currentUserId]);
+
+  // İlk yükleme: boş query → bölüm öğrencileri
+  useEffect(() => {
+    fetchUsers("");
+  }, [fetchUsers]);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => fetchUsers(query), 300);
+    return () => clearTimeout(t);
+  }, [query, fetchUsers]);
+
+  const handleInvite = async (userId: string) => {
+    try {
+      setInviteLoading(userId);
+      await apiClient.post(`/api/v1/projects/${projectId}/invite`, { user_id: userId });
+      toast.success("Davet gönderildi.");
+      setInvitedLocal((prev) => new Set(prev).add(userId));
+      onInvited();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Davet gönderilemedi.");
+    } finally {
+      setInviteLoading(null);
+    }
   };
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            placeholder="Görev başlığı (en az 3 karakter)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
-          />
-          <input
-            placeholder="Açıklama (en az 5 karakter)"
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
-          />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Ekip Üyesi Davet Et">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <FocusTrapContainer className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-cyan-500" />
+        <div className="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-indigo-400" />
+              Ekip Arkadaşı Davet Et
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {departmentId ? "Bölümünüzdeki öğrenciler listeleniyor." : "Tüm öğrenciler aranabilir."}
+            </p>
+          </div>
           <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Kapat"
           >
-            {loading ? "Ekleniyor..." : "Görev Ekle"}
+            <X className="w-5 h-5" />
           </button>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Ad, e-posta veya öğrenci no ile ara..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+              className="w-full rounded-xl border border-gray-300 bg-white pl-9 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 pb-5">
+          {loading && (
+            <p className="text-xs text-gray-400 py-3 text-center">Yükleniyor...</p>
+          )}
+
+          {!loading && results.length === 0 && (
+            <div className="rounded-xl border border-dashed border-gray-300 dark:border-slate-700 p-6 text-center">
+              <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <p className="text-sm text-gray-400">
+                {query.trim() ? "Sonuç bulunamadı." : "Listelenecek öğrenci yok."}
+              </p>
+            </div>
+          )}
+
+          {!loading && results.length > 0 && (
+            <div className="space-y-1 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+              {results.map((u) => {
+                const already = excludeUserIds.has(u.id) || invitedLocal.has(u.id);
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-xs font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
+                        {u.name?.charAt(0).toUpperCase() ?? "?"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{u.name}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {u.email}{u.student_no ? ` · ${u.student_no}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      disabled={already || inviteLoading === u.id}
+                      onClick={() => handleInvite(u.id)}
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      {invitedLocal.has(u.id) ? "Davet Edildi" : already ? "Zaten Eklendi" : inviteLoading === u.id ? "Gönderiliyor..." : "Davet Et"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </FocusTrapContainer>
+    </div>
   );
-};
+}
+
+// ── Status Geçiş Yetki Kontrolü (Backend TASK_TRANSITIONS ile uyumlu) ────────
+function canTransition(
+  from: TaskStatus,
+  to: TaskStatus,
+  role: string | undefined,
+  isCreator: boolean,
+): boolean {
+  if (from === to) return false;
+  const r = (role ?? "STUDENT").toUpperCase();
+  // Proje sahibi (creator) ve ADMIN her geçişi yapabilir (ileri + geri)
+  if (isCreator || r === "ADMIN") return true;
+
+  const map: Record<TaskStatus, Partial<Record<TaskStatus, string[]>>> = {
+    TODO: { IN_PROGRESS: ["STUDENT", "TEACHER"] },
+    IN_PROGRESS: {
+      REVIEW: ["STUDENT", "TEACHER"],
+      TODO: ["STUDENT", "TEACHER"],
+    },
+    REVIEW: {
+      DONE: ["TEACHER"],
+      IN_PROGRESS: ["TEACHER"],
+    },
+    DONE: {},
+  };
+  const allowed = map[from]?.[to];
+  if (!allowed) return false;
+  return allowed.includes(r);
+}
+
+// ── Görev Detay/Düzenleme Modalı ─────────────────────────────────────────────
+interface TaskDetailModalProps {
+  task: Task;
+  isCreatorOrAdmin: boolean;
+  isCreator: boolean;
+  role?: string;
+  assigneeOptions: AssigneeOption[];
+  onClose: () => void;
+  onSaved: () => void;
+  onDeleted: () => void;
+  onStatusChanged: (taskId: string, newStatus: TaskStatus) => void;
+}
+
+function TaskDetailModal({ task, isCreatorOrAdmin, isCreator, role, assigneeOptions, onClose, onSaved, onDeleted, onStatusChanged }: TaskDetailModalProps) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description);
+  const [assignedTo, setAssignedTo] = useState<string>(task.assigned_to ?? "");
+  const [currentStatus, setCurrentStatus] = useState<TaskStatus>(
+    ((task.status as string)?.toUpperCase() as TaskStatus) ?? "TODO"
+  );
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const statusKey = currentStatus;
+  const inputCls =
+    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400";
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isCreatorOrAdmin) return;
+    if (title.trim().length < 3) return toast.error("Başlık en az 3 karakter olmalıdır.");
+    if (description.trim().length < 5) return toast.error("Açıklama en az 5 karakter olmalıdır.");
+    try {
+      setLoading(true);
+      const payload: Record<string, unknown> = {
+        title: title.trim(),
+        description: description.trim(),
+      };
+      if (assignedTo) payload.assigned_to = assignedTo;
+      await apiClient.patch(`/api/v1/tasks/${task.id}`, payload);
+      toast.success("Görev güncellendi.");
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Güncelleme başarısız.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!isCreatorOrAdmin) return;
+    if (!confirm(`"${task.title}" görevini silmek istediğinize emin misiniz?`)) return;
+    try {
+      setDeleting(true);
+      await apiClient.delete(`/api/v1/tasks/${task.id}`);
+      toast.success("Görev silindi.");
+      onDeleted();
+      onClose();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Silme başarısız.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const statusBadge: Record<TaskStatus, string> = {
+    TODO: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+    IN_PROGRESS: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    REVIEW: "bg-violet-500/10 text-violet-400 border-violet-500/30",
+    DONE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Görev Detayı">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <FocusTrapContainer className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-cyan-500" />
+        <div className="p-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Görev Detayı</h3>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusBadge[statusKey]}`}>
+              {TASK_STATUS_LABELS[statusKey]}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Kapat"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Başlık</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={!isCreatorOrAdmin}
+              className={inputCls + " disabled:opacity-70"}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Açıklama</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              disabled={!isCreatorOrAdmin}
+              className={inputCls + " resize-none disabled:opacity-70"}
+            />
+          </div>
+
+          {isCreatorOrAdmin && assigneeOptions.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Atanan Kişi</label>
+              <select
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Seçilmemiş —</option>
+                {assigneeOptions.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {!isCreatorOrAdmin && task.assignee_name && (
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 px-3 py-2">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Atanan</p>
+              <p className="text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" />{task.assignee_name}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Durum</label>
+            <select
+              value={currentStatus}
+              disabled={statusLoading}
+              onChange={async (e) => {
+                const target = e.target.value as TaskStatus;
+                if (target === currentStatus) return;
+                if (!canTransition(currentStatus, target, role, isCreator)) {
+                  toast.error("Bu durum geçişi için yetkiniz yok.");
+                  return;
+                }
+                try {
+                  setStatusLoading(true);
+                  await apiClient.patch(`/api/v1/tasks/${task.id}/status`, { status: target.toLowerCase() });
+                  setCurrentStatus(target);
+                  onStatusChanged(task.id, target);
+                  toast.success(`Durum: ${TASK_STATUS_LABELS[target]}`);
+                } catch (err: unknown) {
+                  const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+                  toast.error(detail || "Durum güncellenemedi.");
+                } finally {
+                  setStatusLoading(false);
+                }
+              }}
+              className={inputCls + " disabled:opacity-70"}
+            >
+              {(["TODO", "IN_PROGRESS", "REVIEW", "DONE"] as TaskStatus[]).map((s) => {
+                const isCurrent = s === currentStatus;
+                const isAllowed = isCurrent || canTransition(currentStatus, s, role, isCreator);
+                return (
+                  <option key={s} value={s} disabled={!isAllowed}>
+                    {TASK_STATUS_LABELS[s]}{!isAllowed ? " (yetki yok)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              {currentStatus === "REVIEW" && !isCreator && role !== "TEACHER" && role !== "ADMIN"
+                ? "Tamamlandı durumuna yalnız proje sahibi/öğretmen/admin geçirebilir."
+                : "Durumu değiştirdiğinizde anında kaydedilir."}
+            </p>
+          </div>
+        </form>
+
+        {isCreatorOrAdmin && (
+          <div className="p-5 border-t border-gray-200 dark:border-gray-800 flex justify-between gap-3">
+            <Button variant="outline" type="button" onClick={handleDelete} disabled={deleting} className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+              {deleting ? "Siliniyor..." : "Sil"}
+            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" type="button" onClick={onClose}>İptal</Button>
+              <Button type="button" onClick={handleSave} disabled={loading}>
+                {loading ? "Kaydediliyor..." : "Kaydet"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </FocusTrapContainer>
+    </div>
+  );
+}
+
+// ── Drag-Drop Kanban Komponentleri ───────────────────────────────────────────
+function DraggableTaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+  });
+  const statusKey = (task.status as string)?.toUpperCase() as TaskStatus;
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: isDragging ? 50 : "auto" as const }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group ${isDragging ? "opacity-50" : ""}`}
+    >
+      <Card className="hover:ring-2 hover:ring-indigo-500/30 transition-all">
+        <CardContent className="p-3">
+          <div className="flex items-start gap-2">
+            {/* Drag handle */}
+            <button
+              {...listeners}
+              {...attributes}
+              className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-200 shrink-0 mt-0.5"
+              aria-label="Görevi sürükle"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            {/* Content (click → modal) */}
+            <button
+              type="button"
+              onClick={onClick}
+              className="flex-1 text-left"
+            >
+              <div className="flex items-start gap-2">
+                {statusKey === "DONE"
+                  ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                  : statusKey === "REVIEW"
+                  ? <Clock className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                  : statusKey === "IN_PROGRESS"
+                  ? <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  : <Circle className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium line-clamp-1 break-all ${statusKey === "DONE" ? "line-through text-gray-500" : "text-gray-900 dark:text-white"}`}>
+                    {task.title}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 break-all">{task.description}</p>
+                  {task.assignee_name && (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-cyan-400">
+                      <User className="h-3 w-3" />
+                      <span className="truncate">{task.assignee_name}</span>
+                    </div>
+                  )}
+                  {task.ai_suggested && (
+                    <span className="mt-1 inline-block text-xs text-indigo-400">🤖 AI Önerisi</span>
+                  )}
+                </div>
+              </div>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function DroppableColumn({ status, children }: { status: TaskStatus; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`space-y-2 rounded-xl p-1 transition-colors ${isOver ? "bg-indigo-500/5 ring-2 ring-indigo-500/30" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Görev Oluşturma Modalı ───────────────────────────────────────────────────
+interface AssigneeOption { id: string; name: string; }
+
+interface NewTaskModalProps {
+  projectId: string;
+  isTeamProject: boolean;
+  canAssignToOthers: boolean;
+  assigneeOptions: AssigneeOption[]; // Atanabilir kullanıcılar (creator + aktif üyeler)
+  currentUserId?: string;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function NewTaskModal({ projectId, isTeamProject, canAssignToOthers, assigneeOptions, currentUserId, onClose, onCreated }: NewTaskModalProps) {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  // Boş string → backend'de current_user.id'ye düşer (oto atama)
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+
+  const inputCls =
+    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (title.trim().length < 3) return toast.error("Başlık en az 3 karakter olmalıdır.");
+    if (desc.trim().length < 5) return toast.error("Açıklama en az 5 karakter olmalıdır.");
+    try {
+      setLoading(true);
+      const payload: Record<string, unknown> = {
+        title: title.trim(),
+        description: desc.trim(),
+        project_id: projectId,
+      };
+      if (assignedTo) payload.assigned_to = assignedTo;
+      await apiClient.post("/api/v1/tasks", payload);
+      toast.success("Görev oluşturuldu.");
+      onCreated();
+      onClose();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Görev oluşturulamadı.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Yeni Görev">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <FocusTrapContainer className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Yeni Görev</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Kapat"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="task-title">
+                Başlık <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="task-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Görev başlığı (en az 3 karakter)"
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="task-desc">
+                Açıklama <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                id="task-desc"
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                rows={4}
+                placeholder="Açıklama (en az 5 karakter)"
+                className={inputCls + " resize-none"}
+              />
+            </div>
+
+            {isTeamProject && canAssignToOthers && assigneeOptions.length > 1 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5" htmlFor="task-assignee">
+                  Atanan Kişi
+                </label>
+                <select
+                  id="task-assignee"
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">Bana ata (varsayılan)</option>
+                  {assigneeOptions
+                    .filter((u) => u.id !== currentUserId)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Seçim yapmazsanız görev size atanır.</p>
+              </div>
+            )}
+
+            {isTeamProject && !canAssignToOthers && (
+              <div className="rounded-lg bg-slate-800/60 border border-slate-700 px-3 py-2">
+                <p className="text-xs text-gray-400">
+                  Görev otomatik olarak size atanacak. Başka üyelere atama yetkisi sadece proje yöneticisindedir.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="outline" type="button" onClick={onClose}>İptal</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Ekleniyor..." : "Görev Ekle"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </FocusTrapContainer>
+    </div>
+  );
+}
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -217,6 +810,7 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -225,10 +819,7 @@ export default function ProjectDetailPage() {
   // Ekip üyeleri
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
-  const [memberSearchQuery, setMemberSearchQuery] = useState("");
-  const [memberSearchResults, setMemberSearchResults] = useState<UserSearchResult[]>([]);
-  const [memberSearchLoading, setMemberSearchLoading] = useState(false);
-  const [inviteLoading, setInviteLoading] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Onay diyaloğu: hangi aksiyon bekliyor?
   type PendingAction = "submit" | "reject" | "ai" | null;
@@ -238,17 +829,31 @@ export default function ProjectDetailPage() {
   const [showSoftDelete, setShowSoftDelete] = useState(false);
   const [showHardDelete, setShowHardDelete] = useState(false);
 
-  const fetchMembers = useCallback(async (projectType?: ProjectType) => {
-    if (projectType !== "team") return;
+  const fetchMembers = useCallback(async (projectData?: { project_type?: ProjectType; created_by?: string }) => {
+    if (projectData?.project_type !== "team") return;
     try {
-      const [activeRes, pendingRes] = await Promise.all([
-        apiClient.get(`/api/v1/projects/${id}/members`),
-        apiClient.get(`/api/v1/projects/${id}/members/pending`).catch(() => ({ data: [] })),
-      ]);
-      setMembers(activeRes.data ?? []);
-      setPendingMembers(pendingRes.data ?? []);
+      const activeRes = await apiClient.get(`/api/v1/projects/${id}/members`);
+      const activeMembers = activeRes.data ?? [];
+      setMembers(activeMembers);
+
+      // Pending davetler: yalnız proje sahibi, manager üye veya TEACHER/ADMIN görür
+      const role = user?.role?.toUpperCase();
+      const isCreator = projectData?.created_by && String(projectData.created_by) === String(user?.id);
+      const isManagerMember = activeMembers.some(
+        (m: ProjectMember) => String(m.user_id) === String(user?.id) && m.role === "MANAGER"
+      );
+      const canSeePending = isCreator || isManagerMember || role === "TEACHER" || role === "ADMIN";
+
+      if (canSeePending) {
+        const pendingRes = await apiClient
+          .get(`/api/v1/projects/${id}/members/pending`)
+          .catch(() => ({ data: [] }));
+        setPendingMembers(pendingRes.data ?? []);
+      } else {
+        setPendingMembers([]);
+      }
     } catch { /* üye listesi sessizce hata verebilir */ }
-  }, [id]);
+  }, [id, user?.id, user?.role]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -258,7 +863,12 @@ export default function ProjectDetailPage() {
       ]);
       setProject(projRes.data);
       setTasks(taskRes.data.items ?? []);
-      fetchMembers(projRes.data.project_type);
+      fetchMembers(projRes.data);
+    } catch (err: unknown) {
+      // Ağ/sunucu hatasında overlay'e düşmek yerine kullanıcıya bildir.
+      // 401 zaten apiClient interceptor'da login'e yönlendirir.
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Proje verileri yüklenemedi. Bağlantını kontrol et.");
     } finally { setLoading(false); }
   }, [id, fetchMembers]);
 
@@ -324,33 +934,11 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleUserSearch = async (query: string) => {
-    setMemberSearchQuery(query);
-    if (query.trim().length < 2) { setMemberSearchResults([]); return; }
-    try {
-      setMemberSearchLoading(true);
-      const { data } = await apiClient.get(`/api/v1/users?search=${encodeURIComponent(query)}&role=STUDENT&per_page=5`);
-      setMemberSearchResults(data.items ?? []);
-    } catch { setMemberSearchResults([]); } finally { setMemberSearchLoading(false); }
-  };
-
-  const handleInvite = async (userId: string) => {
-    try {
-      setInviteLoading(userId);
-      await apiClient.post(`/api/v1/projects/${id}/invite`, { user_id: userId });
-      toast.success("Davet gönderildi.");
-      setMemberSearchQuery(""); setMemberSearchResults([]);
-      fetchMembers("team");
-    } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Davet gönderilemedi.");
-    } finally { setInviteLoading(null); }
-  };
-
   const handleAcceptInvite = async (memberId: string) => {
     try {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/accept`);
       toast.success("Daveti kabul ettiniz.");
-      fetchMembers("team");
+      fetchMembers(project ?? undefined);
     } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
@@ -358,7 +946,7 @@ export default function ProjectDetailPage() {
     try {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/reject`);
       toast.success("Davet reddedildi.");
-      fetchMembers("team");
+      fetchMembers(project ?? undefined);
     } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
@@ -366,14 +954,68 @@ export default function ProjectDetailPage() {
     try {
       await apiClient.delete(`/api/v1/projects/${id}/members/${memberId}/cancel-invite`);
       toast.success("Davet iptal edildi.");
-      fetchMembers("team");
+      fetchMembers(project ?? undefined);
     } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
+  // DnD: kart başka kolona bırakıldığında çağrılır
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const task = tasks.find((t) => t.id === active.id);
+    if (!task) return;
+    const fromKey = (task.status as string)?.toUpperCase() as TaskStatus;
+    const toKey = over.id as TaskStatus;
+    if (fromKey === toKey) return;
+
+    const role = user?.role?.toUpperCase();
+    const isCreator = String(project?.created_by) === String(user?.id);
+
+    if (!canTransition(fromKey, toKey, role, isCreator)) {
+      toast.error("Bu durum geçişi için yetkiniz yok veya geçerli bir geçiş değil.");
+      return;
+    }
+
+    // Optimistic update
+    const prevTasks = tasks;
+    setTasks((prev) => prev.map((t) =>
+      t.id === task.id ? { ...t, status: toKey.toLowerCase() as TaskStatus } : t
+    ));
+    try {
+      await apiClient.patch(`/api/v1/tasks/${task.id}/status`, { status: toKey.toLowerCase() });
+    } catch (err: unknown) {
+      setTasks(prevTasks);
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Durum güncellenemedi.");
+    }
+  };
+
   const toggleTaskStatus = async (task: Task) => {
-    const next = TASK_STATUS_NEXT[task.status];
-    await apiClient.patch(`/api/v1/tasks/${task.id}/status`, { status: next });
-    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
+    // task.status backend'den lowercase gelir → UPPERCASE'e normalize et
+    const currentKey = (task.status as string)?.toUpperCase() as TaskStatus;
+    const roleKey = (user?.role?.toUpperCase() ?? "STUDENT") as keyof typeof TASK_STATUS_NEXT_BY_ROLE;
+    const nextKey = TASK_STATUS_NEXT_BY_ROLE[roleKey]?.[currentKey];
+    if (!nextKey) {
+      if (currentKey === "REVIEW" && roleKey === "STUDENT") {
+        toast("İnceleme aşamasındaki görevi öğretmen tamamlar.", { icon: "ℹ️" });
+      } else if (currentKey === "DONE") {
+        toast("Görev tamamlanmış. Tekrar açılamaz.", { icon: "ℹ️" });
+      }
+      return;
+    }
+    try {
+      // Backend lowercase enum bekliyor
+      await apiClient.patch(`/api/v1/tasks/${task.id}/status`, { status: nextKey.toLowerCase() });
+      // Local state'i de lowercase tut (DB ile aynı)
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: nextKey.toLowerCase() as TaskStatus } : t));
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      toast.error(detail || "Görev durumu güncellenemedi.");
+    }
   };
 
   if (loading) return <SkeletonDetail />;
@@ -382,8 +1024,13 @@ export default function ProjectDetailPage() {
   const normalizedStatus = project.status?.toUpperCase() as ProjectStatus;
   const statusCfg = PROJECT_STATUS[normalizedStatus] ?? { label: project.status, className: "bg-slate-700 text-slate-300" };
   const role = user?.role?.toUpperCase();
-  const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], DONE: [] };
-  tasks.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
+  // Backend TaskStatus enum value lowercase ("todo"/"in_progress"/"done");
+  // frontend UPPERCASE key kullanıyor → normalize et.
+  const grouped: Record<TaskStatus, Task[]> = { TODO: [], IN_PROGRESS: [], REVIEW: [], DONE: [] };
+  tasks.forEach((t) => {
+    const key = (t.status as string)?.toUpperCase() as TaskStatus;
+    if (grouped[key]) grouped[key].push(t);
+  });
 
   const isTeamProject = project.project_type === "team";
   // Current user's own membership record (to show accept/reject if INVITED)
@@ -391,6 +1038,10 @@ export default function ProjectDetailPage() {
   // Current user is project manager if they are the creator or have MANAGER role
   const amManager = String(project.created_by) === String(user?.id) ||
     members.some((m) => m.user_id === user?.id && m.role === "MANAGER");
+  const amCreator = String(project.created_by) === String(user?.id);
+  const amMember = members.some((m) => String(m.user_id) === String(user?.id));
+  const canCreateTask = amCreator || amMember || role === "ADMIN";
+  const canAssignToOthers = amCreator || role === "ADMIN";
 
   return (
     <div className="space-y-6">
@@ -588,9 +1239,9 @@ export default function ProjectDetailPage() {
         <>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Görevler</h3>
-            {role === "STUDENT" && (
+            {canCreateTask && (
               <button
-                onClick={() => setShowNewTask(!showNewTask)}
+                onClick={() => setShowNewTask(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-indigo-400 hover:bg-slate-700"
               >
                 <Plus className="h-4 w-4" />
@@ -599,13 +1250,10 @@ export default function ProjectDetailPage() {
             )}
           </div>
 
-          {showNewTask && (
-            <NewTaskForm projectId={id!} onCreated={() => { setShowNewTask(false); fetchData(); }} />
-          )}
-
-          {/* Kanban Kolonları */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {(["TODO", "IN_PROGRESS", "DONE"] as TaskStatus[]).map((status) => (
+          {/* Kanban Kolonları (Drag-Drop) */}
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {(["TODO", "IN_PROGRESS", "REVIEW", "DONE"] as TaskStatus[]).map((status) => (
               <div key={status}>
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -615,50 +1263,44 @@ export default function ProjectDetailPage() {
                     {grouped[status].length}
                   </span>
                 </div>
-                <div className="space-y-2">
+                <DroppableColumn status={status}>
                   {grouped[status].map((task) => (
-                    <Card key={task.id} className="cursor-pointer hover:ring-2 hover:ring-indigo-500/20 transition-all" onClick={() => toggleTaskStatus(task)}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-2">
-                          {status === "DONE"
-                            ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                            : status === "IN_PROGRESS"
-                            ? <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                            : <Circle className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />}
-                          <div>
-                            <p className={`text-sm font-medium ${status === "DONE" ? "line-through text-gray-500" : "text-gray-900 dark:text-white"}`}>
-                              {task.title}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{task.description}</p>
-                            {task.ai_suggested && (
-                              <span className="mt-1 inline-block text-xs text-indigo-400">🤖 AI Önerisi</span>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <DraggableTaskCard key={task.id} task={task} onClick={() => setDetailTask(task)} />
                   ))}
                   {grouped[status].length === 0 && (
                     <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center dark:border-slate-700">
                       <p className="text-xs text-gray-400">Görev yok</p>
                     </div>
                   )}
-                </div>
+                </DroppableColumn>
               </div>
             ))}
           </div>
+          </DndContext>
         </>
       )}
 
       {/* ── Ekip Üyeleri Paneli ──────────────────────────────────────────── */}
       {isTeamProject && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-cyan-400" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ekip Üyeleri</h3>
-            <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-              {members.length}
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-cyan-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ekip Üyeleri</h3>
+              <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                {/* Creator + dedup edilmiş üyeler */}
+                {1 + members.filter((m) => String(m.user_id) !== String(project.created_by)).length}
+              </span>
+            </div>
+            {(amManager || role === "ADMIN") && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+              >
+                <UserPlus className="h-4 w-4" />
+                Ekip Arkadaşı Davet Et
+              </button>
+            )}
           </div>
 
           {/* Davet bekleyen — invited user */}
@@ -685,11 +1327,34 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          {/* Aktif Üyeler */}
-          {members.length > 0 ? (
-            <Card>
-              <CardContent className="p-4 space-y-2">
-                {members.map((m) => (
+          {/* Aktif Üyeler — Proje Sahibi her zaman ilk sırada */}
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              {/* Proje Sahibi (creator) — members tablosunda kayıt olmasa da gösterilir */}
+              <div className="flex items-center justify-between gap-3 py-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-xs font-bold text-amber-700 dark:text-amber-300">
+                    {project.created_by_name?.charAt(0).toUpperCase() ?? "?"}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {project.created_by_name ?? project.created_by}
+                      </p>
+                      <Crown className="h-3.5 w-3.5 text-amber-400" />
+                    </div>
+                    <p className="text-xs text-gray-400">Projeyi başlatan kullanıcı</p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400">
+                  Proje Sahibi
+                </span>
+              </div>
+
+              {/* Diğer aktif üyeler (creator hariç) */}
+              {members
+                .filter((m) => String(m.user_id) !== String(project.created_by))
+                .map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-3 py-1">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-xs font-bold text-indigo-700 dark:text-indigo-300">
@@ -712,14 +1377,12 @@ export default function ProjectDetailPage() {
                     </span>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="rounded-xl border border-dashed border-gray-300 dark:border-slate-700 p-6 text-center">
-              <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-400">Henüz aktif ekip üyesi yok.</p>
-            </div>
-          )}
+
+              {members.filter((m) => String(m.user_id) !== String(project.created_by)).length === 0 && (
+                <p className="text-xs text-gray-500 italic pt-1">Henüz başka aktif ekip üyesi yok.</p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Bekleyen davetler — yönetici görür */}
           {(amManager || role === "TEACHER" || role === "ADMIN") && pendingMembers.length > 0 && (
@@ -753,62 +1416,70 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          {/* Üye Davet Et — yönetici / admin */}
-          {(amManager || role === "ADMIN") && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Üye Davet Et</p>
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Ad, e-posta veya öğrenci no ile ara..."
-                        value={memberSearchQuery}
-                        onChange={(e) => handleUserSearch(e.target.value)}
-                        className="w-full rounded-xl border border-gray-300 bg-white pl-9 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400"
-                      />
-                    </div>
-                  </div>
-
-                  {memberSearchLoading && (
-                    <p className="text-xs text-gray-400 px-1">Aranıyor...</p>
-                  )}
-
-                  {memberSearchResults.length > 0 && (
-                    <div className="space-y-1 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-                      {memberSearchResults.map((u) => {
-                        const alreadyInvited = pendingMembers.some((m) => m.user_id === u.id) ||
-                                               members.some((m) => m.user_id === u.id);
-                        return (
-                          <div key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-800">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
-                              <p className="text-xs text-gray-400">{u.email}{u.student_no ? ` · ${u.student_no}` : ""}</p>
-                            </div>
-                            <button
-                              disabled={alreadyInvited || inviteLoading === u.id}
-                              onClick={() => handleInvite(u.id)}
-                              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <UserPlus className="h-3.5 w-3.5" />
-                              {alreadyInvited ? "Zaten Eklendi" : inviteLoading === u.id ? "Gönderiliyor..." : "Davet Et"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {!memberSearchLoading && memberSearchQuery.trim().length >= 2 && memberSearchResults.length === 0 && (
-                    <p className="text-xs text-gray-400 px-1">Sonuç bulunamadı.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </div>
+      )}
+
+      {/* Görev Detay Modalı */}
+      {detailTask && project && (
+        <TaskDetailModal
+          task={detailTask}
+          isCreatorOrAdmin={String(project.created_by) === String(user?.id) || role === "ADMIN"}
+          isCreator={String(project.created_by) === String(user?.id)}
+          role={role}
+          assigneeOptions={[
+            ...(project.created_by_name
+              ? [{ id: String(project.created_by), name: project.created_by_name + " (Sahip)" }]
+              : [{ id: String(project.created_by), name: "Proje Sahibi" }]),
+            ...members
+              .filter((m) => String(m.user_id) !== String(project.created_by))
+              .map((m) => ({ id: m.user_id, name: m.user?.name ?? "Üye" })),
+          ]}
+          onClose={() => setDetailTask(null)}
+          onSaved={() => fetchData()}
+          onDeleted={() => fetchData()}
+          onStatusChanged={(taskId, newStatus) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === taskId ? { ...t, status: newStatus.toLowerCase() as TaskStatus } : t))
+            );
+          }}
+        />
+      )}
+
+      {/* Yeni Görev Modalı */}
+      {showNewTask && project && (
+        <NewTaskModal
+          projectId={id!}
+          isTeamProject={isTeamProject}
+          canAssignToOthers={canAssignToOthers}
+          currentUserId={user?.id}
+          assigneeOptions={[
+            // Proje sahibi her zaman atanabilir
+            ...(project.created_by_name
+              ? [{ id: String(project.created_by), name: project.created_by_name + " (Sahip)" }]
+              : [{ id: String(project.created_by), name: "Proje Sahibi" }]),
+            // Aktif üyeler (sahibi tekrar eklemeyelim)
+            ...members
+              .filter((m) => String(m.user_id) !== String(project.created_by))
+              .map((m) => ({ id: m.user_id, name: m.user?.name ?? "Üye" })),
+          ]}
+          onClose={() => setShowNewTask(false)}
+          onCreated={() => fetchData()}
+        />
+      )}
+
+      {/* Üye Davet Modalı */}
+      {showInviteModal && (
+        <InviteMemberModal
+          projectId={id!}
+          departmentId={project?.department_id ?? null}
+          currentUserId={user?.id}
+          excludeUserIds={new Set([
+            ...members.map((m) => m.user_id),
+            ...pendingMembers.map((m) => m.user_id),
+          ])}
+          onClose={() => setShowInviteModal(false)}
+          onInvited={() => fetchMembers(project ?? undefined)}
+        />
       )}
 
       {/* Onaya Gönder Onayı */}

@@ -19,7 +19,6 @@ import {
   ChevronRight,
   LogOut,
 } from "lucide-react";
-import NotificationBell from "@/components/ui/NotificationBell";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -117,8 +116,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
           </span>
         </Link>
         <div className="flex items-center gap-1">
-          {/* Bildirim çanı (4B) */}
-          <NotificationBell />
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 lg:hidden"
@@ -139,6 +136,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Ders Kataloğu" isActive={isActive("/dashboard/courses")} onClick={onClose} />
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Projelerim" isActive={isActive("/dashboard/projects")} onClick={onClose} />
               <NavItem href="/dashboard/reports" icon={FileText} label="Haftalık Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
+            </NavSection>
+            <NavSection label="Hesap">
+              <NavItem href="/dashboard/settings" icon={Settings} label="Ayarlar" isActive={isActive("/dashboard/settings")} onClick={onClose} />
             </NavSection>
           </>
         )}

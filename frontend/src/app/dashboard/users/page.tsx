@@ -94,6 +94,7 @@ export default function UsersPage() {
   const [activeFilter, setActiveFilter] = useState<"" | "true" | "false">("");
   const [deptFilter, setDeptFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
+  const [studentNoFilter, setStudentNoFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -128,6 +129,7 @@ export default function UsersPage() {
       if (activeFilter) params.set("is_active", activeFilter);
       if (deptFilter) params.set("department_id", deptFilter);
       if (gradeFilter && tab === "STUDENT") params.set("grade_label", gradeFilter);
+      if (studentNoFilter) params.set("student_no", studentNoFilter);
 
       // Teacher "Öğrencilerim" görünümünde my-students endpoint'i — bölüm bazlı süzme
       const endpoint = useMyStudents
@@ -142,9 +144,9 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, pageSize, search, activeFilter, deptFilter, gradeFilter, sortBy, sortOrder, useMyStudents]);
+  }, [tab, page, pageSize, search, activeFilter, deptFilter, gradeFilter, studentNoFilter, sortBy, sortOrder, useMyStudents]);
 
-  useEffect(() => { setPage(1); }, [tab, search, activeFilter, deptFilter, gradeFilter, sortBy, sortOrder]);
+  useEffect(() => { setPage(1); }, [tab, search, activeFilter, deptFilter, gradeFilter, studentNoFilter, sortBy, sortOrder]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const clearFilters = () => {
@@ -152,6 +154,7 @@ export default function UsersPage() {
     setActiveFilter("");
     setDeptFilter("");
     setGradeFilter("");
+    setStudentNoFilter("");
   };
 
   const toDetailEditState = (u: UserItem): DetailEditState => ({
@@ -265,6 +268,7 @@ export default function UsersPage() {
     ...(gradeFilter && tab === "STUDENT"
       ? [{ key: "grade", label: "Sınıf", displayValue: gradeFilter }]
       : []),
+    ...(studentNoFilter ? [{ key: "studentNo", label: "Okul No", displayValue: studentNoFilter }] : []),
   ];
 
   const clearFilter = (key: string) => {
@@ -272,6 +276,7 @@ export default function UsersPage() {
     if (key === "active") setActiveFilter("");
     if (key === "dept") setDeptFilter("");
     if (key === "grade") setGradeFilter("");
+    if (key === "studentNo") setStudentNoFilter("");
   };
 
   const columns: Column<UserItem>[] = [
@@ -292,6 +297,19 @@ export default function UsersPage() {
     {
       key: "role",
       header: "Rol",
+      filter: useMyStudents ? undefined : {
+        value: tab === "all" ? "" : tab,
+        options: [
+          { value: "", label: "Tüm Roller" },
+          { value: "STUDENT", label: ROLE_LABEL.STUDENT },
+          { value: "TEACHER", label: ROLE_LABEL.TEACHER },
+        ],
+        onChange: (value) => {
+          const nextTab = (value || "all") as TabRole;
+          setTab(nextTab);
+          if (nextTab !== "STUDENT") setGradeFilter("");
+        },
+      },
       render: (u) => (
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -309,6 +327,14 @@ export default function UsersPage() {
     {
       key: "departments",
       header: "Bölüm",
+      filter: departments.length > 0 ? {
+        value: deptFilter,
+        options: [
+          { value: "", label: "Tüm Bölümler" },
+          ...departments.map((d) => ({ value: d.id, label: d.name })),
+        ],
+        onChange: setDeptFilter,
+      } : undefined,
       className: "max-w-[180px]",
       render: (u) => (
         <span
@@ -322,6 +348,12 @@ export default function UsersPage() {
     {
       key: "student_no",
       header: "Okul No",
+      filter: {
+        type: "text",
+        value: studentNoFilter,
+        placeholder: "Okul no ara...",
+        onChange: setStudentNoFilter,
+      },
       render: (u) => (
         <span className={`font-mono ${!u.is_active ? "text-gray-600" : "text-gray-400"}`}>
           {u.student_no ?? "—"}
@@ -331,6 +363,17 @@ export default function UsersPage() {
     {
       key: "grade",
       header: "Sınıf",
+      filter: {
+        value: gradeFilter,
+        options: [
+          { value: "", label: "Tüm Sınıflar" },
+          ...GRADE_OPTIONS.map((g) => ({ value: g, label: g })),
+        ],
+        onChange: (value) => {
+          if (value) setTab("STUDENT");
+          setGradeFilter(value);
+        },
+      },
       render: (u) => (
         <span className={`${!u.is_active ? "text-gray-600" : "text-gray-400"}`}>
           {u.grade_label ?? "—"}
@@ -340,6 +383,15 @@ export default function UsersPage() {
     {
       key: "status",
       header: "Durum",
+      filter: {
+        value: activeFilter,
+        options: [
+          { value: "", label: "Tüm Durumlar" },
+          { value: "true", label: "Aktif" },
+          { value: "false", label: "Pasif" },
+        ],
+        onChange: (value) => setActiveFilter(value as typeof activeFilter),
+      },
       render: (u) => (
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${

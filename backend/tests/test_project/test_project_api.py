@@ -53,21 +53,58 @@ class TestProjectList:
         items = resp.json()["items"]
         assert all(p["title"] != "Öğretmen Projesi" for p in items)
 
-    def test_teacher_tum_projeleri_görür(self, client, student_token, teacher_token):
-        """TEACHER tüm projeleri listeler."""
+    def test_teacher_kendi_ders_projelerini_görür(
+        self, client, admin_token, teacher_token, teacher_user, student_token, department,
+    ):
+        """TEACHER kendi dersine ait, DRAFT olmayan projeleri listeler.
+
+        Not: Öğretmen yalnızca sahip olduğu derslerin projelerini görür ve
+        DRAFT projeler staff'tan gizlidir. Bu yüzden proje bir derse bağlanıp
+        onaya gönderilir (PENDING).
+        """
+        # Admin, teacher'a atanmış bir ders açar
+        course_resp = client.post(
+            "/api/v1/courses",
+            json={
+                "name": "Veri Yapıları",
+                "code": "CENG201",
+                "semester": "2026-Bahar",
+                "department_id": str(department.id),
+                "teacher_id": str(teacher_user.id),
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert course_resp.status_code == 201, f"Ders oluşturulamadı: {course_resp.json()}"
+        course_id = course_resp.json()["id"]
+
+        # Öğrenci bu derse bağlı proje oluşturur
         create_resp = client.post(
             "/api/v1/projects",
-            json={"title": "Öğrenci Projesi", "description": "Bu öğrencinin test projesi açıklamasıdır."},
+            json={
+                "title": "Öğrenci Projesi",
+                "description": "Bu öğrencinin test projesi açıklamasıdır.",
+                "course_id": course_id,
+            },
             headers={"Authorization": f"Bearer {student_token}"},
         )
         assert create_resp.status_code == 201, f"Proje oluşturulamadı: {create_resp.json()}"
+        project_id = create_resp.json()["id"]
 
+        # DRAFT staff'tan gizli → onaya gönder (PENDING)
+        submit_resp = client.post(
+            f"/api/v1/projects/{project_id}/submit",
+            headers={"Authorization": f"Bearer {student_token}"},
+        )
+        assert submit_resp.status_code == 200
+
+        # Öğretmen kendi dersinin projesini görmeli
         resp = client.get(
             "/api/v1/projects",
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
+        assert any(p["id"] == project_id for p in resp.json()["items"])
 
 
 class TestProjectStatusFlow:

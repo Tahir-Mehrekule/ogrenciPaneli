@@ -41,6 +41,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             if project.course_id and project.course:
                 response.course_name = project.course.name
                 response.course_code = project.course.code
+                response.department_id = project.course.department_id
         except Exception:
             pass
         return response
@@ -102,7 +103,8 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         Rol bazlı filtreli proje listesi döner.
 
         - STUDENT: sadece kendi projeleri
-        - TEACHER/ADMIN: tüm projeler (filtreli)
+        - TEACHER: yalnızca kendi derslerine ait projeler (DRAFT hariç)
+        - ADMIN: tüm projeler (DRAFT hariç)
 
         Args:
             params: Filtreleme + sayfalama parametreleri
@@ -118,10 +120,14 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         if params.course_id:
             filters["course_id"] = params.course_id
 
-        # STUDENT sadece kendi projelerini görür; teacher/admin ek filtre uygulayabilir
+        # STUDENT kendi oluşturduğu + üyesi olduğu projeleri görür
         teacher_course_ids = None
+        student_creator_id = None
+        student_member_project_ids = None
         if current_user.role == UserRole.STUDENT:
-            filters["created_by"] = current_user.id
+            from app.features.project_member.project_member_repo import ProjectMemberRepo
+            student_creator_id = current_user.id
+            student_member_project_ids = ProjectMemberRepo(self.db).get_user_project_ids(current_user.id)
         elif current_user.role == UserRole.TEACHER:
             if params.created_by:
                 filters["created_by"] = params.created_by
@@ -171,6 +177,8 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             grade_label=params.grade_label,
             student_search=params.student_search,
             branch_code=params.branch_code,
+            creator_or_member_for=student_creator_id,
+            member_project_ids=student_member_project_ids,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -192,17 +200,20 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
         Raises:
             NotFoundException: Proje bulunamazsa
-            ForbiddenException: Öğrenci başkasının projesini görmeye çalışırsa
+            ForbiddenException: Öğrenci kendi oluşturmadığı ve üyesi olmadığı projeyi
+                görmeye çalışırsa
         """
         project = self.repo.get_by_id_or_404(project_id)
 
-        # STUDENT sadece kendi projesini görebilir
-        if (
-            current_user.role == UserRole.STUDENT
-            and str(project.created_by) != str(current_user.id)
-        ):
-            from app.common.exceptions import ForbiddenException
-            raise ForbiddenException("Bu projeyi görüntüleme yetkiniz yok")
+        # STUDENT sadece kendi oluşturduğu veya ACTIVE üye olduğu projeyi görebilir
+        if current_user.role == UserRole.STUDENT:
+            is_creator = str(project.created_by) == str(current_user.id)
+            if not is_creator:
+                from app.features.project_member.project_member_repo import ProjectMemberRepo
+                is_member = ProjectMemberRepo(self.db).is_active_member(project_id, current_user.id)
+                if not is_member:
+                    from app.common.exceptions import ForbiddenException
+                    raise ForbiddenException("Bu projeyi görüntüleme yetkiniz yok")
 
         return self._to_response(project)
 

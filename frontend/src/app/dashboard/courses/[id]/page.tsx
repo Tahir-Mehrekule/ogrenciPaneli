@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ArrowLeft, BookOpen, Save, Trash2 } from "lucide-react";
@@ -33,6 +34,8 @@ export default function CourseEditPage() {
   const router = useRouter();
   const params = useParams();
   const courseId = params.id as string;
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [name, setName] = useState("");
@@ -93,7 +96,11 @@ export default function CourseEditPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Bu dersi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) return;
+    // ADMIN → hard delete (kalıcı), TEACHER → soft delete (pasife alma). Backend rolü belirler.
+    const message = isAdmin
+      ? "Bu dersi KALICI olarak sileceksiniz. Ders ve ilişkili tüm kayıtlar veritabanından tamamen silinecek. Bu işlem GERİ ALINAMAZ. Devam edilsin mi?"
+      : "Bu ders pasife alınacak (listelerden kalkar, gerektiğinde geri yüklenebilir). Devam edilsin mi?";
+    if (!confirm(message)) return;
     try {
       await apiClient.delete(`/api/v1/courses/${courseId}`);
       router.push("/dashboard/courses");
@@ -288,7 +295,7 @@ export default function CourseEditPage() {
               className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20"
             >
               <Trash2 className="h-4 w-4" />
-              Dersi Sil
+              {isAdmin ? "Dersi Kalıcı Sil" : "Dersi Sil"}
             </button>
           </form>
         </CardContent>

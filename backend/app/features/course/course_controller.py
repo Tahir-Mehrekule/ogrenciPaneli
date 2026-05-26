@@ -102,5 +102,9 @@ def delete_course(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Soft delete. Sadece dersin öğretmeni veya ADMIN."""
+    """
+    Ders sil. Yetki: dersin öğretmeni veya ADMIN.
+    - TEACHER: soft delete (pasife alınır, DB'de kalır).
+    - ADMIN: hard delete (kalıcı, ilişkili kayıtlarla birlikte).
+    """
     return CourseService(db).delete_course(course_id, current_user)

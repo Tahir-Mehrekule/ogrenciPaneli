@@ -145,8 +145,8 @@ export default function CoursesPage() {
                     {course.name}
                   </h3>
 
-                  {/* Öğretmen adı (öğrenci görünümü) */}
-                  {role === "STUDENT" && course.teacher_name && (
+                  {/* Öğretmen adı (öğrenci + admin görünümü) */}
+                  {role !== "TEACHER" && course.teacher_name && (
                     <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                       <User className="h-3.5 w-3.5" />
                       <span>{course.teacher_name}</span>

@@ -161,11 +161,31 @@ class CourseService(BaseService[Course, CourseRepo]):
         return self._to_response(updated)
 
     def delete_course(self, course_id: UUID, current_user: User) -> dict:
-        """Dersi kalıcı siler (hard delete). Sadece öğretmeni veya ADMIN."""
+        """
+        Ders silme — rol bazlı davranış:
+        - TEACHER (ders sahibi): soft delete (is_deleted=True). Kayıt DB'de kalır,
+          listelerden düşer (pasife alınır), geri yüklenebilir.
+        - ADMIN: hard delete (kalıcı). Ders ve ilişkili child kayıtlar DB'den
+          tamamen kaldırılır — geri alınamaz.
+
+        Yetki: yalnızca dersin öğretmeni veya ADMIN (validate_teacher_owns_course).
+        """
         course = self.repo.get_by_id_or_404(course_id)
         self.manager.validate_teacher_owns_course(course, current_user)
-        self.repo.delete(course_id)
+
+        # Hard delete ORM nesnesini expire eder; adı önceden yakala.
+        course_name = course.name
+
+        if current_user.role == UserRole.ADMIN:
+            self.repo.delete(course_id)
+            mode = "hard"
+            message = f"Ders kalıcı olarak silindi: {course_name}"
+        else:
+            self.repo.soft_delete(course_id)
+            mode = "soft"
+            message = f"Ders pasife alındı: {course_name}"
+
         log_activity(self.db, ActivityAction.COURSE_DELETE, user_id=current_user.id,
                      entity_type=EntityType.COURSE, entity_id=course_id,
-                     details={"name": course.name})
-        return {"message": f"Ders başarıyla silindi: {course.name}"}
+                     details={"name": course_name, "mode": mode})
+        return {"message": message}

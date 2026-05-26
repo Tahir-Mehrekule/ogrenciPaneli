@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
       const cnt =
         typeof res.data === "number"
           ? res.data
-          : res.data?.count ?? res.data?.detail ?? 0;
+          : res.data?.unread_count ?? res.data?.count ?? res.data?.detail ?? 0;
       setUnreadCount(Number(cnt));
     } catch {}
   }, [user]);

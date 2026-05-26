@@ -22,7 +22,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.base.base_service import BaseService
-from app.common.enums import MemberRole, MemberStatus, UserRole
+from app.common.enums import MemberRole, MemberStatus, UserRole, NotificationType
+from app.common.notification_helper import send_notification
 from app.common.exceptions import (
     BadRequestException,
     ConflictException,
@@ -35,6 +36,7 @@ from app.features.project_member.project_member_dto import (
     InviteMemberRequest,
     ProjectMemberResponse,
     PendingMemberResponse,
+    MyInvitationResponse,
     TransferManagerRequest,
 )
 from app.features.project_member.project_member_model import ProjectMember
@@ -67,6 +69,35 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         self.project_repo.get_by_id_or_404(project_id)
         members = self.repo.get_active_members(project_id)
         return [ProjectMemberResponse.model_validate(m) for m in members]
+
+    def list_my_invitations(self, current_user: User) -> list[MyInvitationResponse]:
+        """Kullanıcıya gelen INVITED kayıtlarını proje özetiyle döner."""
+        records = self.repo.get_user_invitations(current_user.id)
+        result: list[MyInvitationResponse] = []
+        for r in records:
+            project_status = None
+            try:
+                if r.project and r.project.status is not None:
+                    project_status = (
+                        r.project.status.value
+                        if hasattr(r.project.status, "value")
+                        else str(r.project.status)
+                    )
+            except Exception:
+                pass
+            result.append(MyInvitationResponse(
+                id=r.id,
+                created_at=r.created_at,
+                updated_at=r.updated_at,
+                project_id=r.project_id,
+                status=r.status,
+                invited_by=r.invited_by,
+                project_title=(r.project.title if r.project else ""),
+                project_description=(r.project.description if r.project else None),
+                project_status=project_status,
+                invited_by_name=(r.inviter.full_name if r.inviter else None),
+            ))
+        return result
 
     def list_pending(self, project_id: UUID, current_user: User) -> list[PendingMemberResponse]:
         """
@@ -137,7 +168,22 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         except IntegrityError:
             self.db.rollback()
             raise ConflictException("Bu kullanıcı için zaten bir üyelik kaydı oluşturuldu")
-        return ProjectMemberResponse.model_validate(member)
+
+        # send_notification içindeki commit member instance'ını expire edebilir;
+        # response'u önce hazırla, sonra bildirimi gönder.
+        response = ProjectMemberResponse.model_validate(member)
+
+        # Davet edilen kullanıcıya bildirim
+        send_notification(
+            db=self.db,
+            user_id=data.user_id,
+            type=NotificationType.SYSTEM_ALERT,
+            title="Proje Daveti",
+            message=f"'{project.title}' projesine davet edildiniz. Yanıtlamak için projeler sayfasını ziyaret edin.",
+            related_id=project.id,
+        )
+
+        return response
 
     # ── Katılım İsteği ────────────────────────────────────────────────────────
 
@@ -410,14 +456,23 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
 
     # ── Yardımcı metodlar ────────────────────────────────────────────────────
 
+    def _is_project_creator(self, project_id: UUID, user_id: UUID) -> bool:
+        """Kullanıcı projenin sahibi (created_by) mi?"""
+        project = self.project_repo.get_by_id(project_id)
+        return bool(project and str(project.created_by) == str(user_id))
+
     def _require_manager_or_admin(self, project_id: UUID, user: User) -> None:
         if user.role == UserRole.ADMIN:
+            return
+        if self._is_project_creator(project_id, user.id):
             return
         if not self.repo.is_manager(project_id, user.id):
             raise ForbiddenException("Bu işlem için proje yöneticisi veya admin olmanız gerekiyor")
 
     def _require_manager_or_staff(self, project_id: UUID, user: User) -> None:
         if user.role in (UserRole.TEACHER, UserRole.ADMIN):
+            return
+        if self._is_project_creator(project_id, user.id):
             return
         if not self.repo.is_manager(project_id, user.id):
             raise ForbiddenException("Bu bilgiyi görme yetkiniz yok")

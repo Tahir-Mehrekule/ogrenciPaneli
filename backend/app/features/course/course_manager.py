@@ -9,11 +9,10 @@ from sqlalchemy.orm import Session
 from app.base.base_manager import BaseManager
 from app.common.enums import UserRole
 from app.common.exceptions import (
-    BadRequestException,
     ForbiddenException,
     ConflictException,
 )
-from app.features.course.course_repo import CourseRepo, CourseEnrollmentRepo
+from app.features.course.course_repo import CourseRepo
 from app.features.auth.auth_model import User
 
 
@@ -22,7 +21,6 @@ class CourseManager(BaseManager):
     def __init__(self, db: Session):
         super().__init__(db)
         self.repo = CourseRepo(db)
-        self.enrollment_repo = CourseEnrollmentRepo(db)
 
     def validate_course_code_unique(self, code: str) -> None:
         """Ders kodunun benzersiz olduğunu kontrol eder."""
@@ -42,17 +40,3 @@ class CourseManager(BaseManager):
         """
         if user.role != UserRole.ADMIN:
             raise ForbiddenException("Sadece sistem yöneticisi (ADMIN) ders oluşturabilir.")
-
-    def validate_enrollment(self, course, user: User) -> None:
-        """Derse kayıt validasyonu."""
-        if user.role != UserRole.STUDENT:
-            raise BadRequestException("Sadece öğrenciler derse kaydolabilir")
-        if not course.is_active:
-            raise BadRequestException("Pasif bir derse kaydolunmaz")
-        if self.enrollment_repo.is_enrolled(course.id, user.id):
-            raise ConflictException("Bu derse zaten kayıtlısınız")
-
-    def validate_unenrollment(self, course_id, user: User) -> None:
-        """Dersten çıkma validasyonu."""
-        if not self.enrollment_repo.is_enrolled(course_id, user.id):
-            raise BadRequestException("Bu derse kayıtlı değilsiniz")

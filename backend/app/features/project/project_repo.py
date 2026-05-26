@@ -46,6 +46,8 @@ class ProjectRepo(BaseRepository[Project]):
         grade_label: Optional[str] = None,
         student_search: Optional[str] = None,
         branch_code: Optional[str] = None,
+        creator_or_member_for: Optional[UUID] = None,
+        member_project_ids: Optional[list[UUID]] = None,
         page: int = 1,
         size: int = 20,
         sort_by: str = "created_at",
@@ -87,6 +89,18 @@ class ProjectRepo(BaseRepository[Project]):
 
         if course_ids is not None:
             query = query.filter(Project.course_id.in_(course_ids))
+
+        # STUDENT görünürlüğü: kendi oluşturduğu + üyesi olduğu projeler
+        if creator_or_member_for is not None:
+            if member_project_ids:
+                query = query.filter(
+                    or_(
+                        Project.created_by == creator_or_member_for,
+                        Project.id.in_(member_project_ids),
+                    )
+                )
+            else:
+                query = query.filter(Project.created_by == creator_or_member_for)
 
         if exclude_status is not None:
             query = query.filter(Project.status != exclude_status)

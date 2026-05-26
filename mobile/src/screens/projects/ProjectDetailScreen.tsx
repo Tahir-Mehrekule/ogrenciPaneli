@@ -24,12 +24,28 @@ const PROJECT_STATUS_CONFIG: Record<string, { label: string; bg: string; text: s
   DRAFT:    { label: 'Taslak',     bg: 'bg-slate-700',      text: 'text-slate-300' },
 };
 
-const TASK_STATUS_NEXT: Record<TaskStatus, TaskStatus> = {
-  todo: 'in_progress',
-  in_progress: 'done',
-  done: 'todo',
-  review: 'done',
+// Backend TASK_TRANSITIONS ile uyumlu rol-aware geçiş.
+// Creator ve ADMIN her geçişi yapabilir (helper içinde bypass).
+const TASK_STATUS_NEXT_BY_ROLE: Record<string, Partial<Record<TaskStatus, TaskStatus>>> = {
+  STUDENT: { todo: 'in_progress', in_progress: 'review', review: 'in_progress' },
+  TEACHER: { todo: 'in_progress', in_progress: 'review', review: 'done' },
+  ADMIN: { todo: 'in_progress', in_progress: 'review', review: 'done' },
 };
+
+function canTransition(from: TaskStatus, to: TaskStatus, role: string | undefined, isCreator: boolean): boolean {
+  if (from === to) return false;
+  const r = (role ?? 'STUDENT').toUpperCase();
+  if (isCreator || r === 'ADMIN') return true;
+  const map: Record<TaskStatus, Partial<Record<TaskStatus, string[]>>> = {
+    todo: { in_progress: ['STUDENT', 'TEACHER'] },
+    in_progress: { review: ['STUDENT', 'TEACHER'], todo: ['STUDENT', 'TEACHER'] },
+    review: { done: ['TEACHER'], in_progress: ['TEACHER'] },
+    done: {},
+  };
+  const allowed = map[from]?.[to];
+  if (!allowed) return false;
+  return allowed.includes(r);
+}
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'Yapılacak',
@@ -42,7 +58,7 @@ const TASK_ICON_COLOR: Record<TaskStatus, string> = {
   todo: '#64748b',
   in_progress: '#f59e0b',
   done: '#10b981',
-  review: '#818cf8',
+  review: '#a78bfa',
 };
 
 const safeErrorMsg = (error: any, fallback: string) => {
@@ -222,10 +238,33 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
   };
 
   const handleToggleTaskStatus = async (task: Task) => {
-    const nextStatus = TASK_STATUS_NEXT[task.status];
+    const current = (task.status as TaskStatus);
+    const isCreator = String((project as any)?.created_by) === String(user?.id);
+    const roleKey = (role || 'STUDENT') as keyof typeof TASK_STATUS_NEXT_BY_ROLE;
+
+    // Creator/Admin için cycle: todo→in_progress→review→done→todo
+    let nextStatus: TaskStatus | undefined;
+    if (isCreator || role === 'ADMIN') {
+      const cycle: Record<TaskStatus, TaskStatus> = {
+        todo: 'in_progress', in_progress: 'review', review: 'done', done: 'todo',
+      };
+      nextStatus = cycle[current];
+    } else {
+      nextStatus = TASK_STATUS_NEXT_BY_ROLE[roleKey]?.[current];
+    }
+
+    if (!nextStatus || !canTransition(current, nextStatus, role, isCreator)) {
+      if (current === 'review' && !isCreator && role !== 'TEACHER' && role !== 'ADMIN') {
+        Alert.alert('Bilgi', 'İnceleme aşamasındaki görevi öğretmen veya proje sahibi tamamlar.');
+      } else if (current === 'done') {
+        Alert.alert('Bilgi', 'Görev tamamlanmış.');
+      }
+      return;
+    }
+
     try {
       await apiClient.patch(`/api/v1/tasks/${task.id}/status`, { status: nextStatus });
-      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: nextStatus } : t));
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: nextStatus! } : t));
     } catch (error) {
       Alert.alert('Hata', safeErrorMsg(error, 'Durum güncellenemedi.'));
     }
@@ -250,9 +289,15 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
   const normalizedStatus = project.status?.toLowerCase() ?? 'draft';
   const statusCfg = PROJECT_STATUS_CONFIG[normalizedStatus] ?? PROJECT_STATUS_CONFIG.draft;
 
-  // Görevleri gruplara ayır
-  const grouped: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [], review: [] };
-  tasks.forEach((t) => { if (grouped[t.status]) grouped[t.status].push(t); });
+  // Görevleri gruplara ayır (status backend lowercase)
+  const grouped: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], review: [], done: [] };
+  tasks.forEach((t) => {
+    const key = (t.status as string)?.toLowerCase() as TaskStatus;
+    if (grouped[key]) grouped[key].push(t);
+  });
+
+  const isCreator = String((project as any)?.created_by) === String(user?.id);
+  const canCreateTask = isCreator || role === 'ADMIN' || role === 'STUDENT';
 
   return (
     <ScrollView
@@ -425,7 +470,7 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
         <>
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-base font-semibold text-white">Görevler</Text>
-            {role === 'STUDENT' && (
+            {canCreateTask && (
               <TouchableOpacity
                 className="flex-row items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5"
                 onPress={() => navigation.navigate('TaskCreate', { projectId })}
@@ -436,8 +481,8 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
             )}
           </View>
 
-          {/* Görev Grupları */}
-          {(['todo', 'in_progress', 'done'] as TaskStatus[]).map((status) => (
+          {/* Görev Grupları (4 kolon: TODO, IN_PROGRESS, REVIEW, DONE) */}
+          {(['todo', 'in_progress', 'review', 'done'] as TaskStatus[]).map((status) => (
             grouped[status].length > 0 && (
               <View key={status} className="mb-4">
                 <Text className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
@@ -452,17 +497,25 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
                       >
                         {status === 'done'
                           ? <CheckCircle size={20} color={TASK_ICON_COLOR[status]} />
-                          : status === 'in_progress'
+                          : status === 'in_progress' || status === 'review'
                           ? <Clock size={20} color={TASK_ICON_COLOR[status]} />
                           : <Circle size={20} color={TASK_ICON_COLOR[status]} />
                         }
                         <View className="flex-1">
-                          <Text className={`text-sm font-medium ${status === 'done' ? 'text-gray-500 line-through' : 'text-white'}`}>
+                          <Text
+                            numberOfLines={1}
+                            className={`text-sm font-medium ${status === 'done' ? 'text-gray-500 line-through' : 'text-white'}`}
+                          >
                             {task.title}
                           </Text>
                           <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={2}>
                             {task.description}
                           </Text>
+                          {(task as any).assignee_name && (
+                            <Text className="text-xs text-cyan-400 mt-1" numberOfLines={1}>
+                              👤 {(task as any).assignee_name}
+                            </Text>
+                          )}
                           {task.due_date && (
                             <Text className="text-xs text-amber-500 mt-1">
                               ⏰ {new Date(task.due_date).toLocaleDateString('tr-TR')}

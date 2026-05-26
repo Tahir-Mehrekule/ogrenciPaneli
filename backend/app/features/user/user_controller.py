@@ -111,16 +111,27 @@ def import_students(
     "/search",
     response_model=list[UserListResponse],
     summary="Öğrenci ara (davet için)",
-    description="Ad, soyad, mail veya okul numarasına göre öğrenci arar. same_grade=true ise sadece aynı sınıf döner.",
+    description=(
+        "STUDENT listeleme/arama. "
+        "q boş bırakılırsa bölüm filtresine göre tüm öğrencileri döner. "
+        "same_grade=true ise sadece aynı sınıf, department_id verilirse o bölümdeki öğrenciler döner."
+    ),
 )
 def search_users(
-    q: str = Query(min_length=2, description="Arama terimi"),
+    q: str = Query(default="", description="Arama terimi (boş bırakılabilir)"),
     same_grade: bool = Query(default=False, description="Sadece aynı sınıfı getir"),
+    department_id: UUID | None = Query(default=None, description="Bölüm filtresi"),
+    limit: int = Query(default=20, ge=1, le=100, description="Maksimum sonuç sayısı"),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     entry_year = current_user.entry_year if same_grade else None
-    results = UserRepo(db).search_students(q=q, entry_year=entry_year)
+    results = UserRepo(db).search_students(
+        q=q,
+        entry_year=entry_year,
+        department_id=department_id,
+        limit=limit,
+    )
     return [UserListResponse.model_validate(u) for u in results]
 
 

@@ -17,7 +17,16 @@ from app.main import app
 from app.core.security import hash_password
 from app.common.enums import UserRole
 from app.features.auth.auth_model import User
+# RevokedToken auth_service içinde lazy import edilir; create_all'dan önce
+# Base.metadata'ya kaydolması için burada açıkça import edilir (yoksa refresh
+# testlerinde "relation revoked_tokens does not exist" hatası alınır).
+from app.features.auth.revoked_token_model import RevokedToken  # noqa: F401
+from app.core.limiter import limiter
 from unittest.mock import patch, MagicMock
+
+# Testlerde rate limit kapalı tutulur — fonksiyon-scope'lu token fixture'ları
+# her testte yeniden login olur ve /auth/login 10/dk sınırını tetikleyip 429 döndürür.
+limiter.enabled = False
 
 # PostgreSQL test veritabanı (Docker üzerinden localhost:5432)
 TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/unitrack_test"
@@ -114,6 +123,17 @@ def admin_user(db):
     db.commit()
     db.refresh(user)
     return user
+
+
+@pytest.fixture
+def department(db):
+    """Test bölümü oluşturur (course.department_id zorunlu olduğu için)."""
+    from app.features.department.department_model import Department
+    dep = Department(name="Bilgisayar Mühendisliği", code="235")
+    db.add(dep)
+    db.commit()
+    db.refresh(dep)
+    return dep
 
 
 # --- Token Fixture'ları ---

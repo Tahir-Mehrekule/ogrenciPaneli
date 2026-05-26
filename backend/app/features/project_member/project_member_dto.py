@@ -8,7 +8,7 @@ from uuid import UUID
 from typing import Optional
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.base.base_dto import BaseResponse
 from app.common.enums import MemberRole, MemberStatus
@@ -36,12 +36,42 @@ class TransferManagerRequest(BaseModel):
 class MemberUserInfo(BaseModel):
     """Üyelik response'unda kullanıcı detayları."""
     id: UUID
-    name: str
+    name: Optional[str] = None
     email: str
     student_no: Optional[str] = None
     grade_label: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _ensure_name(cls, obj):
+        """User.name boşsa first_name + last_name'den üret (ORM instance veya dict)."""
+        if obj is None:
+            return obj
+
+        def _get(o, key):
+            return o.get(key) if isinstance(o, dict) else getattr(o, key, None)
+
+        name = _get(obj, "name")
+        if name:
+            return obj
+
+        full = f"{_get(obj, 'first_name') or ''} {_get(obj, 'last_name') or ''}".strip()
+        if not full:
+            full = _get(obj, "email") or ""
+
+        if isinstance(obj, dict):
+            obj["name"] = full
+            return obj
+        # ORM nesnesi → dict'e dönüştür (from_attributes bypass)
+        return {
+            "id": _get(obj, "id"),
+            "name": full,
+            "email": _get(obj, "email"),
+            "student_no": _get(obj, "student_no"),
+            "grade_label": _get(obj, "grade_label"),
+        }
 
 
 class ProjectMemberResponse(BaseResponse):
@@ -71,5 +101,21 @@ class PendingMemberResponse(BaseResponse):
     status: MemberStatus           # INVITED veya JOIN_REQUESTED
     invited_by: Optional[UUID] = None
     user: Optional[MemberUserInfo] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MyInvitationResponse(BaseResponse):
+    """
+    Kullanıcının kendisine gelen davetler için response.
+    Üyelik kaydı + proje özet bilgisi içerir.
+    """
+    project_id: UUID
+    status: MemberStatus
+    invited_by: Optional[UUID] = None
+    project_title: str
+    project_description: Optional[str] = None
+    project_status: Optional[str] = None
+    invited_by_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

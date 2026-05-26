@@ -74,6 +74,7 @@ export interface Task {
   description: string;
   project_id: string;
   assigned_to: string | null;
+  assignee_name?: string | null;
   status: TaskStatus;
   due_date: string | null;
   ai_suggested: boolean;

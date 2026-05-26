@@ -54,6 +54,17 @@ interface CourseOption {
   code: string;
 }
 
+interface MyInvitation {
+  id: string;            // ProjectMember kayıt ID'si
+  project_id: string;
+  status: string;
+  invited_by: string | null;
+  project_title: string;
+  project_description: string | null;
+  project_status: string | null;
+  invited_by_name: string | null;
+}
+
 const STATUS_CONFIG: Record<
   ProjectStatus,
   { label: string; className: string; icon: LucideIcon }
@@ -259,6 +270,10 @@ export default function ProjectsPage() {
   const [softDeleteTarget, setSoftDeleteTarget] = useState<Project | null>(null);
   const [hardDeleteTarget, setHardDeleteTarget] = useState<Project | null>(null);
 
+  // Bana gelen proje davetleri
+  const [invitations, setInvitations] = useState<MyInvitation[]>([]);
+  const [invitationLoading, setInvitationLoading] = useState<string | null>(null);
+
   const isStaff = role === "TEACHER" || role === "ADMIN";
 
   const { sorted: sortedProjects, sortKey: sortBy, sortOrder, toggleSort } =
@@ -319,6 +334,50 @@ export default function ProjectsPage() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Davetleri çek (sadece öğrenci görür)
+  const fetchInvitations = useCallback(async () => {
+    if (role !== "STUDENT") return;
+    try {
+      const { data } = await apiClient.get<MyInvitation[]>("/api/v1/project-invitations/me");
+      setInvitations(data ?? []);
+    } catch {
+      // Sessiz başarısızlık — kullanıcıya rahatsızlık vermesin
+    }
+  }, [role]);
+
+  useEffect(() => {
+    fetchInvitations();
+  }, [fetchInvitations]);
+
+  const handleAcceptInvitation = async (inv: MyInvitation) => {
+    try {
+      setInvitationLoading(inv.id);
+      await apiClient.post(`/api/v1/projects/${inv.project_id}/members/${inv.id}/accept`);
+      toast.success("Davet kabul edildi.");
+      fetchInvitations();
+      fetchProjects();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "İşlem başarısız.");
+    } finally {
+      setInvitationLoading(null);
+    }
+  };
+
+  const handleRejectInvitation = async (inv: MyInvitation) => {
+    try {
+      setInvitationLoading(inv.id);
+      await apiClient.post(`/api/v1/projects/${inv.project_id}/members/${inv.id}/reject`);
+      toast.success("Davet reddedildi.");
+      fetchInvitations();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "İşlem başarısız.");
+    } finally {
+      setInvitationLoading(null);
+    }
+  };
 
   const handleApprove = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -563,6 +622,53 @@ export default function ProjectsPage() {
           )}
         </div>
       </div>
+
+      {/* Bekleyen Proje Davetleri (Sadece STUDENT) */}
+      {role === "STUDENT" && invitations.length > 0 && (
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Users className="h-5 w-5 text-indigo-400" />
+            <h3 className="text-sm font-semibold text-indigo-300">Bekleyen Proje Davetleri</h3>
+            <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-bold text-indigo-300">
+              {invitations.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {invitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/20 bg-slate-900/40 p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white truncate">{inv.project_title}</p>
+                  {inv.project_description && (
+                    <p className="text-xs text-gray-400 line-clamp-1">{inv.project_description}</p>
+                  )}
+                  {inv.invited_by_name && (
+                    <p className="text-xs text-gray-500 mt-0.5">Davet eden: {inv.invited_by_name}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    disabled={invitationLoading === inv.id}
+                    onClick={() => handleAcceptInvitation(inv)}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Kabul Et
+                  </button>
+                  <button
+                    disabled={invitationLoading === inv.id}
+                    onClick={() => handleRejectInvitation(inv)}
+                    className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:bg-slate-600 disabled:opacity-50"
+                  >
+                    Reddet
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filtre Çubuğu */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">

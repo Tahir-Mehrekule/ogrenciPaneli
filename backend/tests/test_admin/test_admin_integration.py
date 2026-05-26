@@ -4,7 +4,7 @@ Admin Dashboard Modülü Entegrasyon Testleri
 
 import pytest
 
-def test_admin_can_fetch_system_stats(client, admin_token, student_user, teacher_user, db):
+def test_admin_can_fetch_system_stats(client, admin_token, student_user, teacher_user, department, db):
     """
     Admin yetkilisine sahip kullanıcı sistem istatistiklerini başarılı bir şekilde alabilmelidir.
     """
@@ -13,12 +13,13 @@ def test_admin_can_fetch_system_stats(client, admin_token, student_user, teacher
     from app.features.project.project_model import Project
     from app.common.enums import ProjectStatus
 
-    # Bir tane course ekleyelim
+    # Bir tane course ekleyelim (department_id zorunlu)
     course = Course(
         name="Admin Test DB Kursu",
         code="ADMIN101",
         semester="2026-Bahar",
-        teacher_id=teacher_user.id
+        teacher_id=teacher_user.id,
+        department_id=department.id,
     )
     db.add(course)
     db.commit()

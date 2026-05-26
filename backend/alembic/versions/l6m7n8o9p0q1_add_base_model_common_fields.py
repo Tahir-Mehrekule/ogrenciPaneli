@@ -22,7 +22,7 @@ depends_on: Union[str, Sequence[str], None] = None
 NEEDS_NAME = [
     "activity_logs", "class_sections", "course_enrollments", "files",
     "notifications", "project_members", "projects", "reports",
-    "student_year_prefixes", "user_departments", "users",
+    "student_year_prefixes", "tasks", "user_departments", "users",
 ]
 NEEDS_SHORT_NAME = [
     "activity_logs", "class_sections", "course_enrollments", "courses",

@@ -61,6 +61,7 @@ class TaskResponse(BaseResponse):
     description: str
     project_id: UUID
     assigned_to: Optional[UUID] = None
+    assignee_name: Optional[str] = None
     status: TaskStatus
     due_date: Optional[datetime] = None
     ai_suggested: bool

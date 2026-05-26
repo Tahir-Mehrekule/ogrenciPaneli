@@ -292,7 +292,7 @@ Her feature bu base sınıflardan türemeli, tekrar kod yazılmamalı:
 ### Faz 2 — Ders Sistemi
 | Feature      | Açıklama                                 |
 |--------------|------------------------------------------|
-| `course`     | Ders oluşturma, öğretmen-ders ilişkisi   |
+| `course`     | Ders oluşturma (sadece ADMIN), öğretmen-ders ilişkisi |
 | `enrollment` | Öğrenci-ders kaydı, listeleme            |
 
 ### Faz 3 — Ekstralar
@@ -322,7 +322,14 @@ Her feature bu base sınıflardan türemeli, tekrar kod yazılmamalı:
 | AI görev önerisi               |    ✅   |    ✅   |   ✅  |
 | Kullanıcı listeleme            |    ❌   |    ✅   |   ✅  |
 | Kullanıcı silme                |    ❌   |    ❌   |   ✅  |
-| Ders oluşturma                 |    ❌   |    ✅   |   ✅  |
+| Ders oluşturma                 |    ❌   |    ❌   |   ✅  |
+| Ders düzenleme                 |    ❌   |    ✅   |   ✅  |
+| Ders silme (soft / pasife alma)|    ❌   |    ✅   |   ✅  |
+| Ders kalıcı silme (hard delete)|    ❌   |    ❌   |   ✅  |
+
+> **Ders silme davranışı:** TEACHER kendi dersini silince soft delete olur — kayıt
+> veritabanında kalır, sadece pasife alınır (geri yüklenebilir). ADMIN silince hard
+> delete olur — ders ve ilişkili tüm kayıtlar veritabanından kalıcı kaldırılır.
 
 ---
 

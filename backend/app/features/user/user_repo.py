@@ -29,31 +29,49 @@ class UserRepo(BaseRepository[User]):
 
     def search_students(
         self,
-        q: str,
+        q: Optional[str] = None,
         entry_year: Optional[int] = None,
+        department_id: Optional[UUID] = None,
         limit: int = 20,
     ) -> list[User]:
         """
         Ad, soyad, mail veya okul numarasına göre STUDENT arama.
-        entry_year verilirse sadece aynı sınıf döner (sınıf kısıtı).
+
+        - q boş/None ise tüm aktif STUDENT'lar (filtreler hâlâ uygulanır).
+        - entry_year verilirse sadece aynı sınıf döner.
+        - department_id verilirse sadece o bölüme atanmış STUDENT'lar döner.
         """
+        from app.features.user_department.user_department_model import UserDepartment
+
         query = (
             self.db.query(User)
             .filter(User.role == UserRole.STUDENT)
-
             .filter(User.is_active == True)
             .filter(User.is_deleted == False)
-            .filter(
+        )
+
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            query = query.filter(
                 or_(
-                    User.first_name.ilike(f"%{q}%"),
-                    User.last_name.ilike(f"%{q}%"),
-                    User.email.ilike(f"%{q}%"),
-                    User.student_no.ilike(f"%{q}%"),
+                    User.first_name.ilike(term),
+                    User.last_name.ilike(term),
+                    User.email.ilike(term),
+                    User.student_no.ilike(term),
                 )
             )
-        )
+
         if entry_year is not None:
             query = query.filter(User.entry_year == entry_year)
+
+        if department_id is not None:
+            query = (
+                query.join(UserDepartment, UserDepartment.user_id == User.id)
+                .filter(UserDepartment.department_id == department_id)
+                .filter(UserDepartment.is_active == True)
+                .filter(UserDepartment.is_deleted == False)
+                .distinct()
+            )
 
         return query.limit(limit).all()
 

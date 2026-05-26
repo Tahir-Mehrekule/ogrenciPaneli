@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import {
   X, GraduationCap, Users, UserCheck, Settings,
-  Bell, LogOut, User as UserIcon, BookOpen, ScrollText,
+  LogOut, User as UserIcon, BookOpen, ScrollText,
 } from 'lucide-react-native';
 
 interface DrawerItem {
@@ -71,12 +71,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose, naviga
       icon: <UserCheck size={20} color="#818cf8" />,
       onPress: () => navigate('PendingStudents'),
       roles: ['TEACHER'],
-    },
-    {
-      label: 'Bildirimler',
-      icon: <Bell size={20} color="#818cf8" />,
-      onPress: () => navigate('NotificationsModal'),
-      roles: ['STUDENT', 'TEACHER', 'ADMIN'],
     },
     {
       label: 'Bölüm Yönetimi',

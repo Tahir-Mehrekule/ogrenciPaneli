@@ -14,9 +14,7 @@ import {
   Users,
   TrendingUp,
   AlertCircle,
-  Plus,
-  MoreHorizontal,
-  Activity,
+  FileText,
 } from "lucide-react";
 
 interface Project {
@@ -28,30 +26,21 @@ interface Project {
   created_at?: string;
 }
 
+interface PendingReport {
+  id: string;
+  week_number: number;
+  year: number;
+  status: string;
+  course_name?: string | null;
+  course_code?: string | null;
+  submitted_by_name?: string;
+}
+
 interface Stats {
   courses: number;
   totalProjects: number;
   pendingProjects: number;
   students: number;
-}
-
-const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> = {
-  APPROVED:    { label: "Aktif",       dot: "bg-emerald-500", text: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20" },
-  IN_PROGRESS: { label: "Devam",       dot: "bg-blue-500",    text: "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20" },
-  PENDING:     { label: "Bekliyor",    dot: "bg-amber-500",   text: "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20" },
-  DRAFT:       { label: "Taslak",      dot: "bg-slate-400",   text: "text-slate-600 bg-slate-100 dark:text-slate-400 dark:bg-slate-800" },
-  REJECTED:    { label: "Reddedildi",  dot: "bg-red-500",     text: "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-900/20" },
-  COMPLETED:   { label: "Tamamlandı",  dot: "bg-violet-500",  text: "text-violet-700 bg-violet-50 dark:text-violet-400 dark:bg-violet-900/20" },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CFG[status?.toUpperCase()] ?? { label: status, dot: "bg-gray-400", text: "text-gray-600 bg-gray-100" };
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${cfg.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-      {cfg.label}
-    </span>
-  );
 }
 
 function StatCard({
@@ -103,26 +92,25 @@ export const TeacherDashboard = () => {
   const router = useRouter();
   const [stats, setStats] = useState<Stats>({ courses: 0, totalProjects: 0, pendingProjects: 0, students: 0 });
   const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
-  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [coursesRes, projectsRes, studentsRes] = await Promise.all([
+        const [coursesRes, projectsRes, studentsRes, reportsRes] = await Promise.all([
           apiClient.get("/api/v1/courses"),
           apiClient.get("/api/v1/projects?per_page=100"),
           apiClient.get("/api/v1/users/my-students?size=1"),
+          apiClient.get("/api/v1/reports?status=submitted&size=5&sort_by=created_at&order=desc"),
         ]);
 
         const courses: unknown[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];
         const studentTotal: number = studentsRes.data?.total ?? 0;
+        const reports: PendingReport[] = reportsRes.data?.items ?? [];
 
         const pending = projects.filter((p) => p.status?.toUpperCase() === "PENDING");
-        const recent = [...projects]
-          .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-          .slice(0, 6);
 
         setStats({
           courses: courses.length,
@@ -131,7 +119,7 @@ export const TeacherDashboard = () => {
           students: studentTotal,
         });
         setPendingProjects(pending.slice(0, 5));
-        setRecentProjects(recent);
+        setPendingReports(reports);
       } catch {}
       finally {
         setIsLoading(false);
@@ -176,13 +164,6 @@ export const TeacherDashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push("/dashboard/courses/new")}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-          >
-            <Plus className="h-4 w-4" />
-            Yeni Ders
-          </button>
           <button
             onClick={() => router.push("/dashboard/projects")}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-700"
@@ -329,19 +310,27 @@ export const TeacherDashboard = () => {
           </div>
         </div>
 
-        {/* Recent projects — narrower */}
+        {/* Pending reports — narrower */}
         <div className="flex flex-col lg:col-span-2">
           <div className="flex flex-1 flex-col rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-slate-700">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                  <Activity className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                  <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Son Projeler</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Onay Bekleyen Raporlar</h3>
+                {pendingReports.length > 0 && (
+                  <span className="badge-pulse rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    {pendingReports.length}
+                  </span>
+                )}
               </div>
-              <button className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700">
-                <MoreHorizontal className="h-4 w-4" />
+              <button
+                onClick={() => router.push("/dashboard/reports")}
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+              >
+                Tümünü Gör <ArrowRight className="h-3 w-3" />
               </button>
             </div>
 
@@ -356,36 +345,44 @@ export const TeacherDashboard = () => {
                     <div className="shimmer h-5 w-16 rounded-full" />
                   </div>
                 ))
-              ) : recentProjects.length === 0 ? (
+              ) : pendingReports.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-12 text-center">
-                  <Activity className="h-10 w-10 text-gray-200 dark:text-slate-600" />
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Henüz proje yok</p>
-                  <p className="text-xs text-gray-400 dark:text-slate-500">Derslerinize proje gönderilmemiş</p>
+                  <CheckCircle2 className="h-10 w-10 text-gray-200 dark:text-slate-600" />
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Bekleyen rapor yok</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">Tüm teslim edilen raporlar incelenmiş</p>
                 </div>
               ) : (
-                recentProjects.map((p) => (
+                pendingReports.map((r) => (
                   <div
-                    key={p.id}
+                    key={r.id}
                     className="pending-row flex cursor-pointer items-center gap-3 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-700/30"
-                    onClick={() => router.push(`/dashboard/projects/${p.id}`)}
+                    onClick={() => router.push("/dashboard/reports")}
                   >
-                    <div className="h-2 w-2 shrink-0 rounded-full bg-indigo-500" />
-                    <p className="min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-slate-300">
-                      {p.title}
-                    </p>
-                    <StatusBadge status={p.status} />
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-700 dark:text-slate-300">
+                        {r.course_name || "Ders Atanmamış"}
+                      </p>
+                      <p className="truncate text-xs text-gray-400">
+                        {r.year} - {r.week_number}. Hafta
+                        {r.submitted_by_name ? ` · ${r.submitted_by_name}` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                      Teslim Edildi
+                    </span>
                   </div>
                 ))
               )}
             </div>
 
-            {recentProjects.length > 0 && (
+            {pendingReports.length > 0 && (
               <div className="border-t border-gray-100 px-5 py-3 dark:border-slate-700">
                 <button
-                  onClick={() => router.push("/dashboard/projects")}
+                  onClick={() => router.push("/dashboard/reports")}
                   className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                 >
-                  Tüm projeleri gör <ArrowRight className="h-3 w-3" />
+                  Tüm raporları gör <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
             )}
@@ -400,7 +397,6 @@ export const TeacherDashboard = () => {
         </p>
         <div className="flex flex-wrap gap-2">
           {[
-            { label: "Yeni Ders Oluştur", href: "/dashboard/courses/new", icon: BookOpen },
             { label: "Öğrencileri Görüntüle", href: "/dashboard/users?role=student&onlyMine=true", icon: Users },
             { label: "Rapor İncele", href: "/dashboard/reports", icon: FolderKanban },
           ].map((action) => {

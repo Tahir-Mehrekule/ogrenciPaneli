@@ -105,7 +105,29 @@
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "Bash(findstr \":3000\")",
       "PowerShell(Get-Process -Id 35052 -ErrorAction SilentlyContinue)",
-      "PowerShell($resp = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue; if \\($resp\\) { \"Status: $\\($resp.StatusCode\\)\" } else { \"UNREACHABLE\" })"
+      "PowerShell($resp = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue; if \\($resp\\) { \"Status: $\\($resp.StatusCode\\)\" } else { \"UNREACHABLE\" })",
+      "Bash(docker-compose up *)",
+      "Bash(Start-Process powershell *)",
+      "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\frontend'; npm run dev\")",
+      "PowerShell(python -m py_compile tests/test_course/test_course_integration.py; if \\($?\\) { \"OK: syntax valid\" })",
+      "PowerShell(python -c \"import psycopg2; psycopg2.connect\\('postgresql://postgres:postgres@localhost:5432/unitrack_test'\\); print\\('DB OK'\\)\" 2>&1 | Select-Object -Last 5)",
+      "PowerShell(python -m pip install apscheduler --quiet 2>&1 | Select-Object -Last 3; python -m pytest tests/test_course/test_course_integration.py -v --no-header 2>&1 | Select-Object -Last 40)",
+      "PowerShell(python -m pytest tests/test_course/test_course_integration.py::test_teacher_delete_is_soft -v --no-header 2>&1 | Select-Object -Last 35)",
+      "PowerShell(python -m pytest tests/test_course/test_course_integration.py -p no:warnings --tb=short -ra 2>&1 | Select-Object -Last 50)",
+      "PowerShell(python -m pytest tests/test_course/test_course_integration.py -p no:warnings --tb=short 2>&1 | Select-Object -Last 15)",
+      "PowerShell(python -m pytest -p no:warnings --tb=line -q 2>&1 | Select-Object -Last 25)",
+      "PowerShell(python -m pytest \"tests/test_course/test_course_enrollment_integration.py\" \"tests/test_admin/test_admin_integration.py::test_admin_can_fetch_system_stats\" \"tests/test_project/test_project_api.py::TestProjectList\" -p no:warnings --tb=short 2>&1 | Select-Object -Last 60)",
+      "PowerShell(git stash *)",
+      "PowerShell(python -m pytest \"tests/test_admin/test_admin_integration.py::test_admin_can_fetch_system_stats\" \"tests/test_project/test_project_api.py::TestProjectList\" \"tests/test_auth/test_auth_api.py::TestRefresh\" -p no:warnings --tb=line -q 2>&1 | Select-Object -Last 12)",
+      "PowerShell(python -m pytest tests/test_course/test_course_integration.py -p no:warnings -q 2>&1 | Select-Object -Last 4)",
+      "PowerShell(python -m pytest tests/test_course/ -p no:warnings -q 2>&1 | Select-Object -Last 4)",
+      "PowerShell(python -m pytest \"tests/test_auth/test_auth_api.py::TestRefresh\" -p no:warnings --tb=long 2>&1 | Select-Object -Last 45)",
+      "PowerShell(python -m pytest \"tests/test_auth/test_auth_api.py::TestRefresh\" -p no:warnings -q 2>&1 | Select-Object -Last 4)",
+      "PowerShell(python -m pytest tests/test_admin/ tests/test_project/ tests/test_auth/ tests/test_course/ -p no:warnings -q 2>&1 | Select-Object -Last 8)",
+      "PowerShell(python -m pytest -p no:warnings -q 2>&1 | Select-Object -Last 8)",
+      "PowerShell(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet|WSL' } | Select-Object IPAddress, InterfaceAlias)",
+      "Bash(netsh advfirewall *)",
+      "Bash(npm install *)"
     ]
   }
 }

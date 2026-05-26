@@ -43,6 +43,21 @@ class ProjectMemberRepo(BaseRepository[ProjectMember]):
             .all()
         )
 
+    def get_user_invitations(self, user_id: UUID) -> list[ProjectMember]:
+        """Kullanıcıya gönderilen INVITED kayıtları proje ve davet eden bilgisiyle döner."""
+        return (
+            self.db.query(ProjectMember)
+            .options(
+                joinedload(ProjectMember.project),
+                joinedload(ProjectMember.inviter),
+            )
+            .filter(ProjectMember.user_id == user_id)
+            .filter(ProjectMember.status == MemberStatus.INVITED)
+            .filter(ProjectMember.is_active == True)
+            .filter(ProjectMember.is_deleted == False)
+            .all()
+        )
+
     def get_pending_members(self, project_id: UUID) -> list[ProjectMember]:
         """Projedeki INVITED veya JOIN_REQUESTED kayıtları döner."""
         return (

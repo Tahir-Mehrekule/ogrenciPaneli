@@ -103,6 +103,7 @@ class ProjectResponse(BaseResponse):
     course_id: Optional[UUID] = None
     course_name: Optional[str] = None
     course_code: Optional[str] = None
+    department_id: Optional[UUID] = None
     status: ProjectStatus
     created_by: UUID
     created_by_name: Optional[str] = None

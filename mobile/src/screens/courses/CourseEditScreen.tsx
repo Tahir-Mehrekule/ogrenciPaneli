@@ -4,6 +4,7 @@ import {
   ScrollView, Alert, Switch, TouchableOpacity,
 } from 'react-native';
 import apiClient from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -25,6 +26,8 @@ const safeErrorMsg = (error: any, fallback: string) => {
 
 export const CourseEditScreen = ({ route, navigation }: any) => {
   const { courseId } = route.params;
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
   const [loading, setLoading] = useState(true);
   const [course, setCourse] = useState<Course | null>(null);
   const [name, setName] = useState('');
@@ -79,18 +82,24 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
   };
 
   const handleDelete = () => {
+    // ADMIN → hard delete (kalıcı), TEACHER → soft delete (pasife alma). Backend rolü belirler.
+    const title = isAdmin ? 'Dersi Kalıcı Sil' : 'Dersi Sil';
+    const message = isAdmin
+      ? 'Bu dersi KALICI olarak sileceksiniz. Ders ve ilişkili tüm kayıtlar veritabanından tamamen silinecek. Bu işlem GERİ ALINAMAZ. Devam edilsin mi?'
+      : 'Bu ders pasife alınacak (listelerden kalkar, gerektiğinde geri yüklenebilir). Devam edilsin mi?';
+    const successMsg = isAdmin ? 'Ders kalıcı olarak silindi.' : 'Ders pasife alındı.';
     Alert.alert(
-      'Dersi Sil',
-      'Bu dersi silmek istediğinize emin misiniz?',
+      title,
+      message,
       [
         { text: 'İptal', style: 'cancel' },
         {
-          text: 'Sil',
+          text: isAdmin ? 'Kalıcı Sil' : 'Sil',
           style: 'destructive',
           onPress: async () => {
             try {
               await apiClient.delete(`/api/v1/courses/${courseId}`);
-              Alert.alert('Başarılı', 'Ders silindi.', [
+              Alert.alert('Başarılı', successMsg, [
                 { text: 'Tamam', onPress: () => navigation.goBack() },
               ]);
             } catch (error) {
@@ -227,7 +236,9 @@ export const CourseEditScreen = ({ route, navigation }: any) => {
               onPress={handleDelete}
             >
               <Trash2 size={16} color="#f87171" />
-              <Text className="text-sm font-semibold text-red-400">Dersi Sil</Text>
+              <Text className="text-sm font-semibold text-red-400">
+                {isAdmin ? 'Dersi Kalıcı Sil' : 'Dersi Sil'}
+              </Text>
             </TouchableOpacity>
           </CardContent>
         </Card>

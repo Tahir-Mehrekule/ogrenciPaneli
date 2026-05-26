@@ -9,11 +9,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import apiClient from '../../lib/apiClient';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { FolderKanban, ChevronDown } from 'lucide-react-native';
+import { FolderKanban, ChevronDown, Send, User, Users, Lock } from 'lucide-react-native';
 import { Course } from '../../types/course';
+
+type CourseProjectType = 'individual' | 'team' | 'both';
+type ChosenProjectType = 'individual' | 'team';
 
 const safeErrorMsg = (error: any, fallback: string) => {
   const detail = error?.response?.data?.detail;
@@ -25,10 +27,14 @@ const safeErrorMsg = (error: any, fallback: string) => {
 export const ProjectCreateScreen = ({ navigation }: any) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourseName, setSelectedCourseName] = useState('Ders seçin (opsiyonel)');
   const [courses, setCourses] = useState<Course[]>([]);
   const [showCourseList, setShowCourseList] = useState(false);
+  // Seçilen dersin proje tipi politikası (both = öğrenci seçer, diğerleri sabit)
+  const [courseProjectType, setCourseProjectType] = useState<CourseProjectType | null>(null);
+  const [chosenProjectType, setChosenProjectType] = useState<ChosenProjectType>('individual');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -43,7 +49,37 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
     fetchCourses();
   }, []);
 
-  const handleCreate = async () => {
+  /** Ders seçimi — detay çekip proje tipi politikasını belirler (web ile aynı mantık) */
+  const handleCourseSelect = async (course: Course | null) => {
+    setShowCourseList(false);
+    setCourseProjectType(null);
+    if (!course) {
+      setSelectedCourseId(null);
+      setSelectedCourseName('Ders seçin (opsiyonel)');
+      return;
+    }
+    setSelectedCourseId(course.id);
+    setSelectedCourseName(`${course.code} — ${course.name}`);
+    try {
+      const { data } = await apiClient.get<Course>(`/api/v1/courses/${course.id}`);
+      const pt = (data.project_type ?? 'both') as CourseProjectType;
+      setCourseProjectType(pt);
+      if (pt === 'individual') setChosenProjectType('individual');
+      else if (pt === 'team') setChosenProjectType('team');
+    } catch {
+      setCourseProjectType('both');
+    }
+  };
+
+  /** Backend'e gönderilecek proje tipi — ders yoksa undefined */
+  const resolvedProjectType = (): ChosenProjectType | undefined => {
+    if (!selectedCourseId) return undefined;
+    if (courseProjectType === 'individual') return 'individual';
+    if (courseProjectType === 'team') return 'team';
+    return chosenProjectType;
+  };
+
+  const handleSubmit = async (submitForApproval: boolean) => {
     if (!title.trim() || title.trim().length < 3) {
       return Alert.alert('Hata', 'Proje başlığı en az 3 karakter olmalı.');
     }
@@ -51,14 +87,31 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
       return Alert.alert('Hata', 'Proje açıklaması en az 10 karakter olmalı.');
     }
 
+    const pt = resolvedProjectType();
+
     try {
       setIsLoading(true);
-      await apiClient.post('/api/v1/projects', {
+      const { data } = await apiClient.post('/api/v1/projects', {
         title: title.trim(),
         description: description.trim(),
         ...(selectedCourseId ? { course_id: selectedCourseId } : {}),
+        ...(pt ? { project_type: pt } : {}),
+        ...(githubUrl.trim() ? { github_url: githubUrl.trim() } : {}),
       });
-      Alert.alert('Başarılı', 'Projeniz TASLAK olarak oluşturuldu!', [
+
+      // Onaya gönder seçildiyse submit endpoint'ini de çağır
+      if (submitForApproval) {
+        try {
+          await apiClient.post(`/api/v1/projects/${data.id}/submit`);
+        } catch {
+          // submit başarısız olsa bile proje DRAFT olarak oluşturuldu
+        }
+      }
+
+      const msg = submitForApproval
+        ? 'Projeniz oluşturuldu ve öğretmeninizin onayına gönderildi! 🚀'
+        : 'Projeniz TASLAK olarak kaydedildi! 📝';
+      Alert.alert('Başarılı', msg, [
         { text: 'Tamam', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
@@ -81,7 +134,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
             </View>
             <CardTitle>Yeni Proje Oluştur</CardTitle>
             <Text className="text-sm text-center text-gray-400 mt-2">
-              Proje TASLAK statüsünde başlar. Hazır olunca öğretmeninize onay için gönderebilirsiniz.
+              İstersen taslak olarak kaydet, istersen hemen onaya gönder.
             </Text>
           </CardHeader>
 
@@ -95,11 +148,20 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
 
             <Input
               label="Proje Açıklaması"
-              placeholder="Projenizin amacını ve kapsamını kısaca açıklayın..."
+              placeholder="Projenizin amacını ve kapsamını açıklayın..."
               value={description}
               onChangeText={setDescription}
               multiline
               numberOfLines={4}
+            />
+
+            <Input
+              label="GitHub Repo (Opsiyonel)"
+              placeholder="https://github.com/kullanıcı/repo"
+              value={githubUrl}
+              onChangeText={setGithubUrl}
+              autoCapitalize="none"
+              keyboardType="url"
             />
 
             {/* Ders Seçimi Dropdown */}
@@ -120,11 +182,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
               <View className="rounded-xl border border-slate-600 bg-slate-800 mb-3 overflow-hidden">
                 <TouchableOpacity
                   className="px-4 py-3 border-b border-slate-700"
-                  onPress={() => {
-                    setSelectedCourseId(null);
-                    setSelectedCourseName('Ders seçin (opsiyonel)');
-                    setShowCourseList(false);
-                  }}
+                  onPress={() => handleCourseSelect(null)}
                 >
                   <Text className="text-gray-400 text-sm">— Ders seçme</Text>
                 </TouchableOpacity>
@@ -132,11 +190,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
                   <TouchableOpacity
                     key={course.id}
                     className="px-4 py-3 border-b border-slate-700"
-                    onPress={() => {
-                      setSelectedCourseId(course.id);
-                      setSelectedCourseName(`${course.code} — ${course.name}`);
-                      setShowCourseList(false);
-                    }}
+                    onPress={() => handleCourseSelect(course)}
                   >
                     <Text className="text-white text-sm">{course.code} — {course.name}</Text>
                     <Text className="text-gray-500 text-xs mt-0.5">{course.semester}</Text>
@@ -150,12 +204,86 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
               </View>
             )}
 
-            <Button
-              title="Projeyi Oluştur"
-              onPress={handleCreate}
-              isLoading={isLoading}
-              className="mt-2"
-            />
+            {/* Proje Tipi — ders seçilince görünür */}
+            {selectedCourseId && courseProjectType && (
+              <View className="rounded-xl border border-slate-700 p-4 mb-3">
+                <Text className="text-sm font-medium text-gray-300 mb-3">Proje Tipi</Text>
+
+                {courseProjectType === 'both' ? (
+                  <View className="gap-2">
+                    {([
+                      { value: 'individual' as const, label: 'Bireysel Proje', desc: 'Sadece sen çalışırsın', Icon: User, color: '#a78bfa' },
+                      { value: 'team' as const, label: 'Ekip Projesi', desc: 'Takım arkadaşı davet edebilirsin', Icon: Users, color: '#22d3ee' },
+                    ]).map((opt) => {
+                      const active = chosenProjectType === opt.value;
+                      return (
+                        <TouchableOpacity
+                          key={opt.value}
+                          onPress={() => setChosenProjectType(opt.value)}
+                          className={`flex-row items-center gap-3 rounded-lg border p-3 ${
+                            active ? 'border-indigo-500 bg-indigo-900/20' : 'border-slate-600'
+                          }`}
+                        >
+                          <View className={`h-4 w-4 rounded-full border-2 items-center justify-center ${active ? 'border-indigo-500' : 'border-slate-500'}`}>
+                            {active && <View className="h-2 w-2 rounded-full bg-indigo-500" />}
+                          </View>
+                          <opt.Icon size={16} color={opt.color} />
+                          <View className="flex-1">
+                            <Text className="text-sm font-medium text-gray-200">{opt.label}</Text>
+                            <Text className="text-xs text-gray-400">{opt.desc}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View className={`flex-row items-center gap-3 rounded-lg border p-3 ${
+                    courseProjectType === 'team' ? 'border-cyan-500/40 bg-cyan-500/10' : 'border-violet-500/40 bg-violet-500/10'
+                  }`}>
+                    <Lock size={16} color="#94a3b8" />
+                    {courseProjectType === 'team'
+                      ? <Users size={16} color="#22d3ee" />
+                      : <User size={16} color="#a78bfa" />}
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-gray-200">
+                        {courseProjectType === 'team' ? 'Ekip Projesi (Zorunlu)' : 'Bireysel Proje (Zorunlu)'}
+                      </Text>
+                      <Text className="text-xs text-gray-400">
+                        Bu ders için öğretmen proje tipini sabitlemiştir.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* İki Buton: Taslak Kaydet / Onaya Gönder */}
+            <View className="flex-row gap-3 mt-1">
+              <TouchableOpacity
+                disabled={isLoading}
+                onPress={() => handleSubmit(false)}
+                className={`flex-1 h-12 flex-row items-center justify-center rounded-xl border border-slate-600 bg-slate-700 active:bg-slate-600 ${isLoading ? 'opacity-50' : ''}`}
+              >
+                <Text className="text-sm font-semibold text-gray-200">
+                  {isLoading ? 'Kaydediliyor...' : '💾 Taslak Kaydet'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={isLoading}
+                onPress={() => handleSubmit(true)}
+                className={`flex-1 h-12 flex-row items-center justify-center gap-2 rounded-xl bg-indigo-600 active:bg-indigo-700 ${isLoading ? 'opacity-50' : ''}`}
+              >
+                <Send size={16} color="#ffffff" />
+                <Text className="text-sm font-semibold text-white">
+                  {isLoading ? 'Gönderiliyor...' : 'Onaya Gönder'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text className="text-xs text-center text-gray-400 mt-3">
+              💡 Taslak olarak kaydedip daha sonra da onaya gönderebilirsin
+            </Text>
           </CardContent>
         </Card>
       </ScrollView>

@@ -16,6 +16,7 @@ from app.features.project_member.project_member_dto import (
     InviteMemberRequest,
     ProjectMemberResponse,
     PendingMemberResponse,
+    MyInvitationResponse,
     TransferManagerRequest,
 )
 from app.base.base_dto import MessageResponse
@@ -49,6 +50,19 @@ def list_pending(
     db: Session = Depends(get_db),
 ):
     return ProjectMemberService(db).list_pending(project_id, current_user)
+
+
+@router.get(
+    "/api/v1/project-invitations/me",
+    response_model=list[MyInvitationResponse],
+    summary="Bana gelen proje davetleri",
+    description="Mevcut kullanıcının yanıtlamadığı (INVITED) tüm davet kayıtlarını proje özeti ile döner.",
+)
+def list_my_invitations(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectMemberService(db).list_my_invitations(current_user)
 
 
 # ── Davet ─────────────────────────────────────────────────────────────────────

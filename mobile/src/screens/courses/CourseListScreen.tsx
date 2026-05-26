@@ -3,7 +3,7 @@ import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert } from 
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
 import { Card, CardContent } from '../../components/ui/Card';
-import { BookOpen, Users, Plus, User } from 'lucide-react-native';
+import { BookOpen, Users, Plus, User, ArrowLeft } from 'lucide-react-native';
 import { Course, PaginatedResponse, ProjectType } from '../../types/course';
 
 /** Proje tipi badge renkleri — web paneli ile tutarlı */
@@ -36,17 +36,6 @@ export const CourseListScreen = ({ navigation }: any) => {
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
-
-  const handleEnroll = async (courseId: string) => {
-    try {
-      await apiClient.post(`/api/v1/courses/${courseId}/enroll`);
-      Alert.alert('Başarılı', 'Derse kaydınız yapıldı!');
-      fetchCourses();
-    } catch (error: any) {
-      const msg = error.response?.data?.detail;
-      Alert.alert('Hata', typeof msg === 'string' ? msg : 'Kayıt işlemi başarısız.');
-    }
-  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -86,9 +75,18 @@ export const CourseListScreen = ({ navigation }: any) => {
     >
       {/* Başlık */}
       <View className="mb-4 mt-2 flex-row items-center justify-between">
-        <View className="flex-1 mr-3">
-          <Text className="text-2xl font-bold text-white">{getTitle()}</Text>
-          <Text className="text-sm text-gray-400 mt-1">{getSubtitle()}</Text>
+        <View className="flex-row items-center flex-1 mr-3">
+          {/* Geri butonu — CoursesModal stack'ini kapatır, Ana Sayfa'ya döner */}
+          <TouchableOpacity
+            className="mr-3 h-10 w-10 items-center justify-center rounded-xl bg-slate-800"
+            onPress={() => navigation.goBack()}
+          >
+            <ArrowLeft size={20} color="#818cf8" />
+          </TouchableOpacity>
+          <View className="flex-1">
+            <Text className="text-2xl font-bold text-white">{getTitle()}</Text>
+            <Text className="text-sm text-gray-400 mt-1">{getSubtitle()}</Text>
+          </View>
         </View>
         {canCreateCourse && (
           <TouchableOpacity
@@ -176,14 +174,6 @@ export const CourseListScreen = ({ navigation }: any) => {
                       )}
                     </View>
 
-                    {role === 'STUDENT' && (
-                      <TouchableOpacity
-                        className="bg-indigo-600 rounded-lg px-4 py-2"
-                        onPress={() => handleEnroll(course.id)}
-                      >
-                        <Text className="text-white text-xs font-semibold">Kayıt Ol</Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 </CardContent>
               </Card>

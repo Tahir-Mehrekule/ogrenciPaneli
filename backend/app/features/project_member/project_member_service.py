@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.base.base_service import BaseService
-from app.common.enums import MemberRole, MemberStatus, UserRole, NotificationType
+from app.common.enums import MemberRole, MemberStatus, UserRole, NotificationType, ProjectType
 from app.common.notification_helper import send_notification
 from app.common.exceptions import (
     BadRequestException,
@@ -201,6 +201,10 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         if project.is_archived:
             raise BadRequestException("Arşivlenmiş projeye katılım isteği gönderilemez")
 
+        # Bireysel proje üye kabul etmez — yalnız ekip projesine katılım isteği atılabilir
+        if project.project_type != ProjectType.TEAM:
+            raise BadRequestException("Bu proje ekip projesi değil, katılım isteği kabul etmiyor")
+
         if current_user.role != UserRole.STUDENT:
             raise BadRequestException("Sadece öğrenciler katılım isteği gönderebilir")
 
@@ -221,7 +225,27 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         except IntegrityError:
             self.db.rollback()
             raise ConflictException("Bu proje için zaten bir üyelik kaydınız mevcut")
-        return ProjectMemberResponse.model_validate(member)
+
+        # send_notification içindeki commit member instance'ını expire edebilir;
+        # response'u önce hazırla, sonra bildirimi gönder.
+        response = ProjectMemberResponse.model_validate(member)
+
+        # Proje yöneticisine (yoksa proje sahibine) katılım isteği bildirimi
+        manager = self.repo.get_manager(project_id)
+        notify_user_id = manager.user_id if manager else project.created_by
+        send_notification(
+            db=self.db,
+            user_id=notify_user_id,
+            type=NotificationType.SYSTEM_ALERT,
+            title="Yeni Katılım İsteği",
+            message=(
+                f"'{project.title}' projenize bir öğrenci katılmak istiyor. "
+                f"Onaylamak için projeye gidin."
+            ),
+            related_id=project.id,
+        )
+
+        return response
 
     # ── Kabul / Red ───────────────────────────────────────────────────────────
 

@@ -1507,7 +1507,7 @@ export default function ProjectDetailPage() {
           {/* Bekleyen davetler — yönetici görür */}
           {(amManager || role === "TEACHER" || role === "ADMIN") && pendingMembers.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Bekleyen Davetler</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Bekleyen Davet &amp; İstekler</p>
               <Card>
                 <CardContent className="p-4 space-y-2">
                   {pendingMembers.map((m) => (
@@ -1519,9 +1519,28 @@ export default function ProjectDetailPage() {
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{m.user?.name ?? m.user_id}</p>
                           <p className="text-xs text-gray-400">{m.user?.email}</p>
+                          <p className="text-[11px] text-amber-500 dark:text-amber-400 mt-0.5">
+                            {m.status === "JOIN_REQUESTED" ? "Katılmak istiyor" : "Davet edildi"}
+                          </p>
                         </div>
                       </div>
-                      {canManageMembers && (
+                      {canManageMembers && m.status === "JOIN_REQUESTED" && (
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleAcceptInvite(m.id)}
+                            className="text-xs font-semibold text-green-500 hover:text-green-400"
+                          >
+                            Kabul
+                          </button>
+                          <button
+                            onClick={() => handleRejectInvite(m.id)}
+                            className="text-xs font-semibold text-red-400 hover:text-red-300"
+                          >
+                            Reddet
+                          </button>
+                        </div>
+                      )}
+                      {canManageMembers && m.status === "INVITED" && (
                         <button
                           onClick={() => handleCancelInvite(m.id)}
                           className="text-xs text-red-400 hover:text-red-300"

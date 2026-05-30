@@ -136,6 +136,26 @@ def department(db):
     return dep
 
 
+@pytest.fixture
+def course(db, teacher_user, department):
+    """Test dersi oluşturur (proje oluşturmada course_id zorunlu olduğu için).
+
+    project_type=BOTH → öğrenci proje tipini kendi seçer (varsayılan).
+    """
+    from app.features.course.course_model import Course
+    c = Course(
+        name="Test Dersi",
+        code="TST101",
+        semester="2026-Bahar",
+        department_id=department.id,
+        teacher_id=teacher_user.id,
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+
 # --- Token Fixture'ları ---
 
 @pytest.fixture

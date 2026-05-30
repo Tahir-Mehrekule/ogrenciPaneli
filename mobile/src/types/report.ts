@@ -13,8 +13,11 @@ export interface Report {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  course_id?: string | null;
   course_name?: string | null;
   course_code?: string | null;
+  project_title?: string | null;
+  submitted_by_name?: string | null;
 }
 
 export interface ReportCreate {

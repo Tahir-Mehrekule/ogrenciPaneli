@@ -190,7 +190,7 @@ class UserService(BaseService[User, UserRepo]):
     ) -> UserListResponse:
         """
         Öğrencinin numarasını ve sınıf bilgisini günceller.
-        Sadece TEACHER veya ADMIN yapabilir.
+        Sadece ADMIN yapabilir (endpoint role_required([ADMIN]) ile korunur).
 
         - Yeni student_no başka kullanıcıda varsa ConflictException
         - student_no verilirse prefix tablosundan grade_label + entry_year güncellenir
@@ -200,13 +200,6 @@ class UserService(BaseService[User, UserRepo]):
 
         if target_user.role != UserRole.STUDENT:
             raise BadRequestException("Bu işlem sadece öğrenci hesapları için geçerlidir")
-
-        # Öğretmen sadece kendi bölümündeki öğrencileri güncelleyebilir
-        if current_user.role == UserRole.TEACHER:
-            teacher_dept_ids = {str(ud.department_id) for ud in current_user.user_departments if ud.is_active and not ud.is_deleted}
-            student_dept_ids = {str(ud.department_id) for ud in target_user.user_departments if ud.is_active and not ud.is_deleted}
-            if not teacher_dept_ids.intersection(student_dept_ids):
-                raise ForbiddenException("Sadece kendi bölümünüzdeki öğrencilerin bilgilerini güncelleyebilirsiniz")
 
         update_data = {}
 

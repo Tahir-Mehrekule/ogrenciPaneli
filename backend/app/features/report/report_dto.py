@@ -58,6 +58,7 @@ class ReportResponse(BaseResponse):
     """
     project_id: UUID
     submitted_by: UUID
+    submitted_by_name: Optional[str] = None
     week_number: int
     year: int
     content: str
@@ -68,8 +69,11 @@ class ReportResponse(BaseResponse):
     teacher_reviewed_by: Optional[UUID] = None
     is_active: bool
     # Ders bilgisi (project → course üzerinden zenginleştirilir)
+    course_id: Optional[UUID] = None
     course_name: Optional[str] = None
     course_code: Optional[str] = None
+    # Proje bilgisi (report → project)
+    project_title: Optional[str] = None
 
 
 class ReportFilterParams(FilterParams):
@@ -77,6 +81,7 @@ class ReportFilterParams(FilterParams):
     Rapor listesi filtreleme parametreleri.
     """
     project_id: Optional[UUID] = Field(default=None, description="Proje filtresi")
+    course_id: Optional[UUID] = Field(default=None, description="Ders filtresi (project → course)")
     submitted_by: Optional[UUID] = Field(default=None, description="Raporlayan kullanıcı filtresi")
     status: Optional[ReportStatus] = Field(default=None, description="Durum filtresi")
     week_number: Optional[int] = Field(default=None, ge=1, le=53, description="Hafta numarası filtresi")

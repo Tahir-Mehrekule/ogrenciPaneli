@@ -29,7 +29,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
   const [description, setDescription] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedCourseName, setSelectedCourseName] = useState('Ders seçin (opsiyonel)');
+  const [selectedCourseName, setSelectedCourseName] = useState('Ders seçin');
   const [courses, setCourses] = useState<Course[]>([]);
   const [showCourseList, setShowCourseList] = useState(false);
   // Seçilen dersin proje tipi politikası (both = öğrenci seçer, diğerleri sabit)
@@ -55,7 +55,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
     setCourseProjectType(null);
     if (!course) {
       setSelectedCourseId(null);
-      setSelectedCourseName('Ders seçin (opsiyonel)');
+      setSelectedCourseName('Ders seçin');
       return;
     }
     setSelectedCourseId(course.id);
@@ -85,6 +85,9 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
     }
     if (!description.trim() || description.trim().length < 10) {
       return Alert.alert('Hata', 'Proje açıklaması en az 10 karakter olmalı.');
+    }
+    if (!selectedCourseId) {
+      return Alert.alert('Hata', 'Ders seçimi zorunludur.');
     }
 
     const pt = resolvedProjectType();
@@ -166,7 +169,7 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
 
             {/* Ders Seçimi Dropdown */}
             <Text className="text-sm font-medium text-gray-300 mb-1.5 mt-2">
-              Ders (Opsiyonel)
+              Ders <Text className="text-red-400">*</Text>
             </Text>
             <TouchableOpacity
               className="flex-row items-center justify-between rounded-xl border border-slate-600 bg-slate-700 px-4 py-3 mb-3"
@@ -180,12 +183,6 @@ export const ProjectCreateScreen = ({ navigation }: any) => {
 
             {showCourseList && (
               <View className="rounded-xl border border-slate-600 bg-slate-800 mb-3 overflow-hidden">
-                <TouchableOpacity
-                  className="px-4 py-3 border-b border-slate-700"
-                  onPress={() => handleCourseSelect(null)}
-                >
-                  <Text className="text-gray-400 text-sm">— Ders seçme</Text>
-                </TouchableOpacity>
                 {courses.map((course) => (
                   <TouchableOpacity
                     key={course.id}

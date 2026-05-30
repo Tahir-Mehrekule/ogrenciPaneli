@@ -174,14 +174,14 @@ def update_user(
     summary="Öğrenci bilgisi güncelle",
     description=(
         "Öğrenci numarasını ve sınıf bilgisini günceller. "
-        "TEACHER veya ADMIN erişebilir. "
+        "Sadece ADMIN erişebilir. "
         "Yeni numara başka öğrencide kayıtlıysa 409 döner."
     ),
 )
 def update_student_info(
     user_id: UUID,
     data: UpdateStudentInfoRequest,
-    current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
+    current_user=Depends(role_required([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
     service = UserService(db)

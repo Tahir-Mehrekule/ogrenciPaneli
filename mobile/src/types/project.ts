@@ -18,6 +18,9 @@ export interface Project {
   course_id: string | null;
   course_name: string | null;
   course_code: string | null;
+  department_id: string | null;
+  project_type?: 'individual' | 'team' | 'both';
+  created_by_name?: string | null;
   status: ProjectStatus;
   created_by: string;
   ai_task_plan: any | null;
@@ -87,5 +90,6 @@ export interface TaskCreate {
   title: string;
   description: string;
   project_id: string;
+  assigned_to?: string;
   due_date?: string;
 }

@@ -61,6 +61,7 @@ export default function NewProjectPage() {
     e.preventDefault();
     if (!title.trim() || title.length < 3) return setError("Proje başlığı en az 3 karakter olmalı.");
     if (!description.trim() || description.length < 10) return setError("Açıklama en az 10 karakter olmalı.");
+    if (!selectedCourseId) return setError("Ders seçimi zorunludur.");
 
     const pt = resolvedProjectType();
 
@@ -242,14 +243,14 @@ export default function NewProjectPage() {
             </div>
 
             <div>
-              <label htmlFor="prj-course" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ders (Opsiyonel)</label>
+              <label htmlFor="prj-course" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ders <span className="text-red-400">*</span></label>
               <select
                 id="prj-course"
                 value={selectedCourseId}
                 onChange={(e) => handleCourseChange(e.target.value)}
                 className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
               >
-                <option value="">— Ders seçme</option>
+                <option value="">— Ders seçin</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.code} — {c.name} ({c.semester})</option>
                 ))}
@@ -335,6 +336,7 @@ export default function NewProjectPage() {
                   // Validasyon
                   if (!title.trim() || title.length < 3) { setError("Proje başlığı en az 3 karakter olmalı."); return; }
                   if (!description.trim() || description.length < 10) { setError("Açıklama en az 10 karakter olmalı."); return; }
+                  if (!selectedCourseId) { setError("Ders seçimi zorunludur."); return; }
                   handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>, true);
                 }}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

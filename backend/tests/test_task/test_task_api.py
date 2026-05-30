@@ -13,11 +13,11 @@ from app.common.enums import UserRole, ProjectStatus
 from app.core.security import hash_password
 
 
-def _create_approved_project(client, student_token, teacher_token):
+def _create_approved_project(client, student_token, teacher_token, course_id):
     """Yardımcı: APPROVED durumda proje oluşturur ve proje ID'sini döner."""
     create = client.post(
         "/api/v1/projects",
-        json={"title": "Görev Test Projesi", "description": "Bu proje görev testleri için oluşturulmuştur."},
+        json={"title": "Görev Test Projesi", "description": "Bu proje görev testleri için oluşturulmuştur.", "course_id": str(course_id)},
         headers={"Authorization": f"Bearer {student_token}"},
     )
     assert create.status_code == 201, f"Proje oluşturulamadı: {create.json()}"
@@ -28,15 +28,15 @@ def _create_approved_project(client, student_token, teacher_token):
 
 
 @pytest.fixture
-def approved_project(client, student_token, teacher_token):
+def approved_project(client, student_token, teacher_token, course):
     """APPROVED durumda proje fixture'ı."""
-    return _create_approved_project(client, student_token, teacher_token)
+    return _create_approved_project(client, student_token, teacher_token, course.id)
 
 
 @pytest.fixture
-def project_owner_and_task(client, db, student_user, student_token, teacher_token):
+def project_owner_and_task(client, db, student_user, student_token, teacher_token, course):
     """Proje sahibi olan öğrenci, APPROVED proje ve o projedeki bir görevi döner."""
-    pid = _create_approved_project(client, student_token, teacher_token)
+    pid = _create_approved_project(client, student_token, teacher_token, course.id)
 
     # Proje sahibini üye olarak ekle
     member = ProjectMember(project_id=pid, user_id=student_user.id)
@@ -57,9 +57,9 @@ def project_owner_and_task(client, db, student_user, student_token, teacher_toke
 
 
 class TestTaskCreate:
-    def test_proje_sahibi_görev_oluşturabilir(self, client, db, student_user, student_token, teacher_token):
+    def test_proje_sahibi_görev_oluşturabilir(self, client, db, student_user, student_token, teacher_token, course):
         """Proje sahibi görev oluşturabilir → 201."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
 
         resp = client.post(
             "/api/v1/tasks",
@@ -86,9 +86,9 @@ class TestTaskCreate:
         )
         assert resp.status_code == 401
 
-    def test_atanan_kişi_proje_üyesi_değilse_hata(self, client, db, student_user, teacher_user, student_token, teacher_token):
+    def test_atanan_kişi_proje_üyesi_değilse_hata(self, client, db, student_user, teacher_user, student_token, teacher_token, course):
         """Projede olmayan kişiye görev atanamaz → 400."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
 
         resp = client.post(
             "/api/v1/tasks",
@@ -114,10 +114,10 @@ class TestTaskList:
         assert resp.json()["total"] >= 1
 
     def test_student_sadece_üyesi_olduğu_proje_görevlerini_görür(
-        self, client, db, student_user, student_token, teacher_token
+        self, client, db, student_user, student_token, teacher_token, course
     ):
         """STUDENT sadece üyesi olduğu projelerdeki görevleri görür."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
 
         # Öğrenciyi üye yap
         member = ProjectMember(project_id=pid, user_id=student_user.id)
@@ -140,9 +140,9 @@ class TestTaskList:
 
 
 class TestTaskStatusUpdate:
-    def test_student_todo_dan_in_progress_yapabilir(self, client, db, student_user, student_token, teacher_token):
+    def test_student_todo_dan_in_progress_yapabilir(self, client, db, student_user, student_token, teacher_token, course):
         """Öğrenci TODO → IN_PROGRESS yapabilir."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
         member = ProjectMember(project_id=pid, user_id=student_user.id)
         db.add(member)
         db.commit()
@@ -162,9 +162,9 @@ class TestTaskStatusUpdate:
         assert resp.status_code == 200
         assert resp.json()["status"] == "in_progress"
 
-    def test_student_review_dan_done_yapamaz(self, client, db, student_user, student_token, teacher_token):
+    def test_student_review_dan_done_yapamaz(self, client, db, student_user, student_token, teacher_token, course):
         """Öğrenci REVIEW → DONE yapamaz → 403."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
         member = ProjectMember(project_id=pid, user_id=student_user.id)
         db.add(member)
         db.commit()
@@ -189,9 +189,9 @@ class TestTaskStatusUpdate:
         )
         assert resp.status_code == 403
 
-    def test_teacher_review_dan_done_yapabilir(self, client, db, student_user, student_token, teacher_token):
+    def test_teacher_review_dan_done_yapabilir(self, client, db, student_user, student_token, teacher_token, course):
         """Öğretmen REVIEW → DONE yapabilir."""
-        pid = _create_approved_project(client, student_token, teacher_token)
+        pid = _create_approved_project(client, student_token, teacher_token, course.id)
         member = ProjectMember(project_id=pid, user_id=student_user.id)
         db.add(member)
         db.commit()

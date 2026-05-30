@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, RefreshControl,
-  TouchableOpacity, Alert, Modal, TextInput,
+  TouchableOpacity, Alert, Modal, TextInput, Linking,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
-import { FileText, Plus, Paperclip, CheckCircle2, Clock, Circle, Search, X, ChevronDown, Trash2, RotateCcw, Archive } from 'lucide-react-native';
+import { FileText, Plus, Paperclip, CheckCircle2, Clock, Circle, Search, X, ChevronDown, Trash2, RotateCcw, Archive, Sparkles } from 'lucide-react-native';
 import { Report } from '../../types/report';
 import { PaginatedResponse } from '../../types/course';
 
@@ -29,7 +29,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 };
 
 // ── Teacher Tablo Görünümü ────────────────────────────────────────────────────
-const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role }: { reports: Report[]; onDelete: (id: string, content: string) => void; onHardDelete?: (id: string, content: string) => void; onRestore?: (id: string) => void; role: string }) => {
+const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role, onOpenDetail }: { reports: Report[]; onDelete: (id: string, content: string) => void; onHardDelete?: (id: string, content: string) => void; onRestore?: (id: string) => void; role: string; onOpenDetail: (r: Report) => void }) => {
   if (reports.length === 0) {
     return (
       <View className="mt-16 items-center px-8">
@@ -78,20 +78,24 @@ const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role }: 
             {courseReports.map((report, idx) => {
               const st = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.draft;
               return (
-                <View
+                <TouchableOpacity
                   key={report.id}
+                  onPress={() => onOpenDetail(report)}
                   className={`flex-row items-center px-3 py-2.5 ${idx < courseReports.length - 1 ? 'border-b border-slate-700/40' : ''}`}
                 >
-                  {/* Öğrenci (submitted_by id — API'den isim gelmiyorsa kısa göster) */}
+                  {/* Öğrenci adı */}
                   <View className="w-24">
                     <Text className="text-xs text-gray-300" numberOfLines={1}>
-                      {report.submitted_by.slice(0, 8)}...
+                      {report.submitted_by_name || '—'}
                     </Text>
                   </View>
 
                   {/* Proje */}
                   <View className="flex-1 pr-2">
                     <Text className="text-xs text-white font-medium" numberOfLines={1}>
+                      {report.project_title || 'İsimsiz Proje'}
+                    </Text>
+                    <Text className="text-[11px] text-gray-500 mt-0.5" numberOfLines={1}>
                       {report.content.slice(0, 30)}{report.content.length > 30 ? '…' : ''}
                     </Text>
                     {report.reviewer_note && (
@@ -136,7 +140,7 @@ const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role }: 
                       </TouchableOpacity>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -165,7 +169,7 @@ const TeacherTableView = ({ reports, onDelete, onHardDelete, onRestore, role }: 
 };
 
 // ── Öğrenci Kart Görünümü ─────────────────────────────────────────────────────
-const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, onDelete, aiAnalysis, aiLoading, onAnalyze }: any) => {
+const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, onDelete, aiAnalysis, aiLoading, onAnalyze, onOpenDetail }: any) => {
   if (reports.length === 0) {
     return (
       <View className="mt-16 items-center px-8">
@@ -207,6 +211,7 @@ const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, on
               >
                 <View style={{ height: 3, backgroundColor: status.accent }} />
                 <View className="p-4">
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => onOpenDetail(report)}>
                   <View className="flex-row items-center justify-between mb-3">
                     <View className={`flex-row items-center gap-1.5 rounded-lg px-2.5 py-1 ${status.bg}`}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: status.accent }} />
@@ -217,7 +222,13 @@ const StudentCardView = ({ reports, navigation, user, onSubmit, onFileUpload, on
                     </View>
                   </View>
 
+                  {report.project_title && (
+                    <Text className="text-xs font-semibold text-indigo-300 mb-1" numberOfLines={1}>
+                      📁 {report.project_title}
+                    </Text>
+                  )}
                   <Text className="text-sm text-gray-200 leading-5" numberOfLines={3}>{report.content}</Text>
+                  </TouchableOpacity>
 
                   {report.youtube_url && (
                     <View className="mt-2 flex-row items-center gap-1.5 rounded-lg bg-red-900/20 border border-red-800/30 px-3 py-1.5">
@@ -322,8 +333,28 @@ export const ReportListScreen = ({ navigation }: any) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [weekFilter, setWeekFilter] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [courseOptions, setCourseOptions] = useState<{ id: string; name: string; code: string }[]>([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showWeekModal, setShowWeekModal] = useState(false);
+  const [showCourseModal, setShowCourseModal] = useState(false);
+
+  // Rapor detay
+  const [viewReport, setViewReport] = useState<Report | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState('');
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [aiTone, setAiTone] = useState<'constructive' | 'encouraging' | 'critical'>('constructive');
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+
+  // Staff: ders filtresi için öğretmenin derslerini çek
+  useEffect(() => {
+    if (!isStaff) return;
+    apiClient
+      .get('/api/v1/courses', { params: { size: 100 } })
+      .then(({ data }) => setCourseOptions(data.items ?? data ?? []))
+      .catch(() => setCourseOptions([]));
+  }, [isStaff]);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -331,6 +362,7 @@ export const ReportListScreen = ({ navigation }: any) => {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       if (weekFilter) params.week_number = weekFilter;
+      if (courseFilter) params.course_id = courseFilter;
       const { data } = await apiClient.get<PaginatedResponse<Report>>('/api/v1/reports', { params });
       setReports(data.items);
     } catch (error) {
@@ -339,9 +371,9 @@ export const ReportListScreen = ({ navigation }: any) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, statusFilter, weekFilter]);
+  }, [search, statusFilter, weekFilter, courseFilter]);
 
-  useEffect(() => { fetchReports(); }, [search, statusFilter, weekFilter]);
+  useEffect(() => { fetchReports(); }, [search, statusFilter, weekFilter, courseFilter]);
 
   const handleSubmit = async (reportId: string) => {
     try {
@@ -437,6 +469,49 @@ export const ReportListScreen = ({ navigation }: any) => {
     }
   };
 
+  const openDetail = (r: Report) => {
+    setViewReport(r);
+    setShowFeedbackForm(false);
+    setFeedbackNote('');
+  };
+
+  // Öğretmen geri bildirimi gönder (SUBMITTED → REVIEWED)
+  const handleFeedback = async () => {
+    if (!viewReport || feedbackNote.trim().length < 5) return;
+    setFeedbackLoading(true);
+    try {
+      const { data } = await apiClient.post(`/api/v1/reports/${viewReport.id}/review`, {
+        reviewer_note: feedbackNote.trim(),
+      });
+      Alert.alert('Başarılı', 'Geri bildirim kaydedildi.');
+      setShowFeedbackForm(false);
+      setFeedbackNote('');
+      setViewReport({ ...viewReport, ...data });
+      fetchReports();
+    } catch (error) {
+      Alert.alert('Hata', safeErrorMsg(error, 'Geri bildirim gönderilemedi.'));
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // AI geri bildirim taslağı öner
+  const handleAiSuggestFeedback = async () => {
+    if (!viewReport) return;
+    setAiSuggestLoading(true);
+    try {
+      const { data } = await apiClient.post<{ suggested_feedback: string }>(
+        '/api/v1/ai/suggest-feedback',
+        { report_id: viewReport.id, tone: aiTone }
+      );
+      setFeedbackNote(data.suggested_feedback);
+    } catch (error) {
+      Alert.alert('Hata', safeErrorMsg(error, 'AI önerisi alınamadı.'));
+    } finally {
+      setAiSuggestLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -507,6 +582,24 @@ export const ReportListScreen = ({ navigation }: any) => {
             <ChevronDown size={14} color="#64748b" />
           </TouchableOpacity>
         </View>
+
+        {/* Ders filtresi — staff (birden fazla ders veren öğretmen için) */}
+        {isStaff && courseOptions.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setShowCourseModal(true)}
+            className="flex-row items-center justify-between bg-slate-800 rounded-xl px-3 py-2.5"
+          >
+            <Text className={`text-sm ${courseFilter ? 'text-indigo-300' : 'text-gray-500'}`} numberOfLines={1}>
+              {courseFilter
+                ? (() => {
+                    const c = courseOptions.find((o) => o.id === courseFilter);
+                    return c ? `${c.code} — ${c.name}` : 'Ders';
+                  })()
+                : 'Tüm Dersler'}
+            </Text>
+            <ChevronDown size={14} color="#64748b" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* İçerik: Teacher → Tablo, Student → Kart */}
@@ -517,6 +610,7 @@ export const ReportListScreen = ({ navigation }: any) => {
           onHardDelete={role === 'ADMIN' ? handleHardDeleteReport : undefined}
           onRestore={role === 'ADMIN' ? handleRestoreReport : undefined}
           role={role}
+          onOpenDetail={openDetail}
         />
       ) : (
         <StudentCardView
@@ -529,6 +623,7 @@ export const ReportListScreen = ({ navigation }: any) => {
           aiAnalysis={aiAnalysis}
           aiLoading={aiLoading}
           onAnalyze={handleAnalyze}
+          onOpenDetail={openDetail}
         />
       )}
 
@@ -572,6 +667,219 @@ export const ReportListScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Ders Filtre Modal (staff) */}
+      <Modal visible={showCourseModal} transparent animationType="slide" onRequestClose={() => setShowCourseModal(false)}>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="rounded-t-2xl bg-slate-900 px-4 pb-8 pt-4" style={{ maxHeight: '70%' }}>
+            <Text className="text-base font-bold text-white mb-3">Ders Filtresi</Text>
+            <ScrollView>
+              <TouchableOpacity
+                onPress={() => { setCourseFilter(''); setShowCourseModal(false); }}
+                className={`rounded-xl px-4 py-3 mb-1 ${courseFilter === '' ? 'bg-indigo-900/40' : 'bg-slate-800'}`}
+              >
+                <Text className={`text-sm ${courseFilter === '' ? 'font-semibold text-indigo-300' : 'text-gray-300'}`}>
+                  Tüm Dersler
+                </Text>
+              </TouchableOpacity>
+              {courseOptions.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => { setCourseFilter(c.id); setShowCourseModal(false); }}
+                  className={`rounded-xl px-4 py-3 mb-1 ${courseFilter === c.id ? 'bg-indigo-900/40' : 'bg-slate-800'}`}
+                >
+                  <Text className={`text-sm ${courseFilter === c.id ? 'font-semibold text-indigo-300' : 'text-gray-300'}`}>
+                    {c.code} — {c.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rapor Detay Modal (web viewModal birebir) */}
+      <Modal visible={!!viewReport} transparent animationType="slide" onRequestClose={() => setViewReport(null)}>
+        <View className="flex-1 justify-end bg-black/60">
+          <View className="rounded-t-3xl bg-slate-900 border-t border-slate-700" style={{ maxHeight: '90%' }}>
+            {viewReport && (() => {
+              const st = STATUS_CONFIG[viewReport.status] ?? STATUS_CONFIG.draft;
+              return (
+                <>
+                  <View style={{ height: 3, backgroundColor: st.accent }} className="rounded-t-3xl" />
+                  {/* Başlık */}
+                  <View className="flex-row items-start justify-between px-5 pt-4 pb-3 border-b border-slate-800">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-lg font-bold text-white" numberOfLines={1}>
+                        {viewReport.course_name || 'Rapor Detayı'}
+                      </Text>
+                      {viewReport.project_title && (
+                        <Text className="text-xs text-indigo-300 mt-0.5" numberOfLines={1}>📁 {viewReport.project_title}</Text>
+                      )}
+                      {isStaff && viewReport.submitted_by_name && (
+                        <Text className="text-xs text-gray-300 mt-0.5" numberOfLines={1}>👤 {viewReport.submitted_by_name}</Text>
+                      )}
+                      <Text className="text-xs text-gray-500 mt-0.5">{viewReport.year} - {viewReport.week_number}. Hafta</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setViewReport(null)} className="p-1.5 rounded-lg bg-slate-800">
+                      <X size={18} color="#94a3b8" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView className="px-5 py-4" contentContainerStyle={{ paddingBottom: 24 }}>
+                    {/* İçerik */}
+                    <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Rapor İçeriği</Text>
+                    <View className="rounded-xl bg-slate-800/50 border border-slate-700/50 p-3 mb-4">
+                      <Text className="text-sm text-gray-200 leading-5">{viewReport.content}</Text>
+                    </View>
+
+                    {/* YouTube */}
+                    {viewReport.youtube_url && (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(viewReport.youtube_url!)}
+                        className="flex-row items-center justify-center gap-2 rounded-xl bg-red-900/20 border border-red-800/30 py-3 mb-4"
+                      >
+                        <Text className="text-sm font-medium text-red-400">🎬 YouTube&apos;da İzle</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Öğretmen Geri Bildirimi */}
+                    {viewReport.reviewer_note ? (
+                      <View className="rounded-xl bg-emerald-900/10 border border-emerald-800/30 p-3 mb-4">
+                        <Text className="text-xs font-semibold text-emerald-400 mb-1">💬 Değerlendirme Notu</Text>
+                        <Text className="text-sm text-emerald-300">{viewReport.reviewer_note}</Text>
+                      </View>
+                    ) : isStaff && viewReport.status === 'submitted' && !showFeedbackForm ? (
+                      <TouchableOpacity
+                        onPress={() => setShowFeedbackForm(true)}
+                        className="rounded-xl border border-dashed border-amber-700/40 py-3 mb-4 items-center"
+                      >
+                        <Text className="text-sm text-amber-400">+ Geri bildirim ekle</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    {/* Geri Bildirim Formu */}
+                    {isStaff && showFeedbackForm && (
+                      <View className="mb-4">
+                        <View className="flex-row items-center justify-between mb-2">
+                          <Text className="text-sm font-medium text-amber-400">Geri Bildirim Yaz</Text>
+                          <View className="flex-row items-center gap-1.5">
+                            <TouchableOpacity
+                              onPress={() => {
+                                const tones = ['constructive', 'encouraging', 'critical'] as const;
+                                const idx = tones.indexOf(aiTone);
+                                setAiTone(tones[(idx + 1) % tones.length]);
+                              }}
+                              className="rounded-lg bg-slate-800 px-2 py-1"
+                            >
+                              <Text className="text-xs text-gray-300">
+                                {aiTone === 'constructive' ? 'Yapıcı' : aiTone === 'encouraging' ? 'Cesaret verici' : 'Eleştirel'}
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={handleAiSuggestFeedback}
+                              disabled={aiSuggestLoading}
+                              className="flex-row items-center gap-1 rounded-lg border border-indigo-700/40 bg-indigo-900/20 px-2 py-1"
+                              style={{ opacity: aiSuggestLoading ? 0.5 : 1 }}
+                            >
+                              <Sparkles size={11} color="#a5b4fc" />
+                              <Text className="text-xs text-indigo-300">{aiSuggestLoading ? 'Üretiliyor...' : 'AI ile Öner'}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                        <TextInput
+                          value={feedbackNote}
+                          onChangeText={setFeedbackNote}
+                          multiline
+                          numberOfLines={4}
+                          placeholder="Öğrenciye geri bildirim yazın... (min 5 karakter)"
+                          placeholderTextColor="#64748b"
+                          className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-gray-200"
+                          style={{ textAlignVertical: 'top', minHeight: 90 }}
+                        />
+                        <View className="flex-row justify-end gap-2 mt-2">
+                          <TouchableOpacity onPress={() => { setShowFeedbackForm(false); setFeedbackNote(''); }} className="rounded-lg border border-slate-700 px-3 py-2">
+                            <Text className="text-xs text-gray-400">Vazgeç</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleFeedback}
+                            disabled={feedbackLoading || feedbackNote.trim().length < 5}
+                            className="rounded-lg bg-amber-600 px-3 py-2"
+                            style={{ opacity: feedbackLoading || feedbackNote.trim().length < 5 ? 0.5 : 1 }}
+                          >
+                            <Text className="text-xs font-semibold text-white">{feedbackLoading ? 'Gönderiliyor...' : 'Gönder'}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* AI Analiz */}
+                    {viewReport.status !== 'draft' && (
+                      <View className="mb-4">
+                        {!aiAnalysis[viewReport.id] ? (
+                          <TouchableOpacity
+                            onPress={() => handleAnalyze(viewReport.id)}
+                            disabled={aiLoading[viewReport.id]}
+                            className="rounded-xl bg-blue-900/20 border border-blue-800/40 py-3 items-center"
+                            style={{ opacity: aiLoading[viewReport.id] ? 0.5 : 1 }}
+                          >
+                            <Text className="text-sm font-semibold text-blue-400">
+                              {aiLoading[viewReport.id] ? 'Analiz ediliyor...' : '✨ Yapay Zeka ile Analiz Et'}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View className="rounded-xl bg-blue-900/10 border border-blue-800/30 p-3">
+                            <Text className="text-sm font-bold text-blue-400 mb-2">🤖 Yapay Zeka Analizi</Text>
+                            <Text className="text-xs text-gray-300 mb-2">{aiAnalysis[viewReport.id].summary}</Text>
+                            <Text className="text-xs font-bold text-emerald-400 mb-1">💪 Güçlü Yönler</Text>
+                            {aiAnalysis[viewReport.id].strengths?.map((s: string, i: number) => (
+                              <Text key={i} className="text-xs text-gray-400 ml-2 mb-0.5">• {s}</Text>
+                            ))}
+                            <Text className="text-xs font-bold text-amber-400 mt-2 mb-1">⚠️ Gelişime Açık</Text>
+                            {aiAnalysis[viewReport.id].weaknesses?.map((w: string, i: number) => (
+                              <Text key={i} className="text-xs text-gray-400 ml-2 mb-0.5">• {w}</Text>
+                            ))}
+                            {aiAnalysis[viewReport.id].recommendations && (
+                              <>
+                                <Text className="text-xs font-bold text-indigo-400 mt-2 mb-1">🎯 Tavsiyeler</Text>
+                                {aiAnalysis[viewReport.id].recommendations?.map((rec: string, i: number) => (
+                                  <Text key={i} className="text-xs text-gray-400 ml-2 mb-0.5">• {rec}</Text>
+                                ))}
+                              </>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Footer aksiyonlar */}
+                    <View className="flex-row gap-2">
+                      {(isStaff || viewReport.status === 'draft') && (
+                        <TouchableOpacity
+                          onPress={() => { handleDeleteReport(viewReport.id, viewReport.content.slice(0, 30)); setViewReport(null); }}
+                          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-amber-900/20 border border-amber-800/40 py-3"
+                        >
+                          <Archive size={14} color="#fbbf24" />
+                          <Text className="text-sm font-semibold text-amber-400">Sil</Text>
+                        </TouchableOpacity>
+                      )}
+                      {role === 'ADMIN' && (
+                        <TouchableOpacity
+                          onPress={() => { handleHardDeleteReport(viewReport.id, viewReport.content.slice(0, 30)); setViewReport(null); }}
+                          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-red-900/20 border border-red-800/40 py-3"
+                        >
+                          <Trash2 size={14} color="#f87171" />
+                          <Text className="text-sm font-semibold text-red-400">Kalıcı Sil</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>

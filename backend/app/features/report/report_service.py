@@ -40,11 +40,20 @@ class ReportService(BaseService[Report, ReportRepo]):
         """Rapor response'una ders bilgisini ekler (report → project → course)."""
         try:
             project = report.project
-            if project and project.course_id:
-                course = project.course
-                if course:
-                    response.course_name = course.name
-                    response.course_code = course.code
+            if project:
+                response.project_title = project.title
+                if project.course_id:
+                    response.course_id = project.course_id
+                    course = project.course
+                    if course:
+                        response.course_name = course.name
+                        response.course_code = course.code
+        except Exception:
+            pass
+        # Raporu gönderen öğrencinin adı (report → author)
+        try:
+            if report.author:
+                response.submitted_by_name = report.author.full_name
         except Exception:
             pass
         return response
@@ -113,6 +122,35 @@ class ReportService(BaseService[Report, ReportRepo]):
         if current_user.role == UserRole.STUDENT:
             filters["submitted_by"] = current_user.id
 
+        # TEACHER sadece kendi derslerine ait raporları görür.
+        # (report → project → course.teacher_id == teacher)
+        course_ids = None
+        if current_user.role == UserRole.TEACHER:
+            rows = (
+                self.db.query(Course.id)
+                .filter(
+                    Course.teacher_id == current_user.id,
+                    Course.is_deleted == False,
+                    Course.is_active == True,
+                )
+                .all()
+            )
+            teacher_course_ids = [row.id for row in rows]
+            if not teacher_course_ids:
+                return PaginatedResponse(
+                    items=[], total=0, page=params.page,
+                    size=params.size, pages=0,
+                )
+            # Açık ders filtresi verildiyse, o dersin öğretmene ait olduğunu doğrula
+            if params.course_id and params.course_id not in teacher_course_ids:
+                return PaginatedResponse(
+                    items=[], total=0, page=params.page,
+                    size=params.size, pages=0,
+                )
+            # Açık filtre yoksa tüm kendi derslerine kısıtla
+            if not params.course_id:
+                course_ids = teacher_course_ids
+
         # Admin Plan: TEACHER ve ADMIN için DRAFT raporlar default GİZLİ.
         # Sadece sahip öğrenci kendi DRAFT'ını görür.
         in_filters = None
@@ -134,6 +172,8 @@ class ReportService(BaseService[Report, ReportRepo]):
             search_fields=["content"],
             grade_label=params.grade_label,
             branch_code=params.branch_code,
+            course_id=params.course_id,
+            course_ids=course_ids,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -146,8 +186,20 @@ class ReportService(BaseService[Report, ReportRepo]):
             pages=math.ceil(total / params.size) if params.size > 0 else 0,
         )
 
+    def _teacher_owns_report_course(self, report, teacher: User) -> bool:
+        """Rapor → proje → ders.teacher_id, öğretmenin kendisi mi?"""
+        project = self.db.query(Project).filter(Project.id == report.project_id).first()
+        if not project or not project.course_id:
+            return False
+        course = self.db.query(Course).filter(Course.id == project.course_id).first()
+        return bool(course and str(course.teacher_id) == str(teacher.id))
+
     def get_report(self, report_id: UUID, current_user: User) -> ReportResponse:
-        """Rapor detayı. STUDENT sadece kendi raporunu görebilir."""
+        """
+        Rapor detayı.
+        - STUDENT sadece kendi raporunu görebilir.
+        - TEACHER sadece kendi dersinin raporunu görebilir.
+        """
         report = self.repo.get_by_id_or_404(report_id)
 
         if (
@@ -155,6 +207,12 @@ class ReportService(BaseService[Report, ReportRepo]):
             and str(report.submitted_by) != str(current_user.id)
         ):
             raise ForbiddenException("Bu raporu görüntüleme yetkiniz yok")
+
+        if (
+            current_user.role == UserRole.TEACHER
+            and not self._teacher_owns_report_course(report, current_user)
+        ):
+            raise ForbiddenException("Bu rapor sizin derslerinize ait değil")
 
         return self._to_response(report)
 
@@ -274,6 +332,13 @@ class ReportService(BaseService[Report, ReportRepo]):
         Sadece TEACHER/ADMIN yapabilir.
         """
         report = self.repo.get_by_id_or_404(report_id)
+
+        # TEACHER sadece kendi dersinin raporunu inceleyebilir (ADMIN muaf)
+        if (
+            current_user.role == UserRole.TEACHER
+            and not self._teacher_owns_report_course(report, current_user)
+        ):
+            raise ForbiddenException("Bu rapor sizin derslerinize ait değil")
 
         if report.status != ReportStatus.SUBMITTED:
             from app.common.exceptions import BadRequestException

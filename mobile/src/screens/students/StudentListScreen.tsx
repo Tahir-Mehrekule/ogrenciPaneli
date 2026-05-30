@@ -3,8 +3,9 @@ import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   Modal, ScrollView, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { Search, X, Edit2, ChevronDown } from 'lucide-react-native';
+import { Search, X, Edit2, ChevronDown, ChevronRight } from 'lucide-react-native';
 import apiClient from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Student {
   id: string;
@@ -24,6 +25,9 @@ interface EditState {
 const GRADE_OPTIONS = ['', '1. Sınıf', '2. Sınıf', '3. Sınıf', '4. Sınıf'];
 
 export const StudentListScreen = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const [viewStudent, setViewStudent] = useState<Student | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -96,7 +100,11 @@ export const StudentListScreen = () => {
   };
 
   const renderStudent = ({ item }: { item: Student }) => (
-    <View className="flex-row items-center px-4 py-3 border-b border-slate-800">
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setViewStudent(item)}
+      className="flex-row items-center px-4 py-3 border-b border-slate-800"
+    >
       <View className="flex-1">
         <Text className="text-sm font-semibold text-white">{item.full_name}</Text>
         <Text className="text-xs text-gray-500 mt-0.5">
@@ -109,13 +117,18 @@ export const StudentListScreen = () => {
           </Text>
         )}
       </View>
-      <TouchableOpacity
-        onPress={() => setEditState({ student: item, student_no: item.student_no ?? '', grade_label: item.grade_label ?? '' })}
-        className="p-2 rounded-lg bg-slate-800"
-      >
-        <Edit2 size={14} color="#818cf8" />
-      </TouchableOpacity>
-    </View>
+      {/* Düzenleme yalnız ADMIN; öğretmen salt görüntüler */}
+      {isAdmin ? (
+        <TouchableOpacity
+          onPress={() => setEditState({ student: item, student_no: item.student_no ?? '', grade_label: item.grade_label ?? '' })}
+          className="p-2 rounded-lg bg-slate-800"
+        >
+          <Edit2 size={14} color="#818cf8" />
+        </TouchableOpacity>
+      ) : (
+        <ChevronRight size={16} color="#475569" />
+      )}
+    </TouchableOpacity>
   );
 
   return (
@@ -237,6 +250,47 @@ export const StudentListScreen = () => {
                   <Text className="text-sm font-semibold text-white">{saving ? 'Kaydediliyor...' : 'Kaydet'}</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Salt Görüntüleme Detay Modal (öğretmen) */}
+      {viewStudent && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setViewStudent(null)}>
+          <View className="flex-1 items-center justify-center bg-black/60 px-6">
+            <View className="w-full rounded-2xl bg-slate-900 p-5">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-base font-bold text-white">Öğrenci Bilgileri</Text>
+                <TouchableOpacity onPress={() => setViewStudent(null)} className="p-1.5 rounded-lg bg-slate-800">
+                  <X size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+
+              <View className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 mb-2">
+                <Text className="text-xs font-semibold text-gray-500 uppercase">Ad Soyad</Text>
+                <Text className="text-sm text-gray-200 mt-0.5">{viewStudent.full_name}</Text>
+              </View>
+              <View className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 mb-2">
+                <Text className="text-xs font-semibold text-gray-500 uppercase">E-posta</Text>
+                <Text className="text-sm text-gray-200 mt-0.5">{viewStudent.email}</Text>
+              </View>
+              <View className="flex-row gap-2 mb-2">
+                <View className="flex-1 rounded-xl border border-slate-800 bg-slate-800/40 p-3">
+                  <Text className="text-xs font-semibold text-gray-500 uppercase">Öğrenci No</Text>
+                  <Text className="text-sm font-mono text-gray-200 mt-0.5">{viewStudent.student_no ?? '—'}</Text>
+                </View>
+                <View className="flex-1 rounded-xl border border-slate-800 bg-slate-800/40 p-3">
+                  <Text className="text-xs font-semibold text-gray-500 uppercase">Sınıf</Text>
+                  <Text className="text-sm text-gray-200 mt-0.5">{viewStudent.grade_label ?? '—'}</Text>
+                </View>
+              </View>
+              {viewStudent.departments.length > 0 && (
+                <View className="rounded-xl border border-slate-800 bg-slate-800/40 p-3">
+                  <Text className="text-xs font-semibold text-gray-500 uppercase">Bölüm</Text>
+                  <Text className="text-sm text-indigo-400 mt-0.5">{viewStudent.departments.map((d) => d.name).join(', ')}</Text>
+                </View>
+              )}
             </View>
           </View>
         </Modal>

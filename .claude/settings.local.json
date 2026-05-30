@@ -127,7 +127,13 @@
       "PowerShell(python -m pytest -p no:warnings -q 2>&1 | Select-Object -Last 8)",
       "PowerShell(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback|vEthernet|WSL' } | Select-Object IPAddress, InterfaceAlias)",
       "Bash(netsh advfirewall *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://192.168.1.19:19000/docs\" -UseBasicParsing -TimeoutSec 5; \"HTTP $\\($r.StatusCode\\) — erisilebilir\" } catch { \"HATA: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(python -m pytest \"C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\backend\\\\tests\\\\test_project\\\\test_project_api.py\" -p no:cacheprovider 2>&1)",
+      "PowerShell(python -m pip install pytest -q 2>&1)",
+      "PowerShell(python -c \"import pytest; print\\(pytest.__version__\\)\")",
+      "PowerShell(python -m pytest \"C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\backend\\\\tests\\\\test_project\\\\test_project_api.py\" -p no:cacheprovider --rootdir \"C:\\\\Users\\\\Tahir\\\\Documents\\\\GitHub\\\\ogrenciPaneli\\\\backend\" 2>&1)",
+      "PowerShell(if \\($?\\) { \"COMPILE OK\" })"
     ]
   }
 }

@@ -2,11 +2,13 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-// Android Emülatörler localhost için 10.0.2.2 adresini ararlar. iOS için localhost.
+// Backend Docker'da 19000 portunda yayında (19000->8000 eşlemesi).
+// Android Emülatör localhost için 10.0.2.2 kullanır; iOS için localhost.
+// Gerçek cihaz için EXPO_PUBLIC_API_URL=http://<makine-LAN-IP>:19000 ver.
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  if (Platform.OS === "android") return "http://10.0.2.2:8000";
-  return "http://localhost:8000";
+  if (Platform.OS === "android") return "http://10.0.2.2:19000";
+  return "http://localhost:19000";
 };
 
 const apiClient = axios.create({

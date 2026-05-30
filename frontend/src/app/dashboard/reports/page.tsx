@@ -28,9 +28,17 @@ interface Report {
   reviewer_note: string | null;
   teacher_reviewed_at: string | null;
   created_at: string;
+  course_id: string | null;
   course_name: string | null;
   course_code: string | null;
+  project_title: string | null;
   submitted_by_name?: string;
+}
+
+interface CourseOption {
+  id: string;
+  name: string;
+  code: string;
 }
 
 const STATUS_CONFIG: Record<
@@ -203,6 +211,8 @@ export default function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [weekFilter, setWeekFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
   const [submittedByFilter, setSubmittedByFilter] = useState("");
   const [gradeFilter, setGradeFilter] = useState("");
   const [branchFilter, setBranchFilter] = useState<string | null>(null);
@@ -234,6 +244,7 @@ export default function ReportsPage() {
       if (statusFilter) params.set("status", statusFilter);
       if (weekFilter) params.set("week_number", weekFilter);
       if (yearFilter) params.set("year", yearFilter);
+      if (courseFilter) params.set("course_id", courseFilter);
       if (submittedByFilter) params.set("search", submittedByFilter || search);
       if (gradeFilter) params.set("grade_label", gradeFilter);
       if (branchFilter) params.set("branch_code", branchFilter);
@@ -260,10 +271,22 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, statusFilter, weekFilter, yearFilter, submittedByFilter, gradeFilter, branchFilter, sortBy, sortOrder]);
+  }, [page, pageSize, search, statusFilter, weekFilter, yearFilter, courseFilter, submittedByFilter, gradeFilter, branchFilter, sortBy, sortOrder]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, weekFilter, yearFilter, submittedByFilter, gradeFilter, branchFilter, sortBy, sortOrder]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, weekFilter, yearFilter, courseFilter, submittedByFilter, gradeFilter, branchFilter, sortBy, sortOrder]);
   useEffect(() => { fetchReports(); }, [fetchReports]);
+
+  // Staff: ders filtresi dropdown'u için öğretmenin derslerini çek
+  useEffect(() => {
+    if (!isStaff) return;
+    apiClient
+      .get("/api/v1/courses?size=100")
+      .then(({ data }) => {
+        const items = (data.items ?? data) as CourseOption[];
+        setCourseOptions(items);
+      })
+      .catch(() => setCourseOptions([]));
+  }, [isStaff]);
 
   const handleSubmit = async (reportId: string) => {
     try {
@@ -335,6 +358,7 @@ export default function ReportsPage() {
     setStatusFilter("");
     setWeekFilter("");
     setYearFilter("");
+    setCourseFilter("");
     setSubmittedByFilter("");
     setGradeFilter("");
     setBranchFilter(null);
@@ -348,6 +372,9 @@ export default function ReportsPage() {
       : []),
     ...(weekFilter ? [{ key: "week", label: "Hafta", displayValue: `${weekFilter}. Hafta` }] : []),
     ...(yearFilter ? [{ key: "year", label: "Yıl", displayValue: yearFilter }] : []),
+    ...(courseFilter
+      ? [{ key: "course", label: "Ders", displayValue: courseOptions.find((c) => c.id === courseFilter)?.code ?? "Ders" }]
+      : []),
     ...(submittedByFilter ? [{ key: "submittedBy", label: "Öğrenci", displayValue: submittedByFilter }] : []),
     ...(gradeFilter ? [{ key: "grade", label: "Sınıf", displayValue: gradeFilter }] : []),
     ...(branchFilter ? [{ key: "branch", label: "Şube", displayValue: `${branchFilter} Şubesi` }] : []),
@@ -358,6 +385,7 @@ export default function ReportsPage() {
     if (key === "status") setStatusFilter("");
     if (key === "week") setWeekFilter("");
     if (key === "year") setYearFilter("");
+    if (key === "course") setCourseFilter("");
     if (key === "submittedBy") setSubmittedByFilter("");
     if (key === "grade") { setGradeFilter(""); setBranchFilter(null); setShowAllBranches(false); }
     if (key === "branch") setBranchFilter(null);
@@ -366,7 +394,7 @@ export default function ReportsPage() {
   const columns: Column<Report>[] = [
     {
       key: "course_name",
-      header: "Ders / Proje",
+      header: "Ders",
       sortable: true,
       render: (r) => (
         <div className="flex flex-col gap-1">
@@ -381,6 +409,28 @@ export default function ReportsPage() {
         </div>
       ),
     },
+    {
+      key: "project_title",
+      header: "Proje",
+      sortable: false,
+      render: (r) => (
+        <span className="text-sm text-gray-300" title={r.project_title ?? ""}>
+          {r.project_title || "—"}
+        </span>
+      ),
+    },
+    ...(isStaff
+      ? [{
+          key: "submitted_by_name",
+          header: "Öğrenci",
+          sortable: false,
+          render: (r: Report) => (
+            <span className="text-sm text-gray-300" title={r.submitted_by_name ?? ""}>
+              {r.submitted_by_name || "—"}
+            </span>
+          ),
+        } as Column<Report>]
+      : []),
     {
       key: "week",
       header: "Hafta",
@@ -559,6 +609,22 @@ export default function ReportsPage() {
           ))}
         </select>
 
+        {/* Ders filtresi — staff (birden fazla ders veren öğretmen için) */}
+        {isStaff && courseOptions.length > 0 && (
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500"
+          >
+            <option value="">Tüm Dersler</option>
+            {courseOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {activeFilters.length > 0 && (
           <button
             onClick={clearFilters}
@@ -650,6 +716,12 @@ export default function ReportsPage() {
                 <h3 className="text-lg font-semibold text-white">
                   {viewModal.course_name || "Rapor Detayı"}
                 </h3>
+                {viewModal.project_title && (
+                  <p className="text-sm text-indigo-300 mt-0.5">📁 {viewModal.project_title}</p>
+                )}
+                {isStaff && viewModal.submitted_by_name && (
+                  <p className="text-sm text-gray-300 mt-0.5">👤 {viewModal.submitted_by_name}</p>
+                )}
                 <p className="text-sm text-gray-400 mt-1">
                   {viewModal.year} Yılı - {viewModal.week_number}. Hafta Raporu
                 </p>

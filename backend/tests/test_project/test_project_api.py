@@ -9,39 +9,56 @@ import pytest
 
 
 class TestProjectCreate:
-    def test_student_proje_oluşturabilir(self, client, student_token):
+    def test_student_proje_oluşturabilir(self, client, student_token, course):
         """Öğrenci proje oluşturabilir → 201."""
         resp = client.post(
             "/api/v1/projects",
-            json={"title": "Test Proje", "description": "Bu bir test projesidir, açıklama zorunludur."},
+            json={
+                "title": "Test Proje",
+                "description": "Bu bir test projesidir, açıklama zorunludur.",
+                "course_id": str(course.id),
+            },
             headers={"Authorization": f"Bearer {student_token}"},
         )
         assert resp.status_code == 201
         assert resp.json()["title"] == "Test Proje"
         assert resp.json()["status"] == "draft"
 
+    def test_ders_olmadan_proje_oluşturulamaz(self, client, student_token):
+        """course_id zorunlu — gönderilmezse → 422."""
+        resp = client.post(
+            "/api/v1/projects",
+            json={"title": "Dersiz Proje", "description": "Ders seçilmeden proje açılamaz testi."},
+            headers={"Authorization": f"Bearer {student_token}"},
+        )
+        assert resp.status_code == 422
+
     def test_token_olmadan_proje_oluşturulamaz(self, client):
         """Token olmadan proje → 401."""
         resp = client.post(
             "/api/v1/projects",
-            json={"title": "Proje", "description": "Bu açıklama yeterince uzundur."},
+            json={
+                "title": "Proje",
+                "description": "Bu açıklama yeterince uzundur.",
+                "course_id": "00000000-0000-0000-0000-000000000000",
+            },
         )
         assert resp.status_code == 401
 
 
 class TestProjectList:
-    def test_student_sadece_kendi_projelerini_görür(self, client, student_token, teacher_token):
+    def test_student_sadece_kendi_projelerini_görür(self, client, student_token, teacher_token, course):
         """STUDENT sadece kendi oluşturduğu projeleri listeler."""
         # Student proje oluştur
         client.post(
             "/api/v1/projects",
-            json={"title": "Benim Projem", "description": "Bu benim özel proje açıklamam buradadır."},
+            json={"title": "Benim Projem", "description": "Bu benim özel proje açıklamam buradadır.", "course_id": str(course.id)},
             headers={"Authorization": f"Bearer {student_token}"},
         )
         # Teacher farklı proje oluştur
         client.post(
             "/api/v1/projects",
-            json={"title": "Öğretmen Projesi", "description": "Bu öğretmenin kendi projesidir açıklama."},
+            json={"title": "Öğretmen Projesi", "description": "Bu öğretmenin kendi projesidir açıklama.", "course_id": str(course.id)},
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
         # Student listesini kontrol et
@@ -108,11 +125,11 @@ class TestProjectList:
 
 
 class TestProjectStatusFlow:
-    def test_submit_pending_yap(self, client, student_token):
+    def test_submit_pending_yap(self, client, student_token, course):
         """Proje PENDING'e alınır."""
         create = client.post(
             "/api/v1/projects",
-            json={"title": "Onaya Gönderilecek", "description": "Bu projeyi onaya göndereceğiz test için."},
+            json={"title": "Onaya Gönderilecek", "description": "Bu projeyi onaya göndereceğiz test için.", "course_id": str(course.id)},
             headers={"Authorization": f"Bearer {student_token}"},
         )
         assert create.status_code == 201, f"Proje oluşturulamadı: {create.json()}"
@@ -125,11 +142,11 @@ class TestProjectStatusFlow:
         assert resp.status_code == 200
         assert resp.json()["status"] == "pending"
 
-    def test_approve_teacher_yapabilir(self, client, student_token, teacher_token):
+    def test_approve_teacher_yapabilir(self, client, student_token, teacher_token, course):
         """Öğretmen PENDING projeyi onaylar → APPROVED."""
         create = client.post(
             "/api/v1/projects",
-            json={"title": "Onaylanacak Proje", "description": "Bu proje öğretmen tarafından onaylanacaktır."},
+            json={"title": "Onaylanacak Proje", "description": "Bu proje öğretmen tarafından onaylanacaktır.", "course_id": str(course.id)},
             headers={"Authorization": f"Bearer {student_token}"},
         )
         assert create.status_code == 201, f"Proje oluşturulamadı: {create.json()}"
@@ -146,11 +163,11 @@ class TestProjectStatusFlow:
         assert resp.status_code == 200
         assert resp.json()["status"] == "approved"
 
-    def test_student_onaylayamaz(self, client, student_token):
+    def test_student_onaylayamaz(self, client, student_token, course):
         """Öğrenci projeyi approve edemez → 403."""
         create = client.post(
             "/api/v1/projects",
-            json={"title": "Onay Testi", "description": "Bu projeyi öğrenci onaylamaya çalışacaktır."},
+            json={"title": "Onay Testi", "description": "Bu projeyi öğrenci onaylamaya çalışacaktır.", "course_id": str(course.id)},
             headers={"Authorization": f"Bearer {student_token}"},
         )
         assert create.status_code == 201, f"Proje oluşturulamadı: {create.json()}"

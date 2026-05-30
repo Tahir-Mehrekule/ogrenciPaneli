@@ -256,8 +256,8 @@ export const ProjectMembersScreen = ({ route, navigation }: any) => {
                 {/* Aksiyon Butonları */}
                 {!isCurrentUser && canManage && (
                   <View className="flex-row gap-1">
-                    {/* Yöneticilik Devret (sadece yönetici veya admin, hedef üye) */}
-                    {isManager && !isMemberManager && (
+                    {/* Yöneticilik Devret (yönetici, öğretmen veya admin; hedef normal üye) */}
+                    {canManage && !isMemberManager && (
                       <TouchableOpacity
                         className="h-8 w-8 items-center justify-center rounded-lg bg-amber-900/30"
                         onPress={() => handleTransfer(member.user_id, member.user?.name ?? '')}

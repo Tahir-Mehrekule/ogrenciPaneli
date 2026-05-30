@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   Alert, ActivityIndicator,
@@ -26,29 +26,48 @@ export const InviteMemberScreen = ({ route, navigation }: any) => {
   const { projectId } = route.params;
   const { user } = useAuth();
   const [query, setQuery] = useState('');
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [results, setResults] = useState<SearchUser[]>([]);
   const [searching, setSearching] = useState(false);
   const [inviting, setInviting] = useState<string | null>(null);
 
-  const search = useCallback(async (q: string) => {
-    if (q.length < 2) { setResults([]); return; }
-    setSearching(true);
-    try {
-      const { data } = await apiClient.get<SearchUser[]>('/api/v1/users/search', {
-        params: { q, same_grade: true },
-      });
-      setResults(data);
-    } catch {
-      setResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
+  // Projenin bölümünü çek (web ile aynı: bölüm öğrencilerini listele)
+  useEffect(() => {
+    apiClient
+      .get(`/api/v1/projects/${projectId}`)
+      .then(({ data }) => setDepartmentId(data.department_id ?? null))
+      .catch(() => setDepartmentId(null));
+  }, [projectId]);
 
-  const handleQueryChange = (text: string) => {
-    setQuery(text);
-    search(text);
-  };
+  const search = useCallback(
+    async (q: string) => {
+      setSearching(true);
+      try {
+        const params: Record<string, string> = { limit: '50' };
+        if (q.trim()) params.q = q.trim();
+        if (departmentId) params.department_id = departmentId;
+        const { data } = await apiClient.get<SearchUser[]>('/api/v1/users/search', { params });
+        // Davet edeni listeden çıkar
+        setResults((data ?? []).filter((u) => u.id !== user?.id));
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [departmentId, user?.id]
+  );
+
+  // İlk yükleme + bölüm geldiğinde: boş q ile bölüm öğrencilerini listele
+  useEffect(() => {
+    search('');
+  }, [search]);
+
+  // Debounce arama
+  useEffect(() => {
+    const t = setTimeout(() => search(query), 300);
+    return () => clearTimeout(t);
+  }, [query, search]);
 
   const handleInvite = async (targetUser: SearchUser) => {
     setInviting(targetUser.id);
@@ -69,14 +88,12 @@ export const InviteMemberScreen = ({ route, navigation }: any) => {
       {/* Başlık */}
       <View className="px-4 pt-6 pb-4">
         <Text className="text-2xl font-bold text-white">Üye Davet Et</Text>
-        {user?.grade_label && (
-          <View className="flex-row items-center gap-1.5 mt-2">
-            <GraduationCap size={13} color="#818cf8" />
-            <Text className="text-xs text-indigo-400">
-              Sadece kendi sınıfınız gösterilir: <Text className="font-bold">{user.grade_label}</Text>
-            </Text>
-          </View>
-        )}
+        <View className="flex-row items-center gap-1.5 mt-2">
+          <GraduationCap size={13} color="#818cf8" />
+          <Text className="text-xs text-indigo-400">
+            {departmentId ? 'Bölümünüzdeki öğrenciler listeleniyor.' : 'Tüm öğrenciler aranabilir.'}
+          </Text>
+        </View>
       </View>
 
       {/* Arama Kutusu */}
@@ -84,7 +101,7 @@ export const InviteMemberScreen = ({ route, navigation }: any) => {
         <Search size={16} color="#64748b" />
         <TextInput
           value={query}
-          onChangeText={handleQueryChange}
+          onChangeText={setQuery}
           placeholder="İsim, mail veya okul numarası..."
           placeholderTextColor="#475569"
           className="flex-1 py-3 ml-2 text-sm text-white"
@@ -99,12 +116,10 @@ export const InviteMemberScreen = ({ route, navigation }: any) => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
         ListEmptyComponent={
-          query.length >= 2 && !searching ? (
+          !searching ? (
             <View className="mt-10 items-center">
               <Text className="text-sm text-gray-500">
-                {user?.grade_label
-                  ? `${user.grade_label} için sonuç bulunamadı`
-                  : 'Sonuç bulunamadı'}
+                {query.trim() ? 'Sonuç bulunamadı' : 'Listelenecek öğrenci yok'}
               </Text>
             </View>
           ) : null

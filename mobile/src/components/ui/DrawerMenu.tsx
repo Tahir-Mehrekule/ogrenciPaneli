@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  X, GraduationCap, Users, UserCheck, Settings,
+  X, GraduationCap, Users, Settings,
   LogOut, User as UserIcon, BookOpen, ScrollText,
 } from 'lucide-react-native';
 
@@ -65,12 +65,6 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({ visible, onClose, naviga
       icon: <Users size={20} color="#818cf8" />,
       onPress: () => navigate('UserList'),
       roles: ['ADMIN'],
-    },
-    {
-      label: 'Onay Bekleyenler',
-      icon: <UserCheck size={20} color="#818cf8" />,
-      onPress: () => navigate('PendingStudents'),
-      roles: ['TEACHER'],
     },
     {
       label: 'Bölüm Yönetimi',

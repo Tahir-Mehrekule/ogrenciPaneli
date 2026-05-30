@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Clipboard,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { Plus, CheckCircle, Circle, Clock, Trash2, Pencil, X } from 'lucide-react-native';
-import { Project, Task, TaskStatus } from '../../types/project';
+import { Plus, CheckCircle, Circle, Clock, Trash2, Pencil, X, Users, Crown, UserPlus, UserMinus, ArrowLeftRight, Copy } from 'lucide-react-native';
+import { Project, Task, TaskStatus, ProjectMember } from '../../types/project';
 
 const PROJECT_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
   draft:    { label: 'Taslak',     bg: 'bg-slate-700',      text: 'text-slate-300' },
@@ -78,6 +79,10 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Ekip üyeleri
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [pendingMembers, setPendingMembers] = useState<ProjectMember[]>([]);
+
   // Düzenleme modal state'leri
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -107,8 +112,83 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
     }
   }, [projectId]);
 
+  // Ekip üyeleri (sadece team projesinde)
+  const fetchMembers = useCallback(async () => {
+    try {
+      const [activeRes, pendingRes] = await Promise.all([
+        apiClient.get<ProjectMember[]>(`/api/v1/projects/${projectId}/members`),
+        apiClient.get<ProjectMember[]>(`/api/v1/projects/${projectId}/members/pending`).catch(() => ({ data: [] as ProjectMember[] })),
+      ]);
+      setMembers(activeRes.data ?? []);
+      setPendingMembers(pendingRes.data ?? []);
+    } catch {
+      /* üye listesi sessizce hata verebilir */
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (project?.project_type === 'team') fetchMembers();
+  }, [project?.project_type, fetchMembers]);
+
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Üye yönetimi handler'ları ──
+  const copyShareCode = (code: string) => {
+    Clipboard.setString(code);
+    Alert.alert('Kopyalandı', `Paylaşım kodu kopyalandı: ${code}`);
+  };
+
+  const handleAcceptInvite = async (memberId: string) => {
+    try {
+      await apiClient.post(`/api/v1/projects/${projectId}/members/${memberId}/accept`);
+      fetchMembers();
+    } catch (error) { Alert.alert('Hata', safeErrorMsg(error, 'İşlem başarısız.')); }
+  };
+
+  const handleRejectInvite = async (memberId: string) => {
+    try {
+      await apiClient.post(`/api/v1/projects/${projectId}/members/${memberId}/reject`);
+      fetchMembers();
+    } catch (error) { Alert.alert('Hata', safeErrorMsg(error, 'İşlem başarısız.')); }
+  };
+
+  const handleCancelInvite = async (memberId: string) => {
+    try {
+      await apiClient.delete(`/api/v1/projects/${projectId}/members/${memberId}/cancel-invite`);
+      fetchMembers();
+    } catch (error) { Alert.alert('Hata', safeErrorMsg(error, 'İptal başarısız.')); }
+  };
+
+  const handleRemoveMember = (userId: string, name: string) => {
+    Alert.alert('Üyeyi Çıkar', `${name} adlı üyeyi projeden çıkarmak istediğinize emin misiniz?`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Çıkar', style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/api/v1/projects/${projectId}/members/${userId}`);
+            fetchMembers();
+          } catch (error) { Alert.alert('Hata', safeErrorMsg(error, 'Çıkarma başarısız.')); }
+        },
+      },
+    ]);
+  };
+
+  const handleTransferManager = (userId: string, name: string) => {
+    Alert.alert('Yönetici Yap', `${name} adlı üyeye yöneticilik devredilsin mi?`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Devret',
+        onPress: async () => {
+          try {
+            await apiClient.patch(`/api/v1/projects/${projectId}/members/transfer-manager`, { user_id: userId });
+            fetchMembers();
+          } catch (error) { Alert.alert('Hata', safeErrorMsg(error, 'Devir başarısız.')); }
+        },
+      },
+    ]);
+  };
 
   const handleSubmit = async () => {
     Alert.alert('Onaya Gönder', 'Projeyi öğretmeninize onay için göndermek istiyor musunuz?', [
@@ -299,6 +379,27 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
   const isCreator = String((project as any)?.created_by) === String(user?.id);
   const canCreateTask = isCreator || role === 'ADMIN' || role === 'STUDENT';
 
+  // Ekip üyeleri yetki/flag'leri
+  const isStaff = role === 'TEACHER' || role === 'ADMIN';
+  const isTeamProject = project.project_type === 'team';
+  const amManager = isCreator || members.some((m) => String(m.user_id) === String(user?.id) && m.role === 'MANAGER');
+  const canManageMembers = amManager || isStaff;
+  const myMembership = pendingMembers.find((m) => String(m.user_id) === String(user?.id) && m.status === 'INVITED');
+
+  // Katkı özeti: her atanan için tamamlanan / toplam görev (kim ne kadar yaptı)
+  const contributionStats = (() => {
+    const map = new Map<string, { name: string; total: number; done: number }>();
+    tasks.forEach((t) => {
+      const key = (t.assigned_to as string) ?? '__unassigned__';
+      const name = (t as any).assignee_name ?? 'Atanmamış';
+      const entry = map.get(key) ?? { name, total: 0, done: 0 };
+      entry.total += 1;
+      if ((t.status as string)?.toLowerCase() === 'done') entry.done += 1;
+      map.set(key, entry);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  })();
+
   return (
     <ScrollView
       className="flex-1 bg-slate-950 p-4"
@@ -481,6 +582,37 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
             )}
           </View>
 
+          {/* Katkı Özeti — kim ne kadar yaptı */}
+          {contributionStats.length > 0 && (
+            <Card className="mb-4">
+              <CardContent className="pt-4 pb-4">
+                <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Katkı Özeti</Text>
+                {contributionStats.map((s, i) => {
+                  const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+                  return (
+                    <View key={i} className="mb-3">
+                      <View className="flex-row items-center justify-between mb-1">
+                        <View className="flex-row items-center gap-2 flex-1 min-w-0">
+                          <View className="h-7 w-7 items-center justify-center rounded-full bg-cyan-900/40 shrink-0">
+                            <Text className="text-xs font-bold text-cyan-300">
+                              {s.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text className="text-sm font-medium text-white flex-1" numberOfLines={1}>{s.name}</Text>
+                        </View>
+                        <Text className="text-xs font-semibold text-gray-400 ml-2">{s.done}/{s.total}</Text>
+                      </View>
+                      <View className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                        <View className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                      </View>
+                      <Text className="text-xs text-gray-500 mt-0.5">%{pct} tamamlandı</Text>
+                    </View>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Görev Grupları (4 kolon: TODO, IN_PROGRESS, REVIEW, DONE) */}
           {(['todo', 'in_progress', 'review', 'done'] as TaskStatus[]).map((status) => (
             grouped[status].length > 0 && (
@@ -545,6 +677,149 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
             </Card>
           )}
         </>
+      )}
+
+      {/* ── Ekip Üyeleri ── */}
+      {isTeamProject && (
+        <View className="mt-2 mb-2">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2">
+              <Users size={18} color="#22d3ee" />
+              <Text className="text-base font-semibold text-white">Ekip Üyeleri</Text>
+              <View className="rounded-full bg-slate-700 px-2 py-0.5">
+                <Text className="text-xs font-bold text-slate-300">
+                  {1 + members.filter((m) => String(m.user_id) !== String((project as any).created_by)).length}
+                </Text>
+              </View>
+            </View>
+            {canManageMembers && (
+              <TouchableOpacity
+                className="flex-row items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5"
+                onPress={() => navigation.navigate('InviteMember', { projectId })}
+              >
+                <UserPlus size={13} color="#fff" />
+                <Text className="text-xs text-white font-semibold">Davet Et</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Paylaşım kodu */}
+          {(project as any).share_code && (isCreator || canManageMembers || members.some((m) => String(m.user_id) === String(user?.id))) && (
+            <View className="flex-row items-center justify-between rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 mb-3">
+              <View className="flex-1 min-w-0">
+                <Text className="text-xs font-semibold text-gray-500 uppercase">Paylaşım Kodu</Text>
+                <Text className="text-base font-mono font-bold text-indigo-400 mt-0.5">{(project as any).share_code}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => copyShareCode((project as any).share_code)}
+                className="flex-row items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2"
+              >
+                <Copy size={13} color="#818cf8" />
+                <Text className="text-xs font-semibold text-indigo-400">Kopyala</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Davet edildiyseniz kabul/red */}
+          {myMembership && (
+            <View className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 mb-3">
+              <Text className="text-sm font-semibold text-indigo-300 mb-2">Bu projeye davet edildiniz</Text>
+              <View className="flex-row gap-2">
+                <TouchableOpacity className="flex-1 rounded-lg bg-emerald-600 py-2 items-center" onPress={() => handleAcceptInvite(myMembership.id)}>
+                  <Text className="text-xs font-semibold text-white">Kabul Et</Text>
+                </TouchableOpacity>
+                <TouchableOpacity className="flex-1 rounded-lg bg-slate-700 py-2 items-center" onPress={() => handleRejectInvite(myMembership.id)}>
+                  <Text className="text-xs font-semibold text-gray-200">Reddet</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Aktif üyeler */}
+          <Card className="mb-3">
+            <CardContent className="p-3">
+              {/* Proje sahibi */}
+              <View className="flex-row items-center gap-3 py-1.5">
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-amber-900/40">
+                  <Crown size={16} color="#f59e0b" />
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-medium text-white" numberOfLines={1}>
+                    {(project as any).created_by_name ?? 'Proje Sahibi'}
+                  </Text>
+                  <Text className="text-xs text-gray-500">Projeyi başlatan</Text>
+                </View>
+                <View className="rounded-lg bg-amber-900/30 px-2 py-0.5">
+                  <Text className="text-xs font-semibold text-amber-400">Sahip</Text>
+                </View>
+              </View>
+
+              {/* Diğer aktif üyeler */}
+              {members
+                .filter((m) => String(m.user_id) !== String((project as any).created_by))
+                .map((m) => {
+                  const isMemberManager = m.role === 'MANAGER';
+                  return (
+                    <View key={m.id} className="flex-row items-center gap-3 py-1.5 border-t border-slate-800">
+                      <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-900/40">
+                        {isMemberManager ? <Crown size={16} color="#f59e0b" /> : <Users size={15} color="#818cf8" />}
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="text-sm font-medium text-white" numberOfLines={1}>{m.user?.name ?? 'Üye'}</Text>
+                        {m.user?.email && <Text className="text-xs text-gray-500" numberOfLines={1}>{m.user.email}</Text>}
+                      </View>
+                      <View className={`rounded-lg px-2 py-0.5 ${isMemberManager ? 'bg-amber-900/30' : 'bg-slate-800'}`}>
+                        <Text className={`text-xs font-semibold ${isMemberManager ? 'text-amber-400' : 'text-gray-400'}`}>
+                          {isMemberManager ? 'Yönetici' : 'Üye'}
+                        </Text>
+                      </View>
+                      {canManageMembers && (
+                        <View className="flex-row gap-1">
+                          {!isMemberManager && (
+                            <TouchableOpacity className="h-8 w-8 items-center justify-center rounded-lg bg-amber-900/30" onPress={() => handleTransferManager(m.user_id, m.user?.name ?? '')}>
+                              <ArrowLeftRight size={12} color="#fbbf24" />
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity className="h-8 w-8 items-center justify-center rounded-lg bg-red-900/20" onPress={() => handleRemoveMember(m.user_id, m.user?.name ?? '')}>
+                            <UserMinus size={12} color="#f87171" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+
+              {members.filter((m) => String(m.user_id) !== String((project as any).created_by)).length === 0 && (
+                <Text className="text-xs text-gray-500 italic pt-2">Henüz başka aktif ekip üyesi yok.</Text>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bekleyen davetler */}
+          {canManageMembers && pendingMembers.length > 0 && (
+            <View>
+              <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Bekleyen Davetler</Text>
+              <Card>
+                <CardContent className="p-3">
+                  {pendingMembers.map((m) => (
+                    <View key={m.id} className="flex-row items-center gap-3 py-1.5">
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-amber-900/30">
+                        <Clock size={14} color="#fbbf24" />
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="text-sm font-medium text-white" numberOfLines={1}>{m.user?.name ?? 'Üye'}</Text>
+                        <Text className="text-xs text-amber-400">{m.status === 'INVITED' ? 'Davet gönderildi' : 'Katılmak istiyor'}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleCancelInvite(m.id)}>
+                        <Text className="text-xs text-red-400">İptal</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </CardContent>
+              </Card>
+            </View>
+          )}
+        </View>
       )}
 
       <View className="h-8" />

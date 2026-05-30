@@ -361,16 +361,16 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         """
         Yöneticilik devri.
 
-        - Sadece mevcut MANAGER veya Admin yapabilir
+        - Mevcut MANAGER, Teacher veya Admin yapabilir
         - Hedef kullanıcı projede ACTIVE MEMBER olmalı
         - Eski yönetici MEMBER olur, yeni kullanıcı MANAGER olur
         """
         self.project_repo.get_by_id_or_404(project_id)
 
-        is_admin = current_user.role == UserRole.ADMIN
+        is_staff = current_user.role in (UserRole.TEACHER, UserRole.ADMIN)
         is_manager = self.repo.is_manager(project_id, current_user.id)
 
-        if not is_admin and not is_manager:
+        if not is_staff and not is_manager:
             raise ForbiddenException("Yöneticilik devri için yetkiniz yok")
 
         if str(data.user_id) == str(current_user.id):
@@ -462,12 +462,13 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         return bool(project and str(project.created_by) == str(user_id))
 
     def _require_manager_or_admin(self, project_id: UUID, user: User) -> None:
-        if user.role == UserRole.ADMIN:
+        # Teacher ve Admin projeleri yönetebilir (üye davet/iptal/onay)
+        if user.role in (UserRole.TEACHER, UserRole.ADMIN):
             return
         if self._is_project_creator(project_id, user.id):
             return
         if not self.repo.is_manager(project_id, user.id):
-            raise ForbiddenException("Bu işlem için proje yöneticisi veya admin olmanız gerekiyor")
+            raise ForbiddenException("Bu işlem için proje yöneticisi, öğretmen veya admin olmanız gerekiyor")
 
     def _require_manager_or_staff(self, project_id: UUID, user: User) -> None:
         if user.role in (UserRole.TEACHER, UserRole.ADMIN):

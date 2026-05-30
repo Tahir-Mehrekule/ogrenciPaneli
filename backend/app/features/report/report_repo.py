@@ -56,6 +56,8 @@ class ReportRepo(BaseRepository[Report]):
         search_fields: list[str] = None,
         grade_label: Optional[str] = None,
         branch_code: Optional[str] = None,
+        course_id: Optional[UUID] = None,
+        course_ids: Optional[list[UUID]] = None,
         page: int = 1,
         size: int = 20,
         sort_by: str = "created_at",
@@ -64,9 +66,12 @@ class ReportRepo(BaseRepository[Report]):
         """
         grade_label ve branch_code, raporu submit eden User'a JOIN ister.
         branch_code → User.class_section → ClassSection.branch_code üzerinden filtrelenir.
+        course_id → Report.project → Project.course_id üzerinden filtrelenir.
+        course_ids → birden fazla derse (örn. öğretmenin tüm dersleri) kısıt.
         """
         from app.features.auth.auth_model import User
         from app.features.class_section.class_section_model import ClassSection
+        from app.features.project.project_model import Project
 
         query = self._not_deleted(self.db.query(Report))
         query = self._active_filter(query, active_only=True)
@@ -82,6 +87,13 @@ class ReportRepo(BaseRepository[Report]):
                 query.join(ClassSection, User.class_section_id == ClassSection.id)
                      .filter(ClassSection.branch_code == branch_code)
             )
+
+        if course_id or course_ids is not None:
+            query = query.join(Project, Report.project_id == Project.id)
+            if course_id:
+                query = query.filter(Project.course_id == course_id)
+            if course_ids is not None:
+                query = query.filter(Project.course_id.in_(course_ids))
 
         if filters:
             for key, value in filters.items():

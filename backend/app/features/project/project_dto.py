@@ -32,9 +32,8 @@ class ProjectCreate(BaseModel):
         min_length=10,
         description="Proje açıklaması"
     )
-    course_id: Optional[UUID] = Field(
-        default=None,
-        description="Ders ID'si"
+    course_id: UUID = Field(
+        description="Ders ID'si (zorunlu)"
     )
     project_type: Optional[ProjectType] = Field(
         default=None,
@@ -112,6 +111,7 @@ class ProjectResponse(BaseResponse):
     is_active: bool
     github_url: Optional[str] = None
     rejection_reason: Optional[str] = None
+    share_code: Optional[str] = None
 
 
 class ProjectFilterParams(FilterParams):

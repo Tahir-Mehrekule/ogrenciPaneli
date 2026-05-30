@@ -66,7 +66,7 @@ export const StudentDashboardScreen = ({ navigation }: any) => {
     <ScrollView className="flex-1 bg-slate-950 p-4">
       <View className="mb-6 mt-4">
         <Text className="text-2xl font-bold tracking-tight text-white mb-1">
-          Hoş geldin, {user?.name?.split(' ')[0]}! 👋
+          Hoş geldin, {user?.full_name?.split(' ')[0]}! 👋
         </Text>
         <Text className="text-sm text-gray-400">
           Sınıf ve proje süreçlerindeki son durumun.

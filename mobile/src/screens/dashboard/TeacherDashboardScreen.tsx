@@ -3,13 +3,21 @@ import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import apiClient from '../../lib/apiClient';
 import { Card, CardContent } from '../../components/ui/Card';
-import { BookOpen, FolderKanban, Clock, ArrowRight, CheckCircle2, XCircle } from 'lucide-react-native';
+import { BookOpen, FolderKanban, Clock, ArrowRight, CheckCircle2, XCircle, FileText } from 'lucide-react-native';
 
 interface Project {
   id: string;
   title: string;
   description: string;
   status: string;
+}
+
+interface PendingReport {
+  id: string;
+  project_title: string | null;
+  course_name: string | null;
+  week_number: number;
+  year: number;
 }
 
 interface Stats {
@@ -22,22 +30,29 @@ export const TeacherDashboardScreen = ({ navigation }: any) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ courses: 0, totalProjects: 0, pendingProjects: 0 });
   const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
+  const [pendingReports, setPendingReports] = useState<PendingReport[]>([]);
+  const [pendingReportCount, setPendingReportCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [coursesRes, projectsRes] = await Promise.all([
+        const [coursesRes, projectsRes, reportsRes] = await Promise.all([
           apiClient.get('/api/v1/courses'),
           apiClient.get('/api/v1/projects?per_page=100'),
+          // Teslim edilmiş (incelenmemiş) raporlar — backend öğretmeni kendi derslerine kısıtlar
+          apiClient.get('/api/v1/reports?status=submitted&size=100'),
         ]);
 
         const courses: any[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];
         const pending = projects.filter((p) => p.status?.toLowerCase() === 'pending');
+        const reports: PendingReport[] = reportsRes.data?.items ?? [];
 
         setStats({ courses: courses.length, totalProjects: projects.length, pendingProjects: pending.length });
         setPendingProjects(pending.slice(0, 5));
+        setPendingReportCount(reportsRes.data?.total ?? reports.length);
+        setPendingReports(reports.slice(0, 5));
       } catch {
         // Sessizce hata yut
       } finally {
@@ -86,7 +101,7 @@ export const TeacherDashboardScreen = ({ navigation }: any) => {
     <ScrollView className="flex-1 bg-slate-950 p-4">
       <View className="mb-6 mt-4">
         <Text className="text-2xl font-bold tracking-tight text-white mb-1">
-          Hoş geldin, Öğretmen {user?.name?.split(' ')[0]}! 🎓
+          Hoş geldin, Öğretmen {user?.full_name?.split(' ')[0]}! 🎓
         </Text>
         <Text className="text-sm text-gray-400">
           Öğrenci proje onayları ve sınıf istatistikleri.
@@ -175,6 +190,64 @@ export const TeacherDashboardScreen = ({ navigation }: any) => {
                     <Text className="text-white text-xs font-semibold">Reddet</Text>
                   </TouchableOpacity>
                 </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Onay Bekleyen Raporlar */}
+      <Card className="mb-6 bg-slate-900 border-slate-800">
+        <CardContent className="p-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base font-bold text-white">Onay Bekleyen Raporlar</Text>
+              {pendingReportCount > 0 && (
+                <View className="rounded-full bg-amber-500/10 px-2 py-0.5">
+                  <Text className="text-xs font-bold text-amber-400">{pendingReportCount}</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity
+              className="flex-row items-center gap-1"
+              onPress={() => navigation?.navigate('ReportsRoot', { screen: 'ReportList' })}
+            >
+              <Text className="text-xs text-indigo-400">Tümü</Text>
+              <ArrowRight size={12} color="#818cf8" />
+            </TouchableOpacity>
+          </View>
+
+          {isLoading ? (
+            <View>
+              {[1, 2].map((i) => (
+                <View key={i} className="h-14 rounded-lg bg-slate-800 mb-2" />
+              ))}
+            </View>
+          ) : pendingReports.length === 0 ? (
+            <View className="rounded-xl border border-dashed border-slate-700 p-6 items-center">
+              <Text className="text-sm text-gray-500 text-center">
+                İncelenmeyi bekleyen rapor bulunmuyor.
+              </Text>
+            </View>
+          ) : (
+            pendingReports.map((r, i) => (
+              <TouchableOpacity
+                key={r.id}
+                className={`flex-row items-center gap-3 py-3 ${i < pendingReports.length - 1 ? 'border-b border-slate-800' : ''}`}
+                onPress={() => navigation?.navigate('ReportsRoot', { screen: 'ReportList' })}
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-lg bg-amber-900/30 shrink-0">
+                  <FileText size={16} color="#fbbf24" />
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-sm font-medium text-white" numberOfLines={1}>
+                    {r.project_title || 'İsimsiz Proje'}
+                  </Text>
+                  <Text className="text-xs text-gray-500" numberOfLines={1}>
+                    {r.course_name ? `${r.course_name} · ` : ''}{r.year} - {r.week_number}. Hafta
+                  </Text>
+                </View>
+                <ArrowRight size={14} color="#475569" />
               </TouchableOpacity>
             ))
           )}

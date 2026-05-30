@@ -36,6 +36,7 @@ interface Project {
   rejection_reason?: string | null;
   course_id?: string | null;
   department_id?: string | null;
+  share_code?: string | null;
 }
 interface Task {
   id: string;
@@ -820,6 +821,7 @@ export default function ProjectDetailPage() {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // Onay diyaloğu: hangi aksiyon bekliyor?
   type PendingAction = "submit" | "reject" | "ai" | null;
@@ -958,6 +960,24 @@ export default function ProjectDetailPage() {
     } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
   };
 
+  // Aktif üyeyi projeden çıkar (endpoint user_id ile çalışır)
+  const handleRemoveMember = async (userId: string) => {
+    try {
+      await apiClient.delete(`/api/v1/projects/${id}/members/${userId}`);
+      toast.success("Üye projeden çıkarıldı.");
+      fetchMembers(project ?? undefined);
+    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Üye çıkarılamadı."); }
+  };
+
+  // Yöneticiliği başka bir aktif üyeye devret
+  const handleTransferManager = async (userId: string) => {
+    try {
+      await apiClient.patch(`/api/v1/projects/${id}/members/transfer-manager`, { user_id: userId });
+      toast.success("Yöneticilik devredildi.");
+      fetchMembers(project ?? undefined);
+    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Devir başarısız."); }
+  };
+
   // DnD: kart başka kolona bırakıldığında çağrılır
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1032,6 +1052,21 @@ export default function ProjectDetailPage() {
     if (grouped[key]) grouped[key].push(t);
   });
 
+  // Üye katkı özeti: her atanan kişi için toplam / tamamlanan görev sayısı.
+  // "kim ne kadar yapmış" — öğretmen/yöneticinin proje takibi için.
+  const contributionStats = (() => {
+    const map = new Map<string, { name: string; total: number; done: number }>();
+    tasks.forEach((t) => {
+      const key = t.assigned_to ?? "__unassigned__";
+      const name = t.assignee_name ?? "Atanmamış";
+      const entry = map.get(key) ?? { name, total: 0, done: 0 };
+      entry.total += 1;
+      if ((t.status as string)?.toUpperCase() === "DONE") entry.done += 1;
+      map.set(key, entry);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  })();
+
   const isTeamProject = project.project_type === "team";
   // Current user's own membership record (to show accept/reject if INVITED)
   const myMembership = pendingMembers.find((m) => m.user_id === user?.id && m.status === "INVITED");
@@ -1042,6 +1077,8 @@ export default function ProjectDetailPage() {
   const amMember = members.some((m) => String(m.user_id) === String(user?.id));
   const canCreateTask = amCreator || amMember || role === "ADMIN";
   const canAssignToOthers = amCreator || role === "ADMIN";
+  // Üye yönetimi (davet/çıkar/yönetici devri): yönetici, öğretmen veya admin
+  const canManageMembers = amManager || role === "TEACHER" || role === "ADMIN";
 
   return (
     <div className="space-y-6">
@@ -1250,6 +1287,42 @@ export default function ProjectDetailPage() {
             )}
           </div>
 
+          {/* Üye Katkı Özeti — kim ne kadar yapmış */}
+          {contributionStats.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Katkı Özeti</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {contributionStats.map((s, i) => {
+                    const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+                    return (
+                      <div key={i} className="rounded-xl border border-gray-200 dark:border-slate-700 p-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-xs font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
+                              {s.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{s.name}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-gray-500 shrink-0">
+                            {s.done}/{s.total}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-400">%{pct} tamamlandı</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Kanban Kolonları (Drag-Drop) */}
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1292,7 +1365,7 @@ export default function ProjectDetailPage() {
                 {1 + members.filter((m) => String(m.user_id) !== String(project.created_by)).length}
               </span>
             </div>
-            {(amManager || role === "ADMIN") && (
+            {canManageMembers && (
               <button
                 onClick={() => setShowInviteModal(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
@@ -1302,6 +1375,31 @@ export default function ProjectDetailPage() {
               </button>
             )}
           </div>
+
+          {/* Paylaşım kodu — sahip/üye paylaşıp başkalarını davet edebilir */}
+          {project.share_code && (amCreator || amMember || role === "ADMIN") && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Paylaşım Kodu</p>
+                <p className="text-base font-mono font-bold text-indigo-400 mt-0.5">{project.share_code}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Bu kodu paylaşarak arkadaşlarının katılım isteği göndermesini sağlayabilirsin.</p>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(project.share_code!);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                  codeCopied
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    : "border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20"
+                }`}
+              >
+                {codeCopied ? "Kopyalandı ✓" : "Kopyala"}
+              </button>
+            </div>
+          )}
 
           {/* Davet bekleyen — invited user */}
           {myMembership && (
@@ -1368,13 +1466,35 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-gray-400">{m.user?.email}</p>
                       </div>
                     </div>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
-                      m.role === "MANAGER"
-                        ? "bg-amber-500/10 text-amber-400"
-                        : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
-                    }`}>
-                      {m.role === "MANAGER" ? "Yönetici" : "Üye"}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                        m.role === "MANAGER"
+                          ? "bg-amber-500/10 text-amber-400"
+                          : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                      }`}>
+                        {m.role === "MANAGER" ? "Yönetici" : "Üye"}
+                      </span>
+                      {canManageMembers && (
+                        <>
+                          {m.role !== "MANAGER" && (
+                            <button
+                              onClick={() => handleTransferManager(m.user_id)}
+                              title="Yöneticiliği bu üyeye devret"
+                              className="flex items-center gap-1 rounded-md border border-amber-500/30 px-2 py-0.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors"
+                            >
+                              <Crown className="h-3 w-3" /> Yönetici Yap
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveMember(m.user_id)}
+                            title="Üyeyi projeden çıkar"
+                            className="rounded-md border border-red-500/30 p-1 text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -1401,7 +1521,7 @@ export default function ProjectDetailPage() {
                           <p className="text-xs text-gray-400">{m.user?.email}</p>
                         </div>
                       </div>
-                      {amManager && (
+                      {canManageMembers && (
                         <button
                           onClick={() => handleCancelInvite(m.id)}
                           className="text-xs text-red-400 hover:text-red-300"

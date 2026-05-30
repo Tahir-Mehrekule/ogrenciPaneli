@@ -9,7 +9,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { FilterPanel, ActiveFilter, SortOption } from "@/components/ui/FilterPanel";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import ClassTabs from "@/components/ui/ClassTabs";
-import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck, Github, Eye, Pencil, Trash2, Users } from "lucide-react";
+import { FolderKanban, Plus, Search, X, LayoutGrid, List, CheckCircle, XCircle, FileText, Clock, Play, CheckCheck, Github, Eye, Pencil, Trash2, Users, Link2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
 import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
@@ -274,6 +274,13 @@ export default function ProjectsPage() {
   const [invitations, setInvitations] = useState<MyInvitation[]>([]);
   const [invitationLoading, setInvitationLoading] = useState<string | null>(null);
 
+  // Kod ile katıl
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinFound, setJoinFound] = useState<{ id: string; title: string; description: string; course_name?: string | null; status: string } | null>(null);
+  const [joinSearching, setJoinSearching] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+
   const isStaff = role === "TEACHER" || role === "ADMIN";
 
   const { sorted: sortedProjects, sortKey: sortBy, sortOrder, toggleSort } =
@@ -376,6 +383,44 @@ export default function ProjectsPage() {
       toast.error(detail || "İşlem başarısız.");
     } finally {
       setInvitationLoading(null);
+    }
+  };
+
+  // Kod ile katıl: koda göre projeyi bul
+  const handleSearchCode = async () => {
+    const code = joinCode.trim().toLowerCase();
+    if (code.length !== 8) {
+      toast.error("Bağlantı kodu 8 karakter olmalıdır.");
+      return;
+    }
+    try {
+      setJoinSearching(true);
+      setJoinFound(null);
+      const { data } = await apiClient.get(`/api/v1/projects/join/${code}`);
+      setJoinFound(data);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "Bu kod ile proje bulunamadı.");
+    } finally {
+      setJoinSearching(false);
+    }
+  };
+
+  // Kod ile katıl: bulunan projeye katılım isteği gönder
+  const handleJoinRequest = async () => {
+    if (!joinFound) return;
+    try {
+      setJoinLoading(true);
+      await apiClient.post(`/api/v1/projects/${joinFound.id}/join-request`);
+      toast.success("Katılım isteğiniz proje yöneticisine iletildi.");
+      setShowJoinModal(false);
+      setJoinCode("");
+      setJoinFound(null);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail || "İstek gönderilemedi.");
+    } finally {
+      setJoinLoading(false);
     }
   };
 
@@ -612,13 +657,22 @@ export default function ProjectsPage() {
           </div>
 
           {role === "STUDENT" && (
-            <button
-              onClick={() => router.push("/dashboard/projects/new")}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Yeni Proje
-            </button>
+            <>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="flex items-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+              >
+                <Link2 className="h-4 w-4" />
+                Kod ile Katıl
+              </button>
+              <button
+                onClick={() => router.push("/dashboard/projects/new")}
+                className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Yeni Proje
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1133,12 +1187,21 @@ export default function ProjectsPage() {
 
             {/* Footer aksiyonlar */}
             <div className="flex items-center justify-between gap-3 p-5 border-t border-gray-800 flex-wrap">
-              <button
-                onClick={() => setViewModal(null)}
-                className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 transition-colors"
-              >
-                Kapat
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewModal(null)}
+                  className="rounded-xl border border-gray-700 px-4 py-2 text-sm text-gray-400 hover:bg-gray-800 transition-colors"
+                >
+                  Kapat
+                </button>
+                {/* Görev panosuna git — görev/üye katkı detayları */}
+                <button
+                  onClick={() => router.push(`/dashboard/projects/${viewModal.id}`)}
+                  className="flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-3.5 py-2 text-sm font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Görev Detayı
+                </button>
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Düzenle — sadece DRAFT */}
                 {viewModal.status === "DRAFT" && (
@@ -1279,6 +1342,78 @@ export default function ProjectsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Kod ile Katıl Modalı */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Kod ile Katıl">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setShowJoinModal(false); setJoinCode(""); setJoinFound(null); }}
+          />
+          <FocusTrapContainer className="relative bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-cyan-500" />
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Link2 className="h-5 w-5 text-indigo-400" />
+                  Kod ile Katıl
+                </h3>
+                <button
+                  onClick={() => { setShowJoinModal(false); setJoinCode(""); setJoinFound(null); }}
+                  className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  aria-label="Kapat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-400">
+                Proje bağlantı kodunu girerek katılım isteği gönderebilirsiniz.
+              </p>
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toLowerCase())}
+                    maxLength={8}
+                    autoFocus
+                    placeholder="8 karakterlik kod..."
+                    className="w-full rounded-xl border border-gray-700 bg-gray-800 pl-9 pr-3 py-2.5 text-sm font-mono text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <button
+                  onClick={handleSearchCode}
+                  disabled={joinSearching}
+                  className="rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {joinSearching ? "..." : "Ara"}
+                </button>
+              </div>
+
+              {joinFound && (
+                <div className="rounded-xl border border-indigo-500/30 bg-slate-800/60 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{joinFound.title}</p>
+                    {joinFound.course_name && (
+                      <p className="text-xs text-indigo-400">{joinFound.course_name}</p>
+                    )}
+                    <p className="text-xs text-gray-400 line-clamp-2 mt-1">{joinFound.description}</p>
+                  </div>
+                  <button
+                    onClick={handleJoinRequest}
+                    disabled={joinLoading}
+                    className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {joinLoading ? "Gönderiliyor..." : "Katılım İsteği Gönder"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </FocusTrapContainer>
         </div>
       )}
     </div>

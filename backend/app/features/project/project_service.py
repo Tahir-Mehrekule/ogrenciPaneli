@@ -71,17 +71,20 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         # Benzersiz 8 karakterlik paylaşım kodu üret
         share_code = self._generate_unique_share_code()
 
+        # Ders zorunlu: var olmalı, yoksa 404
+        from app.common.exceptions import NotFoundException
+        from app.features.course.course_repo import CourseRepo
+        course = CourseRepo(self.db).get_by_id(data.course_id)
+        if not course:
+            raise NotFoundException("Seçilen ders bulunamadı")
+
         # Ders project_type kontrolü: dersin ayarına göre zorla veya doğrula
         resolved_type = data.project_type
-        if data.course_id:
-            from app.features.course.course_repo import CourseRepo
-            course = CourseRepo(self.db).get_by_id(data.course_id)
-            if course:
-                if course.project_type == ProjectType.INDIVIDUAL:
-                    resolved_type = ProjectType.INDIVIDUAL
-                elif course.project_type == ProjectType.TEAM:
-                    resolved_type = ProjectType.TEAM
-                # BOTH → kullanıcının seçimine bırak
+        if course.project_type == ProjectType.INDIVIDUAL:
+            resolved_type = ProjectType.INDIVIDUAL
+        elif course.project_type == ProjectType.TEAM:
+            resolved_type = ProjectType.TEAM
+        # BOTH → kullanıcının seçimine bırak
 
         project_data = {
             "title": data.title,

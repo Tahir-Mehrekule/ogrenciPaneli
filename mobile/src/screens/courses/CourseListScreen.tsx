@@ -145,8 +145,8 @@ export const CourseListScreen = ({ navigation }: any) => {
                       {/* Ders Adı */}
                       <Text className="text-base font-semibold text-white mt-1">{course.name}</Text>
 
-                      {/* Öğretmen adı (Student görünümü) */}
-                      {role === 'STUDENT' && course.teacher_name && (
+                      {/* Öğretmen adı (Student + Admin görünümü; öğretmen kendi dersi olduğu için görmez) */}
+                      {role !== 'TEACHER' && course.teacher_name && (
                         <View className="flex-row items-center gap-1.5 mt-1.5">
                           <User size={12} color="#64748b" />
                           <Text className="text-xs text-gray-500">{course.teacher_name}</Text>

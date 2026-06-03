@@ -162,30 +162,58 @@ class TestTaskStatusUpdate:
         assert resp.status_code == 200
         assert resp.json()["status"] == "in_progress"
 
-    def test_student_review_dan_done_yapamaz(self, client, db, student_user, student_token, teacher_token, course):
-        """Öğrenci REVIEW → DONE yapamaz → 403."""
+    def test_üye_öğrenci_review_dan_done_yapamaz(self, client, db, student_user, student_token, teacher_token, course):
+        """Sahip olmayan üye öğrenci REVIEW → DONE yapamaz → 403.
+
+        Not: proje sahibi (creator) ve ADMIN bypass'a sahiptir; bu kural sadece
+        sahip/ADMIN olmayan normal üyeler için geçerlidir. Sahip öğrenci kullanılırsa
+        bypass devreye girer ve test anlamını yitirir.
+        """
         pid = _create_approved_project(client, student_token, teacher_token, course.id)
-        member = ProjectMember(project_id=pid, user_id=student_user.id)
-        db.add(member)
+
+        # Proje sahibi OLMAYAN ikinci öğrenci oluştur ve projeye üye yap
+        member_student = User(
+            email="member@ogr.uni.edu.tr",
+            password_hash=hash_password("Test1234!"),
+            first_name="Üye",
+            last_name="Öğrenci",
+            role=UserRole.STUDENT,
+        )
+        db.add(member_student)
+        db.commit()
+        db.refresh(member_student)
+        db.add(ProjectMember(project_id=pid, user_id=member_student.id))
         db.commit()
 
+        login = client.post("/api/v1/auth/login", json={
+            "email": "member@ogr.uni.edu.tr", "password": "Test1234!",
+        })
+        member_token = login.json()["access_token"]
+
+        # Görev sahip öğrenci tarafından oluşturulup üyeye atanır
         task = client.post(
             "/api/v1/tasks",
-            json={"title": "Review Görevi", "description": "REVIEW durumuna getireceğiz bu görevi.", "project_id": str(pid)},
+            json={
+                "title": "Review Görevi",
+                "description": "REVIEW durumuna getireceğiz bu görevi.",
+                "project_id": str(pid),
+                "assigned_to": str(member_student.id),
+            },
             headers={"Authorization": f"Bearer {student_token}"},
         )
         tid = task.json()["id"]
 
-        # TODO → IN_PROGRESS → REVIEW
+        # Üye öğrenci: TODO → IN_PROGRESS → REVIEW (rol mapping'inde izinli)
         client.patch(f"/api/v1/tasks/{tid}/status", json={"status": "in_progress"},
-                     headers={"Authorization": f"Bearer {student_token}"})
+                     headers={"Authorization": f"Bearer {member_token}"})
         client.patch(f"/api/v1/tasks/{tid}/status", json={"status": "review"},
-                     headers={"Authorization": f"Bearer {student_token}"})
+                     headers={"Authorization": f"Bearer {member_token}"})
 
+        # REVIEW → DONE sadece TEACHER/ADMIN → üye öğrenci 403 almalı
         resp = client.patch(
             f"/api/v1/tasks/{tid}/status",
             json={"status": "done"},
-            headers={"Authorization": f"Bearer {student_token}"},
+            headers={"Authorization": f"Bearer {member_token}"},
         )
         assert resp.status_code == 403
 

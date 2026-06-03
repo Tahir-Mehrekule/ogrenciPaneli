@@ -7,6 +7,9 @@ Manager katmanı; validasyon, iş kuralı kontrolü ve dış servis çağrılar�
 
 from sqlalchemy.orm import Session
 
+from app.common.enums import UserRole
+from app.common.exceptions import ForbiddenException
+
 
 class BaseManager:
     """
@@ -29,3 +32,30 @@ class BaseManager:
 
     def __init__(self, db: Session = None):
         self.db = db
+
+    @staticmethod
+    def same_id(a, b) -> bool:
+        """UUID/string id eşitlik kontrolü (tip farkını yok sayar)."""
+        return str(a) == str(b)
+
+    def check_ownership(
+        self,
+        entity,
+        owner_field: str,
+        user,
+        *,
+        allow_admin: bool = True,
+        entity_name: str = "kayıt",
+    ) -> None:
+        """
+        Kullanıcının entity sahibi olup olmadığını kontrol eder.
+
+        - Sahip ise (owner_field == user.id) izin verilir.
+        - allow_admin=True ise ADMIN her zaman izinlidir.
+        - Aksi halde ForbiddenException fırlatılır.
+        """
+        if self.same_id(getattr(entity, owner_field), user.id):
+            return
+        if allow_admin and user.role == UserRole.ADMIN:
+            return
+        raise ForbiddenException(f"Bu {entity_name} üzerinde işlem yapmaya yetkiniz yok")

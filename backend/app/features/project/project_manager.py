@@ -7,7 +7,7 @@ Proje durum geçişleri ve yetki kurallarını yönetir.
 from sqlalchemy.orm import Session
 
 from app.base.base_manager import BaseManager
-from app.common.enums import ProjectStatus, UserRole
+from app.common.enums import ProjectStatus
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_model import Project
 from app.features.auth.auth_model import User
@@ -40,8 +40,7 @@ class ProjectManager(BaseManager):
 
     def validate_project_owner(self, project: Project, user: User) -> None:
         """Kullanıcının proje sahibi veya admin olup olmadığını kontrol eder."""
-        if str(project.created_by) != str(user.id) and user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu proje üzerinde işlem yapmaya yetkiniz yok")
+        self.check_ownership(project, "created_by", user, entity_name="proje")
 
     def validate_deletable(self, project: Project, user: User) -> None:
         """Projenin silinebilir durumda olup olmadığını kontrol eder."""

@@ -59,7 +59,7 @@ export const StudentDashboard = () => {
       try {
         const [coursesRes, projectsRes] = await Promise.all([
           apiClient.get("/api/v1/courses"),
-          apiClient.get("/api/v1/projects?per_page=100"),
+          apiClient.get("/api/v1/projects?size=100"),
         ]);
         const courses: unknown[] = coursesRes.data?.items ?? [];
         const projects: Project[] = projectsRes.data?.items ?? [];

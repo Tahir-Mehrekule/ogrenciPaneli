@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -108,10 +109,7 @@ export default function NewCoursePage() {
       });
       router.push("/dashboard/courses");
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
-      else setError("Ders oluşturulamadı.");
+      setError(getErrorMessage(err, "Ders oluşturulamadı."));
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -88,10 +89,7 @@ export default function NewProjectPage() {
       setSubmittedForApproval(submitForApproval);
       setCreatedProjectId(data.id);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
-      else setError("Proje oluşturulamadı.");
+      setError(getErrorMessage(err, "Proje oluşturulamadı."));
     } finally {
       setIsLoading(false);
     }

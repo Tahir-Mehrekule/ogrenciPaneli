@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { X, GraduationCap, UserCog, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from "@/lib/apiClient";
@@ -197,13 +198,7 @@ export default function AdminCreateUserModal({ open, onClose, onCreated }: Props
       onCreated();
       onClose();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      const msg = typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d?.msg || JSON.stringify(d)).join(", ")
-          : "Kullanıcı eklenemedi.";
-      toast.error(msg);
+      toast.error(getErrorMessage(err, "Kullanıcı eklenemedi."));
     } finally {
       setSaving(false);
     }

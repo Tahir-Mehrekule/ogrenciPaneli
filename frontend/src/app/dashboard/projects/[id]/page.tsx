@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
@@ -861,7 +862,7 @@ export default function ProjectDetailPage() {
     try {
       const [projRes, taskRes] = await Promise.all([
         apiClient.get(`/api/v1/projects/${id}`),
-        apiClient.get(`/api/v1/tasks?project_id=${id}&per_page=100`),
+        apiClient.get(`/api/v1/tasks?project_id=${id}&size=100`),
       ]);
       setProject(projRes.data);
       setTasks(taskRes.data.items ?? []);
@@ -882,7 +883,7 @@ export default function ProjectDetailPage() {
       toast.success("Proje onay için gönderildi.");
       fetchData();
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "İşlem başarısız.");
+      toast.error(getErrorMessage(err) || "İşlem başarısız.");
     } finally {
       setPendingAction(null);
     }
@@ -915,7 +916,7 @@ export default function ProjectDetailPage() {
       setRejectReason("");
       fetchData();
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Reddetme başarısız.");
+      toast.error(getErrorMessage(err) || "Reddetme başarısız.");
     } finally {
       setRejecting(false);
     }
@@ -929,7 +930,7 @@ export default function ProjectDetailPage() {
       toast.success("AI tarafından önerilen görevler projeye eklendi.");
       fetchData();
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "AI görev önerisi alınamadı.");
+      toast.error(getErrorMessage(err) || "AI görev önerisi alınamadı.");
     } finally {
       setAiLoading(false);
       setPendingAction(null);
@@ -941,7 +942,7 @@ export default function ProjectDetailPage() {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/accept`);
       toast.success("Daveti kabul ettiniz.");
       fetchMembers(project ?? undefined);
-    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err) || "Hata."); }
   };
 
   const handleRejectInvite = async (memberId: string) => {
@@ -949,7 +950,7 @@ export default function ProjectDetailPage() {
       await apiClient.post(`/api/v1/projects/${id}/members/${memberId}/reject`);
       toast.success("Davet reddedildi.");
       fetchMembers(project ?? undefined);
-    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err) || "Hata."); }
   };
 
   const handleCancelInvite = async (memberId: string) => {
@@ -957,7 +958,7 @@ export default function ProjectDetailPage() {
       await apiClient.delete(`/api/v1/projects/${id}/members/${memberId}/cancel-invite`);
       toast.success("Davet iptal edildi.");
       fetchMembers(project ?? undefined);
-    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Hata."); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err) || "Hata."); }
   };
 
   // Aktif üyeyi projeden çıkar (endpoint user_id ile çalışır)
@@ -966,7 +967,7 @@ export default function ProjectDetailPage() {
       await apiClient.delete(`/api/v1/projects/${id}/members/${userId}`);
       toast.success("Üye projeden çıkarıldı.");
       fetchMembers(project ?? undefined);
-    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Üye çıkarılamadı."); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err) || "Üye çıkarılamadı."); }
   };
 
   // Yöneticiliği başka bir aktif üyeye devret
@@ -975,7 +976,7 @@ export default function ProjectDetailPage() {
       await apiClient.patch(`/api/v1/projects/${id}/members/transfer-manager`, { user_id: userId });
       toast.success("Yöneticilik devredildi.");
       fetchMembers(project ?? undefined);
-    } catch (err: unknown) { toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Devir başarısız."); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err) || "Devir başarısız."); }
   };
 
   // DnD: kart başka kolona bırakıldığında çağrılır

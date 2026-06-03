@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter, useParams } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +60,7 @@ export default function CourseEditPage() {
         setRequireYoutube(data.require_youtube);
         setRequireFile(data.require_file);
       } catch (err: unknown) {
-        setError((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Ders bilgileri yüklenemedi.");
+        setError(getErrorMessage(err) || "Ders bilgileri yüklenemedi.");
       } finally {
         setLoading(false);
       }
@@ -86,10 +87,7 @@ export default function CourseEditPage() {
       });
       setSuccess("Ders bilgileri başarıyla güncellendi!");
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      if (typeof detail === "string") setError(detail);
-      else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
-      else setError("Güncelleme başarısız.");
+      setError(getErrorMessage(err, "Güncelleme başarısız."));
     } finally {
       setSaving(false);
     }
@@ -105,7 +103,7 @@ export default function CourseEditPage() {
       await apiClient.delete(`/api/v1/courses/${courseId}`);
       router.push("/dashboard/courses");
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Ders silinemedi.");
+      alert(getErrorMessage(err) || "Ders silinemedi.");
     }
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -120,7 +121,7 @@ export default function RegisterPage() {
         last_name: string;
         email: string;
         password: string;
-        role: string;
+        role: "student" | "teacher";
         department_ids: string[];
         student_no?: string;
       } = {
@@ -128,7 +129,7 @@ export default function RegisterPage() {
         last_name: formData.last_name.trim(),
         email: formData.email,
         password: formData.password,
-        role: selectedRole.toLowerCase(),
+        role: isStudent ? "student" : "teacher",
         department_ids: formData.department_ids,
       };
       if (isStudent) payload.student_no = formData.student_no;
@@ -137,7 +138,7 @@ export default function RegisterPage() {
       toast.success("Hesabınız oluşturuldu!");
       router.push("/dashboard");
     } catch (error: unknown) {
-      toast.error((error as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Kayıt sırasında hata oluştu.");
+      toast.error(getErrorMessage(error) || "Kayıt sırasında hata oluştu.");
     } finally {
       setIsLoading(false);
     }

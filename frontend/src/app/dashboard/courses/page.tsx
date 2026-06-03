@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
@@ -50,7 +51,7 @@ export default function CoursesPage() {
       const { data } = await apiClient.get<PaginatedResponse>("/api/v1/courses");
       setCourses(data.items);
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Dersler yüklenirken bir hata oluştu.");
+      setError(getErrorMessage(err) || "Dersler yüklenirken bir hata oluştu.");
     } finally {
       setLoading(false);
     }

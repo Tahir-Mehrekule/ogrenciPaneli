@@ -100,7 +100,7 @@ export const TeacherDashboard = () => {
       try {
         const [coursesRes, projectsRes, studentsRes, reportsRes] = await Promise.all([
           apiClient.get("/api/v1/courses"),
-          apiClient.get("/api/v1/projects?per_page=100"),
+          apiClient.get("/api/v1/projects?size=100"),
           apiClient.get("/api/v1/users/my-students?size=1"),
           apiClient.get("/api/v1/reports?status=submitted&size=5&sort_by=created_at&order=desc"),
         ]);

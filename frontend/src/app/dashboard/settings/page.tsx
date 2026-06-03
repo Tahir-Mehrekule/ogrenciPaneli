@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -49,7 +50,7 @@ function ProfileSection() {
       // Auth context'ini yenile (useAuth hook'u bu metodu sağlıyorsa)
       if (typeof refreshUser === "function") await refreshUser();
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Güncelleme başarısız.");
+      toast.error(getErrorMessage(err, "Güncelleme başarısız."));
     } finally {
       setSaving(false);
     }
@@ -177,7 +178,7 @@ function PasswordSection() {
       setNewPw("");
       setConfirmPw("");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
+      const msg = getErrorMessage(err);
       setFormError(
         typeof msg === "string" ? msg : "Şifre değiştirilemedi. Mevcut şifrenizi kontrol edin."
       );

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -27,9 +28,7 @@ export default function LoginPage() {
       toast.success("Giriş başarılı!");
       router.push("/dashboard");
     } catch (error: unknown) {
-      toast.error(
-        (error as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "E-posta veya şifre hatalı."
-      );
+      toast.error(getErrorMessage(error, "E-posta veya şifre hatalı."));
     } finally {
       setIsLoading(false);
     }

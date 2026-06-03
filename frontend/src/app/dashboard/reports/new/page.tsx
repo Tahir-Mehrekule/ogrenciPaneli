@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -81,13 +82,11 @@ export default function NewReportPage() {
 
       router.push("/dashboard/reports");
     } catch (err: unknown) {
-      if (err.response?.status === 409) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status === 409) {
         setError("Bu proje için bu hafta zaten bir rapor oluşturdunuz. Mevcut raporunuzu raporlar sayfasından düzenleyebilirsiniz.");
       } else {
-        const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-        if (typeof detail === "string") setError(detail);
-        else if (Array.isArray(detail)) setError(detail.map((d: { msg?: string }) => d.msg).join(", "));
-        else setError("Rapor oluşturulamadı.");
+        setError(getErrorMessage(err, "Rapor oluşturulamadı."));
       }
     } finally {
       setIsLoading(false);

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 export interface CascadeChild {
   label: string;
@@ -90,7 +91,7 @@ export function SoftDeleteModal({
       await onConfirm();
       onClose();
     } catch (err: unknown) {
-      setError(err?.response?.data?.detail || "İşlem başarısız.");
+      setError(getErrorMessage(err, "İşlem başarısız."));
     } finally {
       setSubmitting(false);
     }

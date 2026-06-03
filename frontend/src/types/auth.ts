@@ -28,7 +28,8 @@ export interface RegisterRequest {
   password: string;
   first_name: string;
   last_name: string;
-  role: "STUDENT" | "TEACHER";
+  // Backend enum değerleri lowercase: 'student' | 'teacher' (auth_dto.py UserRole)
+  role: "student" | "teacher";
   department_ids: string[];
   student_no?: string;
 }

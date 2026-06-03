@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
@@ -16,6 +17,14 @@ import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
 import toast from "react-hot-toast";
 
 type ReportStatus = "DRAFT" | "SUBMITTED" | "REVIEWED";
+
+// AI rapor analizi yanıtı (POST /ai/analyze-report)
+interface ReportAiAnalysis {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+}
 
 interface Report {
   id: string;
@@ -109,7 +118,7 @@ function EditReportModal({
       onUpdated(data);
       onClose();
     } catch (err: unknown) {
-      setFormError((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Güncelleme başarısız.");
+      setFormError(getErrorMessage(err) || "Güncelleme başarısız.");
     } finally {
       setSaving(false);
     }
@@ -204,7 +213,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [aiAnalysis, setAiAnalysis] = useState<Record<string, unknown>>({});
+  const [aiAnalysis, setAiAnalysis] = useState<Record<string, ReportAiAnalysis>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
 
   const [search, setSearch] = useState("");
@@ -260,14 +269,7 @@ export default function ReportsPage() {
       setTotal(data.total);
       setTotalPages(data.pages);
     } catch (err: unknown) {
-      // Pydantic 422 detail bazen array (validation errors) — string'e çevir.
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      const msg = typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d?.msg || JSON.stringify(d)).join(", ")
-          : "Raporlar yüklenemedi.";
-      setError(msg);
+      setError(getErrorMessage(err, "Raporlar yüklenemedi."));
     } finally {
       setLoading(false);
     }
@@ -297,7 +299,7 @@ export default function ReportsPage() {
       }
       toast.success("Rapor teslim edildi.");
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Teslim başarısız.");
+      toast.error(getErrorMessage(err) || "Teslim başarısız.");
     } finally {
       setSubmitConfirm(null);
     }
@@ -316,7 +318,7 @@ export default function ReportsPage() {
       fetchReports();
       if (viewModal && viewModal.id === reportId) setViewModal({ ...data, status: statusKey(data.status) });
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Geri bildirim gönderilemedi.");
+      toast.error(getErrorMessage(err) || "Geri bildirim gönderilemedi.");
     } finally {
       setFeedbackLoading(false);
     }
@@ -332,7 +334,7 @@ export default function ReportsPage() {
       setFeedbackNote(data.suggested_feedback);
       toast.success(`AI ${aiTone === "encouraging" ? "cesaret verici" : aiTone === "critical" ? "eleştirel" : "yapıcı"} bir taslak önerdi. Düzenleyip gönderebilirsiniz.`);
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "AI önerisi alınamadı.");
+      toast.error(getErrorMessage(err) || "AI önerisi alınamadı.");
     } finally {
       setAiSuggestLoading(false);
     }
@@ -347,7 +349,7 @@ export default function ReportsPage() {
       });
       setAiAnalysis((prev) => ({ ...prev, [report.id]: res.data }));
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Analiz alınamadı.");
+      alert(getErrorMessage(err) || "Analiz alınamadı.");
     } finally {
       setAiLoading((prev) => ({ ...prev, [report.id]: false }));
     }
@@ -789,7 +791,7 @@ export default function ReportsPage() {
                             toast.success("Dosya başarıyla eklendi!");
                           } catch (err: unknown) {
                             toast.error(
-                              (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Dosya eklenemedi."
+                              getErrorMessage(err) || "Dosya eklenemedi."
                             );
                           }
                         }}

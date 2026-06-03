@@ -11,6 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
@@ -170,14 +171,7 @@ export default function AdminLogsPage() {
       setTotal(data.total);
       setTotalPages(data.pages);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      const msg =
-        typeof detail === "string"
-          ? detail
-          : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d?.msg || JSON.stringify(d)).join(", ")
-          : "Aktivite logları yüklenemedi.";
-      setError(msg);
+      setError(getErrorMessage(err, "Aktivite logları yüklenemedi."));
     } finally {
       setLoading(false);
     }

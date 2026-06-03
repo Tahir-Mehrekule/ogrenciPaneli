@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { getErrorMessage } from "@/lib/errorMessage";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
@@ -104,10 +105,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function getDetail(err: unknown): string {
-  const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail.map((d) => d?.msg ?? "").join(", ");
-  return "";
+  return getErrorMessage(err);
 }
 
 function EditProjectPopupModal({
@@ -320,15 +318,7 @@ export default function ProjectsPage() {
       setTotal(data.total);
       setTotalPages(data.pages);
     } catch (err: unknown) {
-      // ADMIN_PLAN_2 E1: Pydantic 422 detail bazen array dönebilir; array-safe handler.
-      const detail = (err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail;
-      const msg =
-        typeof detail === "string"
-          ? detail
-          : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d?.msg || JSON.stringify(d)).join(", ")
-          : "Projeler yüklenemedi.";
-      setError(msg);
+      setError(getErrorMessage(err, "Projeler yüklenemedi."));
     } finally {
       setLoading(false);
     }
@@ -430,7 +420,7 @@ export default function ProjectsPage() {
       await apiClient.post(`/api/v1/projects/${id}/approve`);
       fetchProjects();
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string | Array<{ msg?: string }> } } }).response?.data?.detail || "Onaylama başarısız.");
+      alert(getErrorMessage(err) || "Onaylama başarısız.");
     }
   };
 

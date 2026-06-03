@@ -32,7 +32,7 @@ export const RegisterScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     apiClient
-      .get<DepartmentInfo[]>('/api/v1/admin/departments')
+      .get<DepartmentInfo[]>('/api/v1/departments')
       .then(({ data }) => setDepartments(data))
       .catch(() => {});
   }, []);

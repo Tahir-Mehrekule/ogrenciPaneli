@@ -24,7 +24,6 @@ import { JoinProjectScreen } from '../screens/projects/JoinProjectScreen';
 import { ReportListScreen } from '../screens/reports/ReportListScreen';
 import { ReportCreateScreen } from '../screens/reports/ReportCreateScreen';
 import { NotificationListScreen } from '../screens/notifications/NotificationListScreen';
-import { PendingStudentsScreen } from '../screens/admin/PendingStudentsScreen';
 import { SettingsScreen } from '../screens/admin/SettingsScreen';
 import { ActivityLogsScreen } from '../screens/admin/ActivityLogsScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
@@ -228,17 +227,6 @@ export const RootNavigator = () => {
               component={CoursesStackNavigator}
               options={{
                 headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="PendingStudents"
-              component={PendingStudentsScreen}
-              options={{
-                headerShown: true,
-                title: 'Onay Bekleyenler',
-                headerStyle: { backgroundColor: '#0f172a' },
-                headerTintColor: '#818cf8',
-                headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },
               }}
             />
             <Stack.Screen

@@ -39,7 +39,7 @@ export const TeacherDashboardScreen = ({ navigation }: any) => {
       try {
         const [coursesRes, projectsRes, reportsRes] = await Promise.all([
           apiClient.get('/api/v1/courses'),
-          apiClient.get('/api/v1/projects?per_page=100'),
+          apiClient.get('/api/v1/projects?size=100'),
           // Teslim edilmiş (incelenmemiş) raporlar — backend öğretmeni kendi derslerine kısıtlar
           apiClient.get('/api/v1/reports?status=submitted&size=100'),
         ]);

@@ -5,10 +5,11 @@ Tüm feature manager'larının türeyeceği base sınıfı tanımlar.
 Manager katmanı; validasyon, iş kuralı kontrolü ve dış servis çağrılarını yönetir.
 """
 
+from typing import Optional
+
 from sqlalchemy.orm import Session
 
-from app.common.enums import UserRole
-from app.common.exceptions import ForbiddenException
+from app.common import authz
 
 
 class BaseManager:
@@ -30,13 +31,15 @@ class BaseManager:
                 super().__init__()  # DB gerektirmeyen manager'lar
     """
 
-    def __init__(self, db: Session = None):
+    def __init__(self, db: Optional[Session] = None):
         self.db = db
+
+    # ── Yetkilendirme kısayolları (app.common.authz'a delege — tek kaynak) ──
 
     @staticmethod
     def same_id(a, b) -> bool:
         """UUID/string id eşitlik kontrolü (tip farkını yok sayar)."""
-        return str(a) == str(b)
+        return authz.ids_equal(a, b)
 
     def check_ownership(
         self,
@@ -54,8 +57,11 @@ class BaseManager:
         - allow_admin=True ise ADMIN her zaman izinlidir.
         - Aksi halde ForbiddenException fırlatılır.
         """
-        if self.same_id(getattr(entity, owner_field), user.id):
-            return
-        if allow_admin and user.role == UserRole.ADMIN:
-            return
-        raise ForbiddenException(f"Bu {entity_name} üzerinde işlem yapmaya yetkiniz yok")
+        authz.require_owner_or_admin(
+            entity, owner_field, user,
+            allow_admin=allow_admin, entity_name=entity_name,
+        )
+
+    def require_admin(self, user, *, message: str = "Bu işlem sadece adminler tarafından yapılabilir") -> None:
+        """ADMIN değilse ForbiddenException fırlatır."""
+        authz.require_admin(user, message=message)

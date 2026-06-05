@@ -260,7 +260,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         self.project_repo.get_by_id_or_404(project_id)
 
         member = self.repo.get_member_by_id(member_id)
-        if member is None or str(member.project_id) != str(project_id):
+        if member is None or not self.ids_equal(member.project_id, project_id):
             raise NotFoundException("Üyelik kaydı bulunamadı")
 
         if member.status not in (MemberStatus.INVITED, MemberStatus.JOIN_REQUESTED):
@@ -268,7 +268,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
 
         if member.status == MemberStatus.INVITED:
             # Sadece davet edilen kişi kabul edebilir
-            if str(member.user_id) != str(current_user.id):
+            if not self.ids_equal(member.user_id, current_user.id):
                 raise ForbiddenException("Bu daveti kabul etme yetkiniz yok")
         else:
             # JOIN_REQUESTED: Yönetici veya Admin kabul eder
@@ -292,14 +292,14 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         self.project_repo.get_by_id_or_404(project_id)
 
         member = self.repo.get_member_by_id(member_id)
-        if member is None or str(member.project_id) != str(project_id):
+        if member is None or not self.ids_equal(member.project_id, project_id):
             raise NotFoundException("Üyelik kaydı bulunamadı")
 
         if member.status not in (MemberStatus.INVITED, MemberStatus.JOIN_REQUESTED):
             raise BadRequestException("Bu kayıt reddedilebilir durumda değil")
 
         if member.status == MemberStatus.INVITED:
-            if str(member.user_id) != str(current_user.id):
+            if not self.ids_equal(member.user_id, current_user.id):
                 raise ForbiddenException("Bu daveti reddetme yetkiniz yok")
         else:
             self._require_manager_or_admin(project_id, current_user)
@@ -320,7 +320,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         self._require_manager_or_admin(project_id, current_user)
 
         member = self.repo.get_member_by_id(member_id)
-        if member is None or str(member.project_id) != str(project_id):
+        if member is None or not self.ids_equal(member.project_id, project_id):
             raise NotFoundException("Üyelik kaydı bulunamadı")
 
         if member.status != MemberStatus.INVITED:
@@ -368,7 +368,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
             raise ForbiddenException("Yöneticiyi çıkaramazsınız; önce yöneticilik devrini yapın")
 
         # Yönetici kendi kendini çıkaramaz (istifa farklı endpoint)
-        if str(member.user_id) == str(current_user.id) and is_manager:
+        if self.ids_equal(member.user_id, current_user.id) and is_manager:
             raise BadRequestException("Kendinizi çıkarmak için 'istifa' işlemini kullanın")
 
         self.repo.delete(member.id)
@@ -397,7 +397,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         if not is_staff and not is_manager:
             raise ForbiddenException("Yöneticilik devri için yetkiniz yok")
 
-        if str(data.user_id) == str(current_user.id):
+        if self.ids_equal(data.user_id, current_user.id):
             raise BadRequestException("Yöneticilik kendinize devredilemez")
 
         new_manager_record = self.repo.get_member_record(project_id, data.user_id)
@@ -483,7 +483,7 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
     def _is_project_creator(self, project_id: UUID, user_id: UUID) -> bool:
         """Kullanıcı projenin sahibi (created_by) mi?"""
         project = self.project_repo.get_by_id(project_id)
-        return bool(project and str(project.created_by) == str(user_id))
+        return bool(project and self.ids_equal(project.created_by, user_id))
 
     def _require_manager_or_admin(self, project_id: UUID, user: User) -> None:
         # Teacher ve Admin projeleri yönetebilir (üye davet/iptal/onay)

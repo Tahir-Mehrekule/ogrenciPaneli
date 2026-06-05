@@ -46,8 +46,10 @@ class ProjectCategoryService(BaseService[ProjectCategory, ProjectCategoryRepo]):
         if current_user.role not in (UserRole.ADMIN, UserRole.TEACHER):
             raise ForbiddenException("Kategori oluşturma yetkisi yok")
 
-        if current_user.role == UserRole.TEACHER and str(course.teacher_id) != str(current_user.id):
-            raise ForbiddenException("Sadece kendi dersinize kategori ekleyebilirsiniz")
+        self.require_course_owner_if_teacher(
+            course, current_user,
+            message="Sadece kendi dersinize kategori ekleyebilirsiniz",
+        )
 
         if self.repo.name_exists(course_id, data.name):
             raise ConflictException(f"Bu ders için '{data.name}' kategorisi zaten mevcut")
@@ -68,8 +70,10 @@ class ProjectCategoryService(BaseService[ProjectCategory, ProjectCategoryRepo]):
 
         if current_user.role == UserRole.TEACHER:
             course = self.course_repo.get_by_id_or_404(cat.course_id)
-            if str(course.teacher_id) != str(current_user.id):
-                raise ForbiddenException("Sadece kendi dersinizin kategorisini güncelleyebilirsiniz")
+            self.require_course_owner_if_teacher(
+                course, current_user,
+                message="Sadece kendi dersinizin kategorisini güncelleyebilirsiniz",
+            )
 
         updates = {}
         if data.name is not None:
@@ -90,8 +94,10 @@ class ProjectCategoryService(BaseService[ProjectCategory, ProjectCategoryRepo]):
 
         if current_user.role == UserRole.TEACHER:
             course = self.course_repo.get_by_id_or_404(cat.course_id)
-            if str(course.teacher_id) != str(current_user.id):
-                raise ForbiddenException("Sadece kendi dersinizin kategorisini silebilirsiniz")
+            self.require_course_owner_if_teacher(
+                course, current_user,
+                message="Sadece kendi dersinizin kategorisini silebilirsiniz",
+            )
 
         if self.repo.has_active_projects(category_id):
             raise ConflictException(

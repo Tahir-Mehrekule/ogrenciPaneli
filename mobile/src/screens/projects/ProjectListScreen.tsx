@@ -8,7 +8,7 @@ import apiClient from '../../lib/apiClient';
 import {
   FolderKanban, Plus, ChevronRight, Archive,
   Link2, Users, CheckCircle2, Clock, XCircle, Circle,
-  Search, X, ChevronDown, Trash2,
+  Search, X, ChevronDown, Trash2, RotateCcw,
 } from 'lucide-react-native';
 import { Project, PaginatedResponse, ProjectCategory } from '../../types/project';
 
@@ -48,6 +48,158 @@ const PROJECT_STATUS_OPTIONS = [
   { label: 'Devam Ediyor', value: 'in_progress' },
   { label: 'Tamamlandı', value: 'completed' },
 ];
+
+// ── Staff Tablo Görünümü (web projects DataTable + reports TeacherTableView pattern) ──
+const ProjectTableView = ({
+  projects, role, onOpenDetail, onApprove, onReject, onUnarchive, onHardDelete,
+}: {
+  projects: Project[];
+  role: string;
+  onOpenDetail: (id: string) => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onUnarchive: (id: string) => void;
+  onHardDelete: (id: string, title: string) => void;
+}) => {
+  const active = projects.filter((p) => !p.is_archived);
+  const archived = projects.filter((p) => p.is_archived);
+
+  if (active.length === 0 && archived.length === 0) {
+    return (
+      <View className="mt-16 items-center px-8">
+        <FolderKanban size={40} color="#334155" />
+        <Text className="text-gray-500 mt-4 text-center">Henüz proje yok.</Text>
+      </View>
+    );
+  }
+
+  // Derse göre grupla
+  const grouped = active.reduce((acc, p) => {
+    const key = p.course_name ?? 'Ders Atanmamış';
+    if (!acc[key]) acc[key] = { code: p.course_code ?? null, projects: [] as Project[] };
+    acc[key].projects.push(p);
+    return acc;
+  }, {} as Record<string, { code: string | null; projects: Project[] }>);
+
+  return (
+    <View className="px-4">
+      {Object.entries(grouped).map(([courseName, { code, projects: courseProjects }]) => (
+        <View key={courseName} className="mb-6">
+          {/* Ders Başlığı */}
+          <View className="flex-row items-center gap-2 mb-3">
+            {code && (
+              <View className="rounded-lg bg-indigo-900/40 border border-indigo-500/20 px-2 py-0.5">
+                <Text className="text-xs font-bold text-indigo-400">{code}</Text>
+              </View>
+            )}
+            <Text className="text-sm font-bold text-white">{courseName}</Text>
+            <View className="flex-1 h-px bg-slate-700/60" />
+            <Text className="text-xs text-gray-500">{courseProjects.length} proje</Text>
+          </View>
+
+          {/* Tablo */}
+          <View className="rounded-2xl border border-slate-700/60 bg-slate-900 overflow-hidden">
+            {/* Başlık */}
+            <View className="flex-row bg-slate-800/80 px-3 py-2 border-b border-slate-700/60">
+              <Text className="text-xs font-bold text-gray-400 w-20">Öğrenci</Text>
+              <Text className="text-xs font-bold text-gray-400 flex-1">Proje</Text>
+              <Text className="text-xs font-bold text-gray-400 w-20 text-center">Durum</Text>
+              <Text className="text-xs font-bold text-gray-400 w-20 text-right">İşlem</Text>
+            </View>
+
+            {/* Satırlar */}
+            {courseProjects.map((p, idx) => {
+              const st = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.draft;
+              const isPending = p.status?.toLowerCase() === 'pending';
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => onOpenDetail(p.id)}
+                  className={`flex-row items-center px-3 py-2.5 ${idx < courseProjects.length - 1 ? 'border-b border-slate-700/40' : ''}`}
+                >
+                  {/* Öğrenci */}
+                  <View className="w-20 pr-1">
+                    <Text className="text-xs text-gray-300" numberOfLines={1}>{p.created_by_name || '—'}</Text>
+                  </View>
+
+                  {/* Proje (başlık + açıklama önizleme) */}
+                  <View className="flex-1 pr-2">
+                    <Text className="text-xs text-white font-medium" numberOfLines={1}>{p.title}</Text>
+                    <Text className="text-[11px] text-gray-500 mt-0.5" numberOfLines={1}>{p.description}</Text>
+                  </View>
+
+                  {/* Durum — sadece ikon */}
+                  <View className="w-20 items-center justify-center">
+                    <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: st.bg }}>
+                      {STATUS_ICON[p.status]}
+                    </View>
+                  </View>
+
+                  {/* İşlem */}
+                  <View className="w-20 flex-row items-center justify-end gap-1.5">
+                    {isPending ? (
+                      <>
+                        <TouchableOpacity
+                          onPress={() => onApprove(p.id)}
+                          className="h-7 w-7 items-center justify-center rounded-lg bg-emerald-900/30 border border-emerald-800/50"
+                        >
+                          <CheckCircle2 size={12} color="#34d399" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => onReject(p.id)}
+                          className="h-7 w-7 items-center justify-center rounded-lg bg-red-900/30 border border-red-800/50"
+                        >
+                          <XCircle size={12} color="#f87171" />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <ChevronRight size={16} color="#475569" />
+                    )}
+                    {role === 'ADMIN' && (
+                      <TouchableOpacity
+                        onPress={() => onHardDelete(p.id, p.title)}
+                        className="h-7 w-7 items-center justify-center rounded-lg bg-red-900/30 border border-red-800/50"
+                      >
+                        <Trash2 size={12} color="#f87171" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+
+      {/* Arşivlenmiş Projeler — ayrı liste */}
+      {archived.length > 0 && (
+        <View className="mt-2 mb-4">
+          <Text className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Arşivlenmiş Projeler</Text>
+          {archived.map((p) => (
+            <View
+              key={`arch-${p.id}`}
+              className="mb-2 flex-row items-center gap-2 rounded-xl border border-slate-700/40 bg-slate-900/40 px-3 py-2.5"
+            >
+              <Archive size={14} color="#64748b" />
+              <View className="flex-1">
+                <Text className="text-xs text-gray-300 font-medium" numberOfLines={1}>{p.title}</Text>
+                <Text className="text-[11px] text-gray-500" numberOfLines={1}>{p.course_name ?? 'Ders Atanmamış'}</Text>
+              </View>
+              <TouchableOpacity onPress={() => onUnarchive(p.id)} className="rounded-lg bg-slate-800 px-2 py-1.5">
+                <RotateCcw size={12} color="#94a3b8" />
+              </TouchableOpacity>
+              {role === 'ADMIN' && (
+                <TouchableOpacity onPress={() => onHardDelete(p.id, p.title)} className="rounded-lg bg-red-900/30 px-2 py-1.5">
+                  <Trash2 size={12} color="#f87171" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
 
 export const ProjectListScreen = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -209,7 +361,7 @@ export const ProjectListScreen = ({ navigation }: any) => {
             {isStaff ? 'Projeler' : 'Projelerim'}
           </Text>
           <Text className="text-xs text-gray-500 mt-0.5">
-            {filteredProjects.length} proje
+            {(isStaff ? projects.length : filteredProjects.length)} proje
           </Text>
         </View>
         {role === 'STUDENT' && (
@@ -259,6 +411,19 @@ export const ProjectListScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
+      {/* Staff → tablo görünümü, Öğrenci → kart görünümü */}
+      {isStaff ? (
+        <ProjectTableView
+          projects={projects}
+          role={role}
+          onOpenDetail={(id) => navigation.navigate('ProjectDetail', { projectId: id })}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onUnarchive={handleUnarchive}
+          onHardDelete={handleHardDelete}
+        />
+      ) : (
+       <>
       {/* Aktif / Arşiv Tab */}
       <View className="flex-row mx-4 mb-4 rounded-xl bg-slate-900 p-1">
         {(['active', 'archived'] as ViewMode[]).map((mode) => (
@@ -442,6 +607,8 @@ export const ProjectListScreen = ({ navigation }: any) => {
             </View>
           ))}
         </View>
+      )}
+       </>
       )}
 
       <View className="h-8" />

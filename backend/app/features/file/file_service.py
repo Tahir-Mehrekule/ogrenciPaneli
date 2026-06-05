@@ -36,7 +36,7 @@ class FileService(BaseService[FileUpload, FileRepo]):
         """
         report = self.report_repo.get_by_id_or_404(report_id)
 
-        if str(report.submitted_by) != str(current_user.id):
+        if not self.is_owner(report, "submitted_by", current_user):
             raise ForbiddenException("Sadece kendi raporunuza dosya yükleyebilirsiniz")
 
         if report.status != ReportStatus.DRAFT:
@@ -79,7 +79,7 @@ class FileService(BaseService[FileUpload, FileRepo]):
         """
         report = self.report_repo.get_by_id_or_404(report_id)
 
-        if current_user.role == UserRole.STUDENT and str(report.submitted_by) != str(current_user.id):
+        if current_user.role == UserRole.STUDENT and not self.is_owner(report, "submitted_by", current_user):
             raise ForbiddenException("Bu raporun dosyalarını görüntüleme yetkiniz yok")
 
         files, _ = self.repo.get_many(filters={"report_id": report_id})
@@ -102,7 +102,7 @@ class FileService(BaseService[FileUpload, FileRepo]):
         file_record = self.repo.get_by_id_or_404(file_id)
 
         if current_user.role != UserRole.ADMIN:
-            if str(file_record.uploaded_by) != str(current_user.id):
+            if not self.is_owner(file_record, "uploaded_by", current_user):
                 raise ForbiddenException("Sadece kendi yüklediğiniz dosyaları silebilirsiniz")
 
             report = self.report_repo.get_by_id_or_404(file_record.report_id)

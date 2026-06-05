@@ -55,7 +55,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         """
         project = self.project_repo.get_by_id_or_404(data.project_id)
 
-        is_creator = str(project.created_by) == str(current_user.id)
+        is_creator = self.is_owner(project, "created_by", current_user)
         is_admin = current_user.role == UserRole.ADMIN
         is_member = self.member_repo.is_active_member(data.project_id, current_user.id)
 
@@ -66,7 +66,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         assigned_to = data.assigned_to or current_user.id
 
         # Üye (creator/admin değil) sadece kendine atayabilir
-        if not (is_creator or is_admin) and str(assigned_to) != str(current_user.id):
+        if not (is_creator or is_admin) and not self.ids_equal(assigned_to, current_user.id):
             raise ForbiddenException("Sadece yönetici başka kullanıcılara görev atayabilir")
 
         # Atanan kişi proje üyesi mi? (Proje sahibi veya üye olmalı)
@@ -83,7 +83,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         task = self.repo.create(task_data)
 
         # Başkası adına görev oluşturulduysa, atanan kişiye bildirim (kendisi atamadıysa)
-        if assigned_to and str(assigned_to) != str(current_user.id):
+        if assigned_to and not self.ids_equal(assigned_to, current_user.id):
             send_notification(
                 db=self.db,
                 user_id=assigned_to,
@@ -154,7 +154,7 @@ class TaskService(BaseService[Task, TaskRepo]):
 
         if current_user.role == UserRole.STUDENT:
             project = self.project_repo.get_by_id_or_404(task.project_id)
-            is_creator = str(project.created_by) == str(current_user.id)
+            is_creator = self.is_owner(project, "created_by", current_user)
             is_member = self.member_repo.is_active_member(task.project_id, current_user.id)
             if not (is_creator or is_member):
                 raise ForbiddenException("Bu görevi görüntüleme yetkiniz yok")
@@ -167,7 +167,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         project = self.project_repo.get_by_id_or_404(task.project_id)
 
         if (
-            str(project.created_by) != str(current_user.id)
+            not self.is_owner(project, "created_by", current_user)
             and current_user.role != UserRole.ADMIN
         ):
             raise ForbiddenException("Görev güncelleme yetkiniz yok")
@@ -180,7 +180,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         updated = self.repo.update(task_id, update_data)
         
         # Atama değiştiyse bildirim gönder (ve atanan kişi kendisi değilse)
-        if data.assigned_to is not None and str(data.assigned_to) != str(task.assigned_to) and str(data.assigned_to) != str(current_user.id):
+        if data.assigned_to is not None and not self.ids_equal(data.assigned_to, task.assigned_to) and not self.ids_equal(data.assigned_to, current_user.id):
             send_notification(
                 db=self.db,
                 user_id=data.assigned_to,
@@ -205,7 +205,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         project = self.project_repo.get_by_id_or_404(task.project_id)
 
         if (
-            str(project.created_by) != str(current_user.id)
+            not self.is_owner(project, "created_by", current_user)
             and current_user.role != UserRole.ADMIN
         ):
             raise ForbiddenException("Görev silme yetkiniz yok")

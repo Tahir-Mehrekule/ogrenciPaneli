@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.common import authz
 from app.common.enums import ProjectStatus, UserRole
 from app.common.exceptions import BadRequestException, ForbiddenException
 from app.features.project.project_repo import ProjectRepo
@@ -68,7 +69,7 @@ class AIService:
             )
 
         # 3. Yetki kontrolü
-        is_owner = str(project.created_by) == str(current_user.id)
+        is_owner = authz.is_owner(project, "created_by", current_user)
         is_privileged = current_user.role in [UserRole.TEACHER, UserRole.ADMIN]
         if not is_owner and not is_privileged:
             raise ForbiddenException("Bu proje için AI önerisi üretme yetkiniz yok")
@@ -198,7 +199,7 @@ class AIService:
         report = report_repo.get_by_id_or_404(data.report_id)
 
         # Yetki kontrolü (Öğrenci ise sadece kendi raporu; değilse öğretmen/admin)
-        is_owner = str(report.submitted_by) == str(current_user.id)
+        is_owner = authz.is_owner(report, "submitted_by", current_user)
         is_privileged = current_user.role in [UserRole.TEACHER, UserRole.ADMIN]
         if not is_owner and not is_privileged:
             raise ForbiddenException("Bu raporu analiz etme yetkiniz yok")

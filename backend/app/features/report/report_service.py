@@ -192,7 +192,7 @@ class ReportService(BaseService[Report, ReportRepo]):
         if not project or not project.course_id:
             return False
         course = self.db.query(Course).filter(Course.id == project.course_id).first()
-        return bool(course and str(course.teacher_id) == str(teacher.id))
+        return bool(course and self.ids_equal(course.teacher_id, teacher.id))
 
     def get_report(self, report_id: UUID, current_user: User) -> ReportResponse:
         """
@@ -204,7 +204,7 @@ class ReportService(BaseService[Report, ReportRepo]):
 
         if (
             current_user.role == UserRole.STUDENT
-            and str(report.submitted_by) != str(current_user.id)
+            and not self.is_owner(report, "submitted_by", current_user)
         ):
             raise ForbiddenException("Bu raporu görüntüleme yetkiniz yok")
 
@@ -281,7 +281,7 @@ class ReportService(BaseService[Report, ReportRepo]):
         report = self.repo.get_by_id_or_404(report_id)
 
         if current_user.role == UserRole.STUDENT:
-            if str(report.submitted_by) != str(current_user.id):
+            if not self.is_owner(report, "submitted_by", current_user):
                 raise ForbiddenException("Bu raporu silme yetkiniz yok")
             if report.status != ReportStatus.DRAFT:
                 raise BadRequestException("Sadece DRAFT raporlar silinebilir")
@@ -294,8 +294,7 @@ class ReportService(BaseService[Report, ReportRepo]):
 
     def hard_delete_report(self, report_id: UUID, current_user: User) -> dict:
         """Raporu kalıcı siler. Sadece ADMIN."""
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         report = self.repo.get_by_id_or_404(report_id, active_only=False)
         self.repo.delete(report_id)
         log_activity(self.db, ActivityAction.REPORT_DELETE, user_id=current_user.id,
@@ -305,8 +304,7 @@ class ReportService(BaseService[Report, ReportRepo]):
 
     def restore_report(self, report_id: UUID, current_user: User) -> ReportResponse:
         """Silinmiş raporu geri yükler. Sadece ADMIN."""
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         restored = self.repo.restore(report_id)
         return self._to_response(restored)
 
@@ -319,7 +317,7 @@ class ReportService(BaseService[Report, ReportRepo]):
         # Yetki: student sadece kendi raporu için sorabilir
         if (
             current_user.role == UserRole.STUDENT
-            and str(report.submitted_by) != str(current_user.id)
+            and not self.is_owner(report, "submitted_by", current_user)
         ):
             raise ForbiddenException("Bu rapor için bilgi alma yetkiniz yok")
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import UserRole
-from app.common.exceptions import NotFoundException, BadRequestException, ForbiddenException, ConflictException
+from app.common.exceptions import NotFoundException, BadRequestException, ConflictException
 from app.features.auth.auth_model import User
 from app.features.user.user_repo import UserRepo
 from app.features.user.user_manager import UserManager
@@ -250,9 +250,7 @@ class UserService(BaseService[User, UserRepo]):
 
     def deactivate_user(self, user_id: UUID, current_user: User) -> dict:
         """Admin: kullanıcıyı pasifleştirir (is_active=False). Veri korunur."""
-        from app.common.exceptions import ForbiddenException
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         target_user = self.repo.get_by_id_or_404(user_id)
         self.manager.validate_self_delete(current_user, target_user)
         self.repo.update(user_id, {"is_active": False})
@@ -260,9 +258,7 @@ class UserService(BaseService[User, UserRepo]):
 
     def restore_user(self, user_id: UUID, current_user: User) -> dict:
         """Admin: pasifleştirilmiş kullanıcıyı geri aktif hale getirir."""
-        from app.common.exceptions import ForbiddenException
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         target_user = self.repo.get_by_id(user_id, active_only=False)
         if target_user is None:
             from app.common.exceptions import NotFoundException
@@ -321,8 +317,7 @@ class UserService(BaseService[User, UserRepo]):
         from app.common.enums import ActivityAction, EntityType
 
         # 1
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Sadece ADMIN yeni kullanıcı ekleyebilir.")
+        self.require_admin(current_user, message="Sadece ADMIN yeni kullanıcı ekleyebilir.")
 
         # 2
         if data.role not in (UserRole.STUDENT, UserRole.TEACHER):

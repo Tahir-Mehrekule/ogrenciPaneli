@@ -28,8 +28,12 @@ from unittest.mock import patch, MagicMock
 # her testte yeniden login olur ve /auth/login 10/dk sınırını tetikleyip 429 döndürür.
 limiter.enabled = False
 
-# PostgreSQL test veritabanı (Docker üzerinden localhost:5432)
-TEST_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/unitrack_test"
+# PostgreSQL test veritabanı (host'tan localhost:5432; container içinde TEST_DATABASE_URL ile override)
+import os
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/unitrack_test",
+)
 
 engine = create_engine(TEST_DATABASE_URL)
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

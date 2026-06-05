@@ -7,11 +7,7 @@ Ders oluşturma, güncelleme ve kayıt kurallarını doğrular.
 from sqlalchemy.orm import Session
 
 from app.base.base_manager import BaseManager
-from app.common.enums import UserRole
-from app.common.exceptions import (
-    ForbiddenException,
-    ConflictException,
-)
+from app.common.exceptions import ConflictException
 from app.features.course.course_repo import CourseRepo
 from app.features.auth.auth_model import User
 
@@ -37,5 +33,4 @@ class CourseManager(BaseManager):
         Admin Plan A5: Sadece ADMIN ders oluşturabilir.
         Öğretmen artık ders oluşturamaz — atandığı derse erişebilir.
         """
-        if user.role != UserRole.ADMIN:
-            raise ForbiddenException("Sadece sistem yöneticisi (ADMIN) ders oluşturabilir.")
+        self.require_admin(user, message="Sadece sistem yöneticisi (ADMIN) ders oluşturabilir.")

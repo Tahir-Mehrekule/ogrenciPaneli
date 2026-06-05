@@ -210,7 +210,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
         # STUDENT sadece kendi oluşturduğu veya ACTIVE üye olduğu projeyi görebilir
         if current_user.role == UserRole.STUDENT:
-            is_creator = str(project.created_by) == str(current_user.id)
+            is_creator = self.is_owner(project, "created_by", current_user)
             if not is_creator:
                 from app.features.project_member.project_member_repo import ProjectMemberRepo
                 is_member = ProjectMemberRepo(self.db).is_active_member(project_id, current_user.id)
@@ -341,9 +341,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
     def hard_delete_project(self, project_id: UUID, current_user: User) -> dict:
         """Projeyi kalıcı siler (hard delete). Sadece ADMIN kullanabilir."""
-        from app.common.exceptions import ForbiddenException
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         project = self.repo.get_by_id_or_404(project_id, active_only=False)
         self.repo.delete(project_id)
         log_activity(self.db, ActivityAction.PROJECT_DELETE, user_id=current_user.id,
@@ -353,9 +351,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
     def restore_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """Silinmiş projeyi geri yükler. Sadece ADMIN kullanabilir."""
-        from app.common.exceptions import ForbiddenException
-        if current_user.role != UserRole.ADMIN:
-            raise ForbiddenException("Bu işlem sadece adminler tarafından yapılabilir")
+        self.require_admin(current_user)
         restored = self.repo.restore(project_id)
         log_activity(self.db, ActivityAction.PROJECT_RESTORE, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
@@ -373,7 +369,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         # STUDENT yalnız kendi projesi için cascade-info sorabilir
         if (
             current_user.role == UserRole.STUDENT
-            and str(project.created_by) != str(current_user.id)
+            and not self.is_owner(project, "created_by", current_user)
         ):
             from app.common.exceptions import ForbiddenException
             raise ForbiddenException("Bu proje için bilgi alma yetkiniz yok")

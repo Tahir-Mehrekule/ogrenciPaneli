@@ -54,7 +54,7 @@ class TaskManager(BaseManager):
 
         # Proje sahibi (creator) her geçişi yapabilir — DONE → herhangi geri alma dahil
         project = self.project_repo.get_by_id(task.project_id)
-        if project and str(project.created_by) == str(user.id):
+        if project and self.same_id(project.created_by, user.id):
             return
 
         allowed_transitions = TASK_TRANSITIONS.get(task.status, {})
@@ -82,7 +82,7 @@ class TaskManager(BaseManager):
         if assigned_to is None:
             return
         project = self.project_repo.get_by_id(project_id)
-        if project and str(project.created_by) == str(assigned_to):
+        if project and self.same_id(project.created_by, assigned_to):
             return
         if not self.member_repo.is_active_member(project_id, assigned_to):
             raise BadRequestException("Görev sadece projede üye olan kullanıcılara atanabilir")

@@ -3,7 +3,6 @@ Dosya yükleme (File Upload) iş mantığı servisi.
 """
 
 from uuid import UUID, uuid4
-import math
 from fastapi import UploadFile
 
 from sqlalchemy.orm import Session

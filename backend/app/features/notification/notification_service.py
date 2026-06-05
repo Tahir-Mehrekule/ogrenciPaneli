@@ -2,7 +2,6 @@
 Notification service (iş mantığı) modülü.
 """
 
-import math
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -46,13 +45,7 @@ class NotificationService(BaseService[Notification, NotificationRepo]):
         )
         items = [NotificationResponse.model_validate(n) for n in notifications]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def get_unread_count(self, current_user: User) -> dict:
         """Kullanıcının okunmamış bildirim sayısını getirir."""

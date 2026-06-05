@@ -4,7 +4,6 @@ ClassSection Service.
 CRUD + stats (grade_label'a göre öğrenci/şube sayımı).
 """
 
-import math
 from uuid import UUID
 from typing import Optional
 
@@ -65,11 +64,7 @@ class ClassSectionService(BaseService[ClassSection, ClassSectionRepo]):
             page=page, size=size,
             sort_by="grade_label", order="asc",
         )
-        return PaginatedResponse(
-            items=[self._to_response(c) for c in items],
-            total=total, page=page, size=size,
-            pages=math.ceil(total / size) if size > 0 else 0,
-        )
+        return self.paginate([self._to_response(c) for c in items], total, page, size)
 
     def get(self, cs_id: UUID) -> ClassSectionResponse:
         cs = self.repo.get_by_id_or_404(cs_id)

@@ -4,7 +4,6 @@ Report service (iş mantığı) modülü.
 Haftalık rapor oluşturma, güncelleme, teslim ve inceleme işlemlerinin orkestrasyon katmanı.
 """
 
-import math
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -15,7 +14,7 @@ from app.base.base_service import BaseService
 from app.common.enums import ReportStatus, UserRole, NotificationType, ActivityAction, EntityType
 from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
-from app.common.exceptions import ForbiddenException, NotFoundException
+from app.common.exceptions import BadRequestException, ConflictException, ForbiddenException, NotFoundException
 from app.common.validators import validate_youtube_url
 from app.features.report.report_model import Report
 from app.features.report.report_repo import ReportRepo
@@ -94,7 +93,6 @@ class ReportService(BaseService[Report, ReportRepo]):
             })
         except IntegrityError:
             self.db.rollback()
-            from app.common.exceptions import ConflictException
             raise ConflictException(
                 f"{year} yılının {week_number}. haftası için rapor zaten mevcut"
             )
@@ -137,16 +135,10 @@ class ReportService(BaseService[Report, ReportRepo]):
             )
             teacher_course_ids = [row.id for row in rows]
             if not teacher_course_ids:
-                return PaginatedResponse(
-                    items=[], total=0, page=params.page,
-                    size=params.size, pages=0,
-                )
+                return self.paginate([], 0, params.page, params.size)
             # Açık ders filtresi verildiyse, o dersin öğretmene ait olduğunu doğrula
             if params.course_id and params.course_id not in teacher_course_ids:
-                return PaginatedResponse(
-                    items=[], total=0, page=params.page,
-                    size=params.size, pages=0,
-                )
+                return self.paginate([], 0, params.page, params.size)
             # Açık filtre yoksa tüm kendi derslerine kısıtla
             if not params.course_id:
                 course_ids = teacher_course_ids
@@ -157,10 +149,7 @@ class ReportService(BaseService[Report, ReportRepo]):
         if current_user.role in (UserRole.TEACHER, UserRole.ADMIN):
             if filters.get("status") == ReportStatus.DRAFT:
                 # Staff DRAFT istemiş → erken-dönüş ile boş set
-                return PaginatedResponse(
-                    items=[], total=0, page=params.page,
-                    size=params.size, pages=0,
-                )
+                return self.paginate([], 0, params.page, params.size)
             if "status" not in filters:
                 # status filtresi yoksa SUBMITTED + REVIEWED ile sınırla
                 in_filters = {"status": [ReportStatus.SUBMITTED, ReportStatus.REVIEWED]}
@@ -181,10 +170,7 @@ class ReportService(BaseService[Report, ReportRepo]):
         )
         items = [self._to_response(r) for r in reports]
 
-        return PaginatedResponse(
-            items=items, total=total, page=params.page, size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def _teacher_owns_report_course(self, report, teacher: User) -> bool:
         """Rapor → proje → ders.teacher_id, öğretmenin kendisi mi?"""
@@ -254,8 +240,6 @@ class ReportService(BaseService[Report, ReportRepo]):
         if not course:
             return
 
-        from app.common.exceptions import BadRequestException
-
         if course.require_youtube and not report.youtube_url:
             raise BadRequestException(
                 f"'{course.name}' dersi için raporda YouTube video linki zorunludur."
@@ -277,7 +261,6 @@ class ReportService(BaseService[Report, ReportRepo]):
         - STUDENT: sadece kendi DRAFT raporunu silebilir
         - TEACHER/ADMIN: tüm raporları silebilir
         """
-        from app.common.exceptions import BadRequestException
         report = self.repo.get_by_id_or_404(report_id)
 
         if current_user.role == UserRole.STUDENT:
@@ -339,7 +322,6 @@ class ReportService(BaseService[Report, ReportRepo]):
             raise ForbiddenException("Bu rapor sizin derslerinize ait değil")
 
         if report.status != ReportStatus.SUBMITTED:
-            from app.common.exceptions import BadRequestException
             raise BadRequestException(
                 f"Sadece SUBMITTED raporlar incelenebilir. Mevcut durum: {report.status.value}"
             )

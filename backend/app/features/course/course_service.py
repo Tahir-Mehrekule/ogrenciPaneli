@@ -5,7 +5,6 @@ Ders CRUD ve listeleme orkestrasyon katmanı.
 Enrollment sistemi kaldırıldı — öğrenci görünürlüğü bölüm eşleşmesiyle otomatik sağlanır.
 """
 
-import math
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -13,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import UserRole, ActivityAction, EntityType
+from app.common.exceptions import BadRequestException
 from app.common.activity_log_helper import log_activity
 from app.features.course.course_model import Course
 from app.features.course.course_repo import CourseRepo
@@ -54,13 +54,11 @@ class CourseService(BaseService[Course, CourseRepo]):
         # business rule olarak şart koşuluyor (UI dropdown'u zorunlu eder).
         if current_user.role == UserRole.ADMIN:
             if not data.teacher_id:
-                from app.common.exceptions import BadRequestException
                 raise BadRequestException("Ders oluştururken bir öğretmen atanmalı.")
             # Atanan kullanıcının TEACHER rolünde olduğunu doğrula
             from app.features.auth.auth_repo import AuthRepo
             target = AuthRepo(self.db).get_by_id_or_404(data.teacher_id)
             if target.role != UserRole.TEACHER:
-                from app.common.exceptions import BadRequestException
                 raise BadRequestException(
                     "Atamak istediğiniz kişi TEACHER rolünde değil."
                 )
@@ -103,10 +101,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         elif current_user.role == UserRole.STUDENT:
             dept_ids = [d.id for d in current_user.departments]
             if not dept_ids:
-                return PaginatedResponse(
-                    items=[], total=0, page=params.page,
-                    size=params.size, pages=0,
-                )
+                return self.paginate([], 0, params.page, params.size)
             in_filters["department_id"] = dept_ids
 
         # Parametrik override filtreler
@@ -129,13 +124,7 @@ class CourseService(BaseService[Course, CourseRepo]):
         )
         items = [self._to_response(c) for c in courses]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def get_course(self, course_id: UUID) -> CourseResponse:
         """ID ile ders detayı."""

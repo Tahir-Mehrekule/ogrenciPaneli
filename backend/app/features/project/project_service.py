@@ -4,7 +4,6 @@ Project service (iş mantığı) modülü.
 Proje oluşturma, listeleme, onay/red ve durum yönetiminin orkestrasyon katmanı.
 """
 
-import math
 import secrets
 import string
 from uuid import UUID
@@ -14,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import ProjectStatus, ProjectType, UserRole, NotificationType, ActivityAction, EntityType
+from app.common.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.common.notification_helper import send_notification
 from app.common.activity_log_helper import log_activity
 from app.features.project.project_model import Project
@@ -72,7 +72,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         share_code = self._generate_unique_share_code()
 
         # Ders zorunlu: var olmalı, yoksa 404
-        from app.common.exceptions import NotFoundException
         from app.features.course.course_repo import CourseRepo
         course = CourseRepo(self.db).get_by_id(data.course_id)
         if not course:
@@ -148,10 +147,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
                 )
                 teacher_course_ids = [row.id for row in rows]
                 if not teacher_course_ids:
-                    return PaginatedResponse(
-                        items=[], total=0, page=params.page,
-                        size=params.size, pages=0,
-                    )
+                    return self.paginate([], 0, params.page, params.size)
         else:  # ADMIN
             if params.created_by:
                 filters["created_by"] = params.created_by
@@ -166,10 +162,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
                 effective_exclude_status = ProjectStatus.DRAFT
             if filters.get("status") == ProjectStatus.DRAFT:
                 # Staff DRAFT görmek istiyorsa erken-dönüş ile boş set ver
-                return PaginatedResponse(
-                    items=[], total=0, page=params.page,
-                    size=params.size, pages=0,
-                )
+                return self.paginate([], 0, params.page, params.size)
 
         projects, total = self.repo.get_many_filtered(
             filters=filters,
@@ -189,13 +182,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         )
         items = [self._to_response(p) for p in projects]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def get_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
         """
@@ -215,7 +202,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
                 from app.features.project_member.project_member_repo import ProjectMemberRepo
                 is_member = ProjectMemberRepo(self.db).is_active_member(project_id, current_user.id)
                 if not is_member:
-                    from app.common.exceptions import ForbiddenException
                     raise ForbiddenException("Bu projeyi görüntüleme yetkiniz yok")
 
         return self._to_response(project)
@@ -237,7 +223,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         self.manager.validate_project_owner(project, current_user)
 
         if project.status != ProjectStatus.DRAFT:
-            from app.common.exceptions import BadRequestException
             raise BadRequestException("Sadece DRAFT statüsündeki projeler güncellenebilir")
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -257,7 +242,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         yapılmadan tekrar gönderilemez. rejected_at alanı dolduysa ve PATCH
         ile temizlenmediyse hata fırlatılır.
         """
-        from app.common.exceptions import BadRequestException
         project = self.repo.get_by_id_or_404(project_id)
         self.manager.validate_project_owner(project, current_user)
         self.manager.validate_status_transition(project.status, ProjectStatus.PENDING)
@@ -371,7 +355,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             current_user.role == UserRole.STUDENT
             and not self.is_owner(project, "created_by", current_user)
         ):
-            from app.common.exceptions import ForbiddenException
             raise ForbiddenException("Bu proje için bilgi alma yetkiniz yok")
 
         from app.features.task.task_repo import TaskRepo
@@ -385,7 +368,6 @@ class ProjectService(BaseService[Project, ProjectRepo]):
 
     def get_by_share_code(self, share_code: str) -> ProjectResponse:
         """Share link kodu ile projeyi getirir."""
-        from app.common.exceptions import NotFoundException
         project = self.repo.get_by_share_code(share_code)
         if project is None:
             raise NotFoundException("Bu bağlantı kodu ile proje bulunamadı")

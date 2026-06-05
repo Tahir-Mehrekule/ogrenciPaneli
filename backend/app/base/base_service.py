@@ -67,6 +67,17 @@ class BaseService(Generic[ModelType, RepoType]):
         """ID ile kayıt getirir. Bulunamazsa 404 fırlatır."""
         return self.repo.get_by_id_or_404(id)
 
+    @staticmethod
+    def paginate(items: list, total: int, page: int, size: int) -> PaginatedResponse:
+        """
+        Sorgu sonucunu standart PaginatedResponse'a çevirir; sayfa sayısını hesaplar.
+        Tüm servisler liste dönerken bunu kullanmalı (DRY — tek kaynak).
+        """
+        return PaginatedResponse(
+            items=items, total=total, page=page, size=size,
+            pages=math.ceil(total / size) if size > 0 else 0,
+        )
+
     def list(self, filters: FilterParams) -> PaginatedResponse:
         """Sayfalanmış, sıralı, filtreli liste döner."""
         skip = (filters.page - 1) * filters.size
@@ -75,11 +86,7 @@ class BaseService(Generic[ModelType, RepoType]):
             sort_by=filters.sort_by, order=filters.order,
         )
         total = self.repo.count()
-        return PaginatedResponse(
-            items=items, total=total, page=filters.page,
-            size=filters.size,
-            pages=math.ceil(total / filters.size) if filters.size > 0 else 0,
-        )
+        return self.paginate(items, total, filters.page, filters.size)
 
     def update(self, id: UUID, data: dict) -> ModelType:
         """Kısmi güncelleme (PATCH). None alanlar güncellenmez."""

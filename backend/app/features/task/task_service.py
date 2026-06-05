@@ -4,7 +4,6 @@ Task service (iş mantığı) modülü.
 Görev oluşturma, güncelleme, durum yönetimi ve listelemenin orkestrasyon katmanı.
 """
 
-import math
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -140,10 +139,7 @@ class TaskService(BaseService[Task, TaskRepo]):
         )
         items = [self._to_response(t) for t in tasks]
 
-        return PaginatedResponse(
-            items=items, total=total, page=params.page, size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def get_task(self, task_id: UUID, current_user: User) -> TaskResponse:
         """

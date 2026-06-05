@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, create_access_token, create_refresh_token
-from app.common.exceptions import NotFoundException
+from app.common.exceptions import BadRequestException, NotFoundException, UnauthorizedException
 from app.common.enums import ActivityAction, EntityType, UserRole
 from app.common.activity_log_helper import log_activity
 from app.features.auth.auth_repo import AuthRepo
@@ -116,7 +116,6 @@ class AuthService:
         from datetime import datetime, timezone
         from app.core.security import verify_token
         from app.features.auth.revoked_token_model import RevokedToken
-        from app.common.exceptions import UnauthorizedException
 
         # 1. Token'ı çöz ve tip kontrolü yap
         payload = verify_token(data.refresh_token)
@@ -161,7 +160,6 @@ class AuthService:
         4. Yeni şifre hashlenip DB'ye yazılır.
         """
         from app.core.security import verify_password, hash_password
-        from app.common.exceptions import UnauthorizedException, BadRequestException
 
         # 1. Mevcut şifre kontrolü
         if not verify_password(data.current_password, user.password_hash):
@@ -249,7 +247,6 @@ class AuthService:
         import logging
         from app.features.auth.password_reset_model import PasswordResetToken
         from app.core.security import hash_password
-        from app.common.exceptions import BadRequestException
 
         logger = logging.getLogger(__name__)
 
@@ -288,8 +285,6 @@ class AuthService:
         - En az bir alan gönderilmesi zorunludur.
         - Sadece kullanıcının kendisi çağırabilir (PATCH /auth/me).
         """
-        from app.common.exceptions import BadRequestException
-
         update_data = {}
         if data.first_name is not None:
             update_data["first_name"] = data.first_name.strip()

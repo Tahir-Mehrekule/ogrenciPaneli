@@ -2,8 +2,6 @@
 ActivityLog service (iş mantığı) modülü.
 """
 
-import math
-
 from sqlalchemy.orm import Session
 
 from app.base.base_dto import PaginatedResponse
@@ -41,13 +39,7 @@ class ActivityLogService(BaseService[ActivityLog, ActivityLogRepo]):
 
         items = [self._to_response(log) for log in logs]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def _to_response(self, log) -> ActivityLogResponse:
         """Log nesnesini response DTO'ya dönüştürür ve kullanıcı bilgisiyle zenginleştirir."""

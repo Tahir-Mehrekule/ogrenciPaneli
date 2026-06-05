@@ -5,7 +5,6 @@ Kullanıcı yönetimi işlemlerinin orkestrasyon katmanı.
 Manager'ı çağırarak validasyon yapar, repo'ya yönlendirerek DB işlemi yapar.
 """
 
-import math
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -63,13 +62,7 @@ class UserService(BaseService[User, UserRepo]):
                 order=params.order,
             )
             items = [UserListResponse.model_validate(u) for u in users]
-            return PaginatedResponse(
-                items=items,
-                total=total,
-                page=params.page,
-                size=params.size,
-                pages=math.ceil(total / params.size) if params.size > 0 else 0,
-            )
+            return self.paginate(items, total, params.page, params.size)
 
         # Standart filtreler
         filters = {}
@@ -97,13 +90,7 @@ class UserService(BaseService[User, UserRepo]):
         )
         items = [UserListResponse.model_validate(u) for u in users]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def list_my_students(self, teacher: User, params: UserFilterParams) -> PaginatedResponse:
         """
@@ -112,7 +99,7 @@ class UserService(BaseService[User, UserRepo]):
         """
         dept_ids = [ud.department_id for ud in teacher.user_departments if ud.is_active and not ud.is_deleted]
         if not dept_ids:
-            return PaginatedResponse(items=[], total=0, page=params.page, size=params.size, pages=0)
+            return self.paginate([], 0, params.page, params.size)
 
         users, total = self.repo.get_students_by_department_ids(
             department_ids=dept_ids,
@@ -126,13 +113,7 @@ class UserService(BaseService[User, UserRepo]):
         )
         items = [UserListResponse.model_validate(u) for u in users]
 
-        return PaginatedResponse(
-            items=items,
-            total=total,
-            page=params.page,
-            size=params.size,
-            pages=math.ceil(total / params.size) if params.size > 0 else 0,
-        )
+        return self.paginate(items, total, params.page, params.size)
 
     def get_user(self, user_id: UUID) -> UserListResponse:
         """ID ile tek kullanıcı detayını döner."""
@@ -261,7 +242,6 @@ class UserService(BaseService[User, UserRepo]):
         self.require_admin(current_user)
         target_user = self.repo.get_by_id(user_id, active_only=False)
         if target_user is None:
-            from app.common.exceptions import NotFoundException
             raise NotFoundException(f"Kullanıcı bulunamadı: {user_id}")
         self.repo.update(user_id, {"is_active": True})
         return {"message": f"Kullanıcı geri aktif edildi: {target_user.full_name}"}

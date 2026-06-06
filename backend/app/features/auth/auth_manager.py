@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 
 from app.base.base_manager import BaseManager
 from app.common.enums import UserRole
-from app.common.validators import validate_school_email, determine_role_from_email
+from app.common.validators import (
+    validate_school_email,
+    determine_role_from_email,
+    validate_password_strength,
+)
 from app.common.exceptions import (
     BadRequestException,
     UnauthorizedException,
@@ -14,6 +18,7 @@ from app.common.exceptions import (
 from app.core.security import verify_password, verify_token
 from app.features.auth.auth_repo import AuthRepo
 from app.features.auth.auth_model import User
+from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
 
 
 class AuthManager(BaseManager):
@@ -87,8 +92,16 @@ class AuthManager(BaseManager):
 
         return user
 
-    def validate_refresh_token(self, token: str) -> str:
-        """Refresh token'ı doğrular ve user_id döner."""
+    def validate_refresh_token(self, token: str) -> tuple[str, str | None, int | None]:
+        """
+        Refresh token'ı TEK parse ile doğrular.
+
+        Doğrulama: imza/süre + tip (refresh) + sub (user_id) varlığı.
+
+        Returns:
+            (user_id, jti, exp) — jti ve exp revocation/rotation için service'e döner.
+            Service ikinci kez parse etmez (çift iş önlenir).
+        """
         payload = verify_token(token)
         if payload is None:
             raise UnauthorizedException("Geçersiz veya süresi dolmuş refresh token")
@@ -100,4 +113,50 @@ class AuthManager(BaseManager):
         if user_id is None:
             raise UnauthorizedException("Token'da kullanıcı bilgisi bulunamadı")
 
-        return user_id
+        return user_id, payload.get("jti"), payload.get("exp")
+
+    def resolve_student_class(self, student_no) -> tuple:
+        """
+        Öğrenci numarasının prefix'inden (giriş yılı, sınıf etiketi) belirler.
+
+        Eşleşme yoksa (None, None) döner — kayıt yine de devam eder.
+
+        Returns:
+            (entry_year, grade_label)
+        """
+        if not student_no:
+            return None, None
+        match = StudentPrefixRepo(self.db).match_student_no(student_no)
+        if match:
+            return match.entry_year, match.label
+        return None, None
+
+    def validate_password_change(self, user: User, current_password: str, new_password: str) -> None:
+        """
+        Şifre değiştirme kurallarını doğrular (DB yazımı service'te).
+
+        1. Mevcut şifre doğru olmalı (yanlışsa 401).
+        2. Yeni şifre güç kurallarına uymalı.
+        3. Yeni şifre eskiden farklı olmalı.
+        """
+        if not verify_password(current_password, user.password_hash):
+            raise UnauthorizedException("Mevcut şifre hatalı")
+
+        validate_password_strength(new_password)
+
+        if verify_password(new_password, user.password_hash):
+            raise BadRequestException("Yeni şifre eski şifreden farklı olmalıdır")
+
+    def validate_reset_password(self, reset_token, new_password: str) -> None:
+        """
+        Şifre sıfırlama kurallarını doğrular (token silme + DB yazımı service'te).
+
+        1. Token var ve süresi dolmamış olmalı.
+        2. Yeni şifre güç kurallarına uymalı.
+        """
+        if reset_token is None or reset_token.is_expired():
+            raise BadRequestException(
+                "Sıfırlama bağlantısı geçersiz veya süresi dolmuş. "
+                "Lütfen yeni sıfırlama isteği oluşturun."
+            )
+        validate_password_strength(new_password)

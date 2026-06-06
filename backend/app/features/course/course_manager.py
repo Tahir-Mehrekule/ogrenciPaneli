@@ -26,7 +26,7 @@ class CourseManager(BaseManager):
 
     def validate_teacher_owns_course(self, course, user: User) -> None:
         """Kullanıcının dersin sahibi (öğretmeni) veya admin olduğunu kontrol eder."""
-        self.check_ownership(course, "teacher_id", user, entity_name="ders")
+        self.require_owner_or_admin(course, "teacher_id", user, entity_name="ders")
 
     def validate_can_create_course(self, user: User) -> None:
         """

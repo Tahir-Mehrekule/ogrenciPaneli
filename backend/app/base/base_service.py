@@ -14,16 +14,19 @@ from sqlalchemy.orm import Session
 
 from app.base.base_repo import BaseRepository
 from app.base.base_dto import PaginatedResponse, FilterParams
-from app.common import authz
+from app.base.base_manager import BaseManager
 
 ModelType = TypeVar("ModelType")
 RepoType = TypeVar("RepoType", bound=BaseRepository)
 
 
-class BaseService(Generic[ModelType, RepoType]):
+class BaseService(BaseManager, Generic[ModelType, RepoType]):
     """
     Generic service sınıfı.
     Tüm feature service'leri bu sınıftan türer.
+
+    BaseManager'dan türediği için yetkilendirme kısayolları (ids_equal, is_owner,
+    require_admin, require_owner_or_admin, require_course_owner_if_teacher) hazır gelir.
 
     Kullanım:
         class ProjectService(BaseService[Project, ProjectRepo]):
@@ -32,32 +35,8 @@ class BaseService(Generic[ModelType, RepoType]):
     """
 
     def __init__(self, repo_class: Type[RepoType], db: Session):
-        self.db = db
+        super().__init__(db)
         self.repo: RepoType = repo_class(db)
-
-    # ── Yetkilendirme kısayolları (app.common.authz'a delege — tek kaynak) ──
-
-    @staticmethod
-    def ids_equal(a, b) -> bool:
-        """UUID/string id eşitlik kontrolü (tip farkını yok sayar)."""
-        return authz.ids_equal(a, b)
-
-    @staticmethod
-    def is_owner(entity, owner_field: str, user) -> bool:
-        """entity.<owner_field> == user.id mi?"""
-        return authz.is_owner(entity, owner_field, user)
-
-    def require_admin(self, user, *, message: str = "Bu işlem sadece adminler tarafından yapılabilir") -> None:
-        """ADMIN değilse ForbiddenException fırlatır."""
-        authz.require_admin(user, message=message)
-
-    def require_owner_or_admin(self, entity, owner_field: str, user, *, allow_admin: bool = True, entity_name: str = "kayıt") -> None:
-        """Sahip değilse (ve allow_admin ise admin değilse) ForbiddenException fırlatır."""
-        authz.require_owner_or_admin(entity, owner_field, user, allow_admin=allow_admin, entity_name=entity_name)
-
-    def require_course_owner_if_teacher(self, course, user, *, message: str = "Sadece kendi dersiniz üzerinde işlem yapabilirsiniz") -> None:
-        """TEACHER ise dersin sahibi olmalı; ADMIN her zaman geçer."""
-        authz.require_course_owner_if_teacher(course, user, message=message)
 
     def create(self, data: dict) -> ModelType:
         """Yeni kayıt oluşturur."""

@@ -92,6 +92,25 @@ def validate_youtube_url(url: str) -> None:
         )
 
 
+def validate_password_strength(password: str) -> None:
+    """
+    Şifre güç kurallarını doğrular (tek kaynak — DRY).
+
+    Kural: en az 8 karakter, en az 1 büyük harf, en az 1 rakam.
+
+    Args:
+        password: Kontrol edilecek şifre
+
+    Raises:
+        BadRequestException: Şifre kurallara uymuyorsa
+    """
+    p = password or ""
+    if not (len(p) >= 8 and any(c.isupper() for c in p) and any(c.isdigit() for c in p)):
+        raise BadRequestException(
+            "Yeni şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir"
+        )
+
+
 # ─────────────── Student Number Parser ───────────────
 
 _STUDENT_NO_RE = re.compile(r"^\d{9}$")

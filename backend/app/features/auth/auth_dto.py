@@ -108,16 +108,6 @@ class ChangePasswordRequest(BaseModel):
         description="Yeni şifre (minimum 8 karakter, en az 1 büyük harf, 1 rakam)",
     )
 
-    @property
-    def is_new_password_strong(self) -> bool:
-        """Yeni şifrenin gücünü kontrol eder."""
-        p = self.new_password
-        return (
-            len(p) >= 8
-            and any(c.isupper() for c in p)
-            and any(c.isdigit() for c in p)
-        )
-
 
 class UpdateProfileRequest(BaseModel):
     """Kullanıcının kendi profilini güncellemesi için istek şeması (PATCH /auth/me)."""

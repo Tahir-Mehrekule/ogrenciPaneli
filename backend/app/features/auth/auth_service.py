@@ -42,15 +42,8 @@ class AuthService:
         hashed_password = hash_password(data.password)
 
         # 4. Öğrenci no'sundan prefix eşleşmesi ile sınıf bilgisini belirle
-        entry_year = None
-        grade_label = None
         student_no_val = data.student_no if role == UserRole.STUDENT else None
-        if student_no_val:
-            from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
-            match = StudentPrefixRepo(self.db).match_student_no(student_no_val)
-            if match:
-                entry_year = match.entry_year
-                grade_label = match.label
+        entry_year, grade_label = self.manager.resolve_student_class(student_no_val)
 
         # 5. Kullanıcıyı DB'ye kaydet
         user_data = {
@@ -114,23 +107,16 @@ class AuthService:
 
     def refresh(self, data: RefreshTokenRequest) -> TokenResponse:
         from datetime import datetime, timezone
-        from app.core.security import verify_token
         from app.features.auth.revoked_token_model import RevokedToken
 
-        # 1. Token'ı çöz ve tip kontrolü yap
-        payload = verify_token(data.refresh_token)
-        if not payload or payload.get("type") != "refresh":
-            raise UnauthorizedException("Geçersiz refresh token")
-
-        jti = payload.get("jti")
-        exp = payload.get("exp")
+        # 1. Token'ı TEK parse ile doğrula (tip + sub) → jti/exp döner
+        user_id, jti, exp = self.manager.validate_refresh_token(data.refresh_token)
 
         # 2. Token daha önce kullanılmış mu? (revocation kontrolü)
         if jti and self.db.get(RevokedToken, jti):
             raise UnauthorizedException("Bu refresh token daha önce kullanılmış. Lütfen yeniden giriş yapın.")
 
-        # 3. user_id çıkar ve kullanıcı durumunu kontrol et
-        user_id = self.manager.validate_refresh_token(data.refresh_token)
+        # 3. Kullanıcı durumunu kontrol et
         user = self.repo.get_by_id(user_id)
         if user is None or not user.is_active or user.is_deleted:
             raise NotFoundException("Kullanıcı bulunamadı veya hesap devre dışı")
@@ -159,21 +145,12 @@ class AuthService:
         3. Yeni şifre, mevcut şifreden farklı olmalıdır.
         4. Yeni şifre hashlenip DB'ye yazılır.
         """
-        from app.core.security import verify_password, hash_password
+        from app.core.security import hash_password
 
-        # 1. Mevcut şifre kontrolü
-        if not verify_password(data.current_password, user.password_hash):
-            raise UnauthorizedException("Mevcut şifre hatalı")
-
-        # 2. Şifre gücü
-        if not data.is_new_password_strong:
-            raise BadRequestException(
-                "Yeni şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir"
-            )
-
-        # 3. Aynı şifre tekrar kullanılamaz
-        if verify_password(data.new_password, user.password_hash):
-            raise BadRequestException("Yeni şifre eski şifreden farklı olmalıdır")
+        # 1-3. Validasyon (mevcut şifre + güç + eski≠yeni) manager'da
+        self.manager.validate_password_change(
+            user, data.current_password, data.new_password
+        )
 
         # 4. Hash ve kaydet
         user.password_hash = hash_password(data.new_password)
@@ -251,18 +228,8 @@ class AuthService:
         logger = logging.getLogger(__name__)
 
         reset_token = self.db.get(PasswordResetToken, data.token)
-        if reset_token is None or reset_token.is_expired():
-            raise BadRequestException(
-                "Sıfırlama bağlantısı geçersiz veya süresi dolmuş. "
-                "Lütfen yeni sıfırlama isteği oluşturun."
-            )
-
-        # Şifre gücü kontrolü
-        p = data.new_password
-        if not (len(p) >= 8 and any(c.isupper() for c in p) and any(c.isdigit() for c in p)):
-            raise BadRequestException(
-                "Yeni şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir"
-            )
+        # Token geçerlilik + şifre gücü validasyonu manager'da
+        self.manager.validate_reset_password(reset_token, data.new_password)
 
         user = self.repo.get_by_id(reset_token.user_id)
         if user is None or user.is_deleted or not user.is_active:

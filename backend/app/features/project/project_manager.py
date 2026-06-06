@@ -40,7 +40,7 @@ class ProjectManager(BaseManager):
 
     def validate_project_owner(self, project: Project, user: User) -> None:
         """Kullanıcının proje sahibi veya admin olup olmadığını kontrol eder."""
-        self.check_ownership(project, "created_by", user, entity_name="proje")
+        self.require_owner_or_admin(project, "created_by", user, entity_name="proje")
 
     def validate_deletable(self, project: Project, user: User) -> None:
         """Projenin silinebilir durumda olup olmadığını kontrol eder."""

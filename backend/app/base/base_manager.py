@@ -1,8 +1,13 @@
 """
 Base manager (temel yardımcı işlemler) modülü.
 
-Tüm feature manager'larının türeyeceği base sınıfı tanımlar.
+Tüm feature manager'larının VE BaseService'in türeyeceği base sınıf.
 Manager katmanı; validasyon, iş kuralı kontrolü ve dış servis çağrılarını yönetir.
+
+Yetkilendirme kısayolları (ids_equal, is_owner, require_admin,
+require_owner_or_admin, require_course_owner_if_teacher) burada tanımlanır ve
+tüm mantığı app.common.authz'a delege eder (tek-kaynak — DRY). BaseService bu
+sınıftan türediği için aynı kısayolları paylaşır; tekrar tanımlanmaz.
 """
 
 from typing import Optional
@@ -14,7 +19,7 @@ from app.common import authz
 
 class BaseManager:
     """
-    Tüm manager sınıflarının türeyeceği abstract base.
+    Tüm manager sınıflarının ve BaseService'in türeyeceği base.
 
     Manager katmanının sorumlulukları:
     - İş kuralı validasyonu (durum geçişleri, sahiplik kontrolü)
@@ -37,11 +42,25 @@ class BaseManager:
     # ── Yetkilendirme kısayolları (app.common.authz'a delege — tek kaynak) ──
 
     @staticmethod
-    def same_id(a, b) -> bool:
+    def ids_equal(a, b) -> bool:
         """UUID/string id eşitlik kontrolü (tip farkını yok sayar)."""
         return authz.ids_equal(a, b)
 
-    def check_ownership(
+    @staticmethod
+    def is_owner(entity, owner_field: str, user) -> bool:
+        """entity.<owner_field> == user.id mi?"""
+        return authz.is_owner(entity, owner_field, user)
+
+    def require_admin(
+        self,
+        user,
+        *,
+        message: str = "Bu işlem sadece adminler tarafından yapılabilir",
+    ) -> None:
+        """ADMIN değilse ForbiddenException fırlatır."""
+        authz.require_admin(user, message=message)
+
+    def require_owner_or_admin(
         self,
         entity,
         owner_field: str,
@@ -50,18 +69,18 @@ class BaseManager:
         allow_admin: bool = True,
         entity_name: str = "kayıt",
     ) -> None:
-        """
-        Kullanıcının entity sahibi olup olmadığını kontrol eder.
-
-        - Sahip ise (owner_field == user.id) izin verilir.
-        - allow_admin=True ise ADMIN her zaman izinlidir.
-        - Aksi halde ForbiddenException fırlatılır.
-        """
+        """Sahip değilse (ve allow_admin ise admin değilse) ForbiddenException fırlatır."""
         authz.require_owner_or_admin(
             entity, owner_field, user,
             allow_admin=allow_admin, entity_name=entity_name,
         )
 
-    def require_admin(self, user, *, message: str = "Bu işlem sadece adminler tarafından yapılabilir") -> None:
-        """ADMIN değilse ForbiddenException fırlatır."""
-        authz.require_admin(user, message=message)
+    def require_course_owner_if_teacher(
+        self,
+        course,
+        user,
+        *,
+        message: str = "Sadece kendi dersiniz üzerinde işlem yapabilirsiniz",
+    ) -> None:
+        """TEACHER ise dersin sahibi olmalı; ADMIN her zaman geçer."""
+        authz.require_course_owner_if_teacher(course, user, message=message)

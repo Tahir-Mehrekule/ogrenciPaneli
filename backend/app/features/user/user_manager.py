@@ -29,7 +29,7 @@ class UserManager(BaseManager):
         - Kullanıcı kendi rolünü değiştiremez
         - Son admin'in rolü değiştirilemez
         """
-        if self.same_id(current_user.id, target_user.id):
+        if self.ids_equal(current_user.id, target_user.id):
             raise ForbiddenException("Kendi rolünüzü değiştiremezsiniz")
 
         if (
@@ -43,5 +43,5 @@ class UserManager(BaseManager):
 
     def validate_self_delete(self, current_user: User, target_user: User) -> None:
         """Kullanıcının kendi hesabını silmesini engeller."""
-        if self.same_id(current_user.id, target_user.id):
+        if self.ids_equal(current_user.id, target_user.id):
             raise ForbiddenException("Kendi hesabınızı silemezsiniz")

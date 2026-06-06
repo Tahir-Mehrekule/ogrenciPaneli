@@ -53,4 +53,4 @@ class ReportManager(BaseManager):
 
     def validate_report_owner(self, report: Report, user) -> None:
         """Kullanıcının raporun sahibi olup olmadığını kontrol eder."""
-        self.check_ownership(report, "submitted_by", user, allow_admin=False, entity_name="rapor")
+        self.require_owner_or_admin(report, "submitted_by", user, allow_admin=False, entity_name="rapor")

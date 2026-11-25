@@ -16,6 +16,12 @@ from app.common.enums import UserRole
 from app.features.auth.auth_model import User
 
 
+def _escape_like(raw: str) -> str:
+    """LIKE wildcard'larını kaçırır: % _ ve escape karakteri."""
+    escaped = raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class UserRepo(BaseRepository[User]):
     """
     User tablosu için repository.
@@ -51,13 +57,13 @@ class UserRepo(BaseRepository[User]):
         )
 
         if q and q.strip():
-            term = f"%{q.strip()}%"
+            term = _escape_like(q.strip())
             query = query.filter(
                 or_(
-                    User.first_name.ilike(term),
-                    User.last_name.ilike(term),
-                    User.email.ilike(term),
-                    User.student_no.ilike(term),
+                    User.first_name.ilike(term, escape="\\"),
+                    User.last_name.ilike(term, escape="\\"),
+                    User.email.ilike(term, escape="\\"),
+                    User.student_no.ilike(term, escape="\\"),
                 )
             )
 
@@ -118,13 +124,13 @@ class UserRepo(BaseRepository[User]):
         )
 
         if search:
-            term = f"%{search.strip()}%"
+            term = _escape_like(search.strip())
             query = query.filter(
                 or_(
-                    User.first_name.ilike(term),
-                    User.last_name.ilike(term),
-                    User.email.ilike(term),
-                    User.student_no.ilike(term),
+                    User.first_name.ilike(term, escape="\\"),
+                    User.last_name.ilike(term, escape="\\"),
+                    User.email.ilike(term, escape="\\"),
+                    User.student_no.ilike(term, escape="\\"),
                 )
             )
 
@@ -132,11 +138,13 @@ class UserRepo(BaseRepository[User]):
             query = query.filter(User.grade_label == grade_label)
 
         if student_no:
-            query = query.filter(User.student_no.ilike(f"%{student_no}%"))
+            query = query.filter(User.student_no.ilike(_escape_like(student_no), escape="\\"))
 
         total = query.count()
 
-        sort_col = getattr(User, sort_by, User.created_at)
+        sort_col = getattr(User, sort_by, None)
+        if sort_col is None or sort_by in {"password_hash"}:
+            sort_col = User.created_at
         query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
 
         skip = (page - 1) * size

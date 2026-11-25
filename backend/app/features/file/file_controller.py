@@ -4,11 +4,12 @@ Dosya yükleme API uç noktaları (Controller).
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, Request, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
 from app.base.base_dto import MessageResponse
 from app.features.file.file_service import FileService
 from app.features.file.file_dto import FileUploadResponse
@@ -24,7 +25,9 @@ router = APIRouter(
     response_model=FileUploadResponse,
     summary="Rapora dosya ekle",
 )
+@limiter.limit("20/minute")
 def upload_report_file(
+    request: Request,
     report_id: UUID,
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),

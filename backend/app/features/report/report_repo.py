@@ -58,6 +58,8 @@ class ReportRepo(BaseRepository[Report]):
         branch_code: Optional[str] = None,
         course_id: Optional[UUID] = None,
         course_ids: Optional[list[UUID]] = None,
+        include_deleted: bool = False,
+        deleted_only: bool = False,
         page: int = 1,
         size: int = 20,
         sort_by: str = "created_at",
@@ -68,12 +70,17 @@ class ReportRepo(BaseRepository[Report]):
         branch_code → User.class_section → ClassSection.branch_code üzerinden filtrelenir.
         course_id → Report.project → Project.course_id üzerinden filtrelenir.
         course_ids → birden fazla derse (örn. öğretmenin tüm dersleri) kısıt.
+        include_deleted/deleted_only → ADMIN geri dönüşüm sayfası.
         """
         from app.features.auth.auth_model import User
         from app.features.class_section.class_section_model import ClassSection
         from app.features.project.project_model import Project
 
-        query = self._not_deleted(self.db.query(Report))
+        query = self.db.query(Report)
+        if deleted_only:
+            query = query.filter(Report.is_deleted == True)
+        elif not include_deleted:
+            query = self._not_deleted(query)
         query = self._active_filter(query, active_only=True)
 
         if grade_label or branch_code:
@@ -108,9 +115,15 @@ class ReportRepo(BaseRepository[Report]):
                     query = query.filter(column.in_(values))
 
         if search and search_fields:
-            term = f"%{search.strip()}%"
+            escaped = (
+                search.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            term = f"%{escaped}%"
             conditions = [
-                getattr(Report, f).ilike(term)
+                getattr(Report, f).ilike(term, escape="\\")
                 for f in search_fields
                 if getattr(Report, f, None) is not None
             ]
@@ -120,8 +133,9 @@ class ReportRepo(BaseRepository[Report]):
         total = query.count()
 
         sort_col = getattr(Report, sort_by, None)
-        if sort_col is not None:
-            query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
+        if sort_col is None or sort_by in {"password_hash"}:
+            sort_col = Report.created_at
+        query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
 
         skip = (page - 1) * size
         items = query.offset(skip).limit(size).all()

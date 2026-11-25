@@ -62,7 +62,7 @@ services:
 
   # MinIO (S3 Uyumlu Dosya Depolama)
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: unitrack-minio
     restart: unless-stopped
     ports:

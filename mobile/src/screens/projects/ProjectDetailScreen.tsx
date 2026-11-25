@@ -70,7 +70,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 };
 
 export const ProjectDetailScreen = ({ route, navigation }: any) => {
-  const { projectId } = route.params;
+  const { projectId, focusMembers } = route.params;
   const { user } = useAuth();
   const role = user?.role?.toUpperCase() ?? '';
 
@@ -132,6 +132,10 @@ export const ProjectDetailScreen = ({ route, navigation }: any) => {
 
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (focusMembers) navigation.navigate('ProjectMembers', { projectId });
+  }, [focusMembers]);
 
   // ── Üye yönetimi handler'ları ──
   const copyShareCode = (code: string) => {

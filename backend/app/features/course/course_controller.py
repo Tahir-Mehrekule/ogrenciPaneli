@@ -73,8 +73,8 @@ def get_course(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """ID ile ders detayı."""
-    return CourseService(db).get_course(course_id)
+    """ID ile ders detayı. Rol bazında bölüm/sahiplik kontrolü serviste yapılır."""
+    return CourseService(db).get_course(course_id, current_user)
 
 
 @router.patch(

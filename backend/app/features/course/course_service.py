@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import UserRole, ActivityAction, EntityType
-from app.common.exceptions import BadRequestException
+from app.common.exceptions import BadRequestException, ForbiddenException
 from app.common.activity_log_helper import log_activity
 from app.features.course.course_model import Course
 from app.features.course.course_repo import CourseRepo
@@ -126,9 +126,26 @@ class CourseService(BaseService[Course, CourseRepo]):
 
         return self.paginate(items, total, params.page, params.size)
 
-    def get_course(self, course_id: UUID) -> CourseResponse:
-        """ID ile ders detayı."""
+    def get_course(self, course_id: UUID, current_user: User) -> CourseResponse:
+        """
+        ID ile ders detayı.
+
+        - TEACHER: sadece kendi dersini görebilir
+        - STUDENT: sadece bölümüne ait dersleri görebilir
+        - ADMIN: tüm dersler
+        """
         course = self.repo.get_by_id_or_404(course_id)
+
+        if current_user.role == UserRole.TEACHER and not self.ids_equal(
+            course.teacher_id, current_user.id
+        ):
+            raise ForbiddenException("Bu dersi görüntüleme yetkiniz yok")
+
+        if current_user.role == UserRole.STUDENT:
+            dept_ids = [d.id for d in current_user.departments]
+            if course.department_id not in dept_ids:
+                raise ForbiddenException("Bu dersi görüntüleme yetkiniz yok")
+
         return self._to_response(course)
 
     def update_course(

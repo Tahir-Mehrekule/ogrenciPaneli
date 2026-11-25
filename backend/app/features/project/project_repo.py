@@ -15,6 +15,12 @@ from app.base.base_repo import BaseRepository
 from app.features.project.project_model import Project
 
 
+def _escape_like_term(raw: str) -> str:
+    """LIKE wildcard'larını kaçırır."""
+    escaped = raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class ProjectRepo(BaseRepository[Project]):
     """
     Project tablosu için repository.
@@ -48,6 +54,8 @@ class ProjectRepo(BaseRepository[Project]):
         branch_code: Optional[str] = None,
         creator_or_member_for: Optional[UUID] = None,
         member_project_ids: Optional[list[UUID]] = None,
+        include_deleted: bool = False,
+        deleted_only: bool = False,
         page: int = 1,
         size: int = 20,
         sort_by: str = "created_at",
@@ -57,11 +65,17 @@ class ProjectRepo(BaseRepository[Project]):
         grade_label, student_search ve branch_code User tablosuna JOIN ister.
         branch_code ayrıca class_sections'a join eder.
         Diğer filtreler verilmezse BaseRepo.get_many() ile aynı davranır.
+        include_deleted=True ise silinmişler de gelir; deleted_only=True ise
+        yalnız silinmişler gelir (ADMIN geri dönüşüm sayfası).
         """
         from app.features.auth.auth_model import User
         from app.features.class_section.class_section_model import ClassSection
 
-        query = self._not_deleted(self.db.query(Project))
+        query = self.db.query(Project)
+        if deleted_only:
+            query = query.filter(Project.is_deleted == True)
+        elif not include_deleted:
+            query = self._not_deleted(query)
         query = self._active_filter(query, active_only=True)
 
         # JOIN'i tek sefer yap (grade_label/student_search/branch_code varsa)
@@ -78,12 +92,12 @@ class ProjectRepo(BaseRepository[Project]):
             )
 
         if student_search:
-            term = f"%{student_search.strip()}%"
+            term = _escape_like_term(student_search.strip())
             query = query.filter(
                 or_(
-                    User.first_name.ilike(term),
-                    User.last_name.ilike(term),
-                    User.email.ilike(term),
+                    User.first_name.ilike(term, escape="\\"),
+                    User.last_name.ilike(term, escape="\\"),
+                    User.email.ilike(term, escape="\\"),
                 )
             )
 
@@ -112,9 +126,9 @@ class ProjectRepo(BaseRepository[Project]):
                     query = query.filter(column == value)
 
         if search and search_fields:
-            term = f"%{search.strip()}%"
+            term = _escape_like_term(search.strip())
             conditions = [
-                getattr(Project, f).ilike(term)
+                getattr(Project, f).ilike(term, escape="\\")
                 for f in search_fields
                 if getattr(Project, f, None) is not None
             ]
@@ -124,8 +138,9 @@ class ProjectRepo(BaseRepository[Project]):
         total = query.count()
 
         sort_col = getattr(Project, sort_by, None)
-        if sort_col is not None:
-            query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
+        if sort_col is None or sort_by in {"password_hash"}:
+            sort_col = Project.created_at
+        query = query.order_by(desc(sort_col) if order == "desc" else asc(sort_col))
 
         skip = (page - 1) * size
         items = query.offset(skip).limit(size).all()

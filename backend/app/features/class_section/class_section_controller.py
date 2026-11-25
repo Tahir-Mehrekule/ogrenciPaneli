@@ -54,7 +54,7 @@ def create_section(
 )
 def list_sections(
     page: int = Query(1, ge=1),
-    size: int = Query(100, ge=1, le=500),
+    size: int = Query(100, ge=1, le=100),
     department_id: Optional[UUID] = Query(None),
     grade_label: Optional[str] = Query(None),
     db: Session = Depends(get_db),

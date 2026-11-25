@@ -122,6 +122,9 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         if params.course_id:
             filters["course_id"] = params.course_id
 
+        # ADMIN geri dönüşüm: include_deleted yalnızca ADMIN'e açık.
+        include_deleted = bool(params.include_deleted) and current_user.role == UserRole.ADMIN
+
         # STUDENT kendi oluşturduğu + üyesi olduğu projeleri görür
         teacher_course_ids = None
         student_creator_id = None
@@ -175,6 +178,7 @@ class ProjectService(BaseService[Project, ProjectRepo]):
             branch_code=params.branch_code,
             creator_or_member_for=student_creator_id,
             member_project_ids=student_member_project_ids,
+            include_deleted=include_deleted,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -334,13 +338,32 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         return {"message": f"Proje kalıcı olarak silindi: {project.title}"}
 
     def restore_project(self, project_id: UUID, current_user: User) -> ProjectResponse:
-        """Silinmiş projeyi geri yükler. Sadece ADMIN kullanabilir."""
+        """Silinmiş projeyi geri yükler. Sadece ADMIN."""
         self.require_admin(current_user)
         restored = self.repo.restore(project_id)
         log_activity(self.db, ActivityAction.PROJECT_RESTORE, user_id=current_user.id,
                      entity_type=EntityType.PROJECT, entity_id=project_id,
                      details={"title": restored.title})
         return self._to_response(restored)
+
+    def list_deleted_projects(self, params: ProjectFilterParams, current_user: User) -> PaginatedResponse:
+        """ADMIN geri dönüşüm: yalnız silinmiş projeler (DRAFT filtresi uygulanmaz)."""
+        self.require_admin(current_user)
+        filters = {}
+        if params.course_id:
+            filters["course_id"] = params.course_id
+        projects, total = self.repo.get_many_filtered(
+            filters=filters,
+            search=params.search,
+            search_fields=["title", "description"],
+            deleted_only=True,
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
+        items = [self._to_response(p) for p in projects]
+        return self.paginate(items, total, params.page, params.size)
 
     def get_cascade_info(self, project_id: UUID, current_user: User) -> dict:
         """
@@ -350,12 +373,23 @@ class ProjectService(BaseService[Project, ProjectRepo]):
         - members: aktif üye sayısı (sahip dahil)
         """
         project = self.repo.get_by_id_or_404(project_id)
-        # STUDENT yalnız kendi projesi için cascade-info sorabilir
+        # STUDENT yalnız kendi projesi için cascade-info sorabilir;
+        # TEACHER yalnız kendi dersinin projesi için.
         if (
             current_user.role == UserRole.STUDENT
             and not self.is_owner(project, "created_by", current_user)
         ):
             raise ForbiddenException("Bu proje için bilgi alma yetkiniz yok")
+
+        if current_user.role == UserRole.TEACHER:
+            from app.features.course.course_model import Course
+            course = (
+                self.db.query(Course).filter(Course.id == project.course_id).first()
+                if project.course_id
+                else None
+            )
+            if not course or not self.ids_equal(course.teacher_id, current_user.id):
+                raise ForbiddenException("Bu proje sizin derslerinize ait değil")
 
         from app.features.task.task_repo import TaskRepo
         from app.features.report.report_repo import ReportRepo

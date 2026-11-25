@@ -73,6 +73,21 @@ class ReportService(BaseService[Report, ReportRepo]):
         if data.youtube_url:
             validate_youtube_url(data.youtube_url)
 
+        # Üyelik kontrolü: rapor yalnızca üyesi/oluşturucusu olunan projeye açılabilir.
+        # (ADMIN muaf — destek/müdahale senaryosu.)
+        if current_user.role != UserRole.ADMIN:
+            from app.features.project.project_repo import ProjectRepo
+            from app.features.project_member.project_member_repo import ProjectMemberRepo
+            project = ProjectRepo(self.db).get_by_id_or_404(data.project_id)
+            is_creator = self.is_owner(project, "created_by", current_user)
+            is_member = ProjectMemberRepo(self.db).is_active_member(
+                data.project_id, current_user.id
+            )
+            if not (is_creator or is_member):
+                raise ForbiddenException(
+                    "Sadece üyesi olduğunuz projelere rapor oluşturabilirsiniz"
+                )
+
         week_number, year = self.manager.get_current_week_and_year()
         self.manager.validate_weekly_uniqueness(
             data.project_id, current_user.id, week_number, year
@@ -115,6 +130,9 @@ class ReportService(BaseService[Report, ReportRepo]):
             filters["week_number"] = params.week_number
         if params.year:
             filters["year"] = params.year
+
+        # ADMIN geri dönüşüm: include_deleted yalnızca ADMIN'e açık.
+        include_deleted = bool(params.include_deleted) and current_user.role == UserRole.ADMIN
 
         # STUDENT sadece kendi raporlarını görür
         if current_user.role == UserRole.STUDENT:
@@ -163,6 +181,7 @@ class ReportService(BaseService[Report, ReportRepo]):
             branch_code=params.branch_code,
             course_id=params.course_id,
             course_ids=course_ids,
+            include_deleted=include_deleted,
             page=params.page,
             size=params.size,
             sort_by=params.sort_by,
@@ -291,18 +310,47 @@ class ReportService(BaseService[Report, ReportRepo]):
         restored = self.repo.restore(report_id)
         return self._to_response(restored)
 
+    def list_deleted_reports(self, params: ReportFilterParams, current_user: User) -> PaginatedResponse:
+        """ADMIN geri dönüşüm: yalnız silinmiş raporlar."""
+        self.require_admin(current_user)
+        filters = {}
+        if params.project_id:
+            filters["project_id"] = params.project_id
+        if params.course_id:
+            # course üzerinden filtre repo'da join ile yapılır — burada sadeleştir
+            pass
+        reports, total = self.repo.get_many_filtered(
+            filters=filters,
+            search=params.search,
+            search_fields=["content"],
+            deleted_only=True,
+            page=params.page,
+            size=params.size,
+            sort_by=params.sort_by,
+            order=params.order,
+        )
+        items = [self._to_response(r) for r in reports]
+        return self.paginate(items, total, params.page, params.size)
+
     def get_cascade_info(self, report_id: UUID, current_user: User) -> dict:
         """
         Soft delete öncesi etkilenecek bağlı kayıtların sayısını döner.
         Reports için tek child entity: yüklenen dosyalar.
         """
         report = self.repo.get_by_id_or_404(report_id)
-        # Yetki: student sadece kendi raporu için sorabilir
+        # Yetki: student sadece kendi raporu; teacher sadece kendi dersinin
+        # raporu için sorabilir (get_report ile aynı kural).
         if (
             current_user.role == UserRole.STUDENT
             and not self.is_owner(report, "submitted_by", current_user)
         ):
             raise ForbiddenException("Bu rapor için bilgi alma yetkiniz yok")
+
+        if (
+            current_user.role == UserRole.TEACHER
+            and not self._teacher_owns_report_course(report, current_user)
+        ):
+            raise ForbiddenException("Bu rapor sizin derslerinize ait değil")
 
         _, file_count = FileRepo(self.db).get_many(filters={"report_id": report_id})
         return {"files": file_count}

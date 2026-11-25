@@ -45,3 +45,18 @@ class UserManager(BaseManager):
         """Kullanıcının kendi hesabını silmesini engeller."""
         if self.ids_equal(current_user.id, target_user.id):
             raise ForbiddenException("Kendi hesabınızı silemezsiniz")
+
+    def validate_can_modify_user(self, current_user: User, target_user: User) -> None:
+        """
+        Kullanıcı silme/pasifleştirme hiyerarşi kuralı.
+
+        - ADMIN: herkesi değiştirebilir (kendi hesabı hariç — yukarıda).
+        - TEACHER: sadece STUDENT'ları pasifleştirebilir; başka bir
+          TEACHER veya ADMIN'i değiştiremez.
+        """
+        if current_user.role == UserRole.ADMIN:
+            return
+        if target_user.role != UserRole.STUDENT:
+            raise ForbiddenException(
+                "Öğretmenler yalnızca öğrenci hesaplarını pasifleştirebilir"
+            )

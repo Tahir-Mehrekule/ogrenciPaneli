@@ -41,18 +41,68 @@ apiClient.interceptors.request.use(
 );
 
 // ─── Response Interceptor ───
-// 401 dönerse token'ları sil ve login'e yönlendir
+// 401 dönerse önce refresh dene (access 15 dk yaşar), olmazsa login'e at.
+// Sonsuz döngüyü önlemek için refresh isteğinin kendisi tekrar denenmez.
+let isRefreshing = false;
+let refreshQueue: Array<(token: string | null) => void> = [];
+
+function flushQueue(token: string | null) {
+  refreshQueue.forEach((cb) => cb(token));
+  refreshQueue = [];
+}
+
+function hardLogout() {
+  Cookies.remove("access_token");
+  Cookies.remove("refresh_token");
+  if (typeof window !== "undefined") {
+    window.location.href = "/login";
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      Cookies.remove("access_token");
-      Cookies.remove("refresh_token");
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
 
-      // Tarayıcı ortamındaysa login'e yönlendir
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
+    if (status === 401 && !original?._retry && !original?.url?.includes("/auth/refresh")) {
+      original._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push((token) => {
+            if (!token) return reject(error);
+            original.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(original));
+          });
+        });
       }
+
+      isRefreshing = true;
+      try {
+        const refreshToken = Cookies.get("refresh_token");
+        if (!refreshToken) throw error;
+        const { data } = await apiClient.post("/api/v1/auth/refresh", {
+          refresh_token: refreshToken,
+        });
+        Cookies.set("access_token", data.access_token, { expires: 7 });
+        if (data.refresh_token) {
+          Cookies.set("refresh_token", data.refresh_token, { expires: 7 });
+        }
+        flushQueue(data.access_token);
+        original.headers.Authorization = `Bearer ${data.access_token}`;
+        return apiClient(original);
+      } catch {
+        flushQueue(null);
+        hardLogout();
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    if (status === 401) {
+      hardLogout();
     }
     return Promise.reject(error);
   }

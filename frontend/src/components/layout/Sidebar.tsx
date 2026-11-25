@@ -15,6 +15,10 @@ import {
   GraduationCap,
   Building2,
   ScrollText,
+  Trash2,
+  CalendarRange,
+  Shapes,
+  Bell,
   X,
   ChevronRight,
   LogOut,
@@ -131,6 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
           <>
             <NavSection label="Genel">
               <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+              <NavItem href="/dashboard/notifications" icon={Bell} label="Bildirimler" isActive={isActive("/dashboard/notifications")} onClick={onClose} />
             </NavSection>
             <NavSection label="Eğitim">
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Ders Kataloğu" isActive={isActive("/dashboard/courses")} onClick={onClose} />
@@ -147,10 +152,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
           <>
             <NavSection label="Genel">
               <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+              <NavItem href="/dashboard/notifications" icon={Bell} label="Bildirimler" isActive={isActive("/dashboard/notifications")} onClick={onClose} />
             </NavSection>
             <NavSection label="Sınıf Yönetimi">
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Tüm Dersler" isActive={isActive("/dashboard/courses")} onClick={onClose} />
               <NavItem href="/dashboard/users?role=student&onlyMine=true" icon={GraduationCap} label="Öğrencilerim" isActive={isActive("/dashboard/users")} onClick={onClose} />
+              <NavItem href="/dashboard/admin/class-sections" icon={CalendarRange} label="Şubeler" isActive={isActive("/dashboard/admin/class-sections")} onClick={onClose} />
             </NavSection>
             <NavSection label="Proje Takibi">
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Gelen Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
@@ -166,18 +173,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onClose }) => {
           <>
             <NavSection label="Genel">
               <NavItem href="/dashboard" icon={LayoutDashboard} label="Genel Bakış" isActive={isActive("/dashboard")} onClick={onClose} />
+              <NavItem href="/dashboard/notifications" icon={Bell} label="Bildirimler" isActive={isActive("/dashboard/notifications")} onClick={onClose} />
             </NavSection>
             <NavSection label="İçerik">
               <NavItem href="/dashboard/courses" icon={BookOpen} label="Tüm Dersler" isActive={isActive("/dashboard/courses")} onClick={onClose} />
               <NavItem href="/dashboard/projects" icon={FolderKanban} label="Tüm Projeler" isActive={isActive("/dashboard/projects")} onClick={onClose} />
               <NavItem href="/dashboard/reports" icon={FileText} label="Tüm Raporlar" isActive={isActive("/dashboard/reports")} onClick={onClose} />
+              <NavItem href="/dashboard/admin/class-sections" icon={CalendarRange} label="Şubeler" isActive={isActive("/dashboard/admin/class-sections")} onClick={onClose} />
             </NavSection>
             <NavSection label="Kullanıcılar">
               <NavItem href="/dashboard/users" icon={Users} label="Tüm Kullanıcılar" isActive={isActive("/dashboard/users")} onClick={onClose} />
               <NavItem href="/dashboard/admin/departments" icon={Building2} label="Bölümler" isActive={isActive("/dashboard/admin/departments")} onClick={onClose} />
+              <NavItem href="/dashboard/admin/year-prefixes" icon={Shapes} label="Yıl Prefixleri" isActive={isActive("/dashboard/admin/year-prefixes")} onClick={onClose} />
             </NavSection>
             <NavSection label="Sistem">
               <NavItem href="/dashboard/admin/logs" icon={ScrollText} label="Aktivite Logları" isActive={isActive("/dashboard/admin/logs")} onClick={onClose} />
+              <NavItem href="/dashboard/admin/trash" icon={Trash2} label="Geri Dönüşüm" isActive={isActive("/dashboard/admin/trash")} onClick={onClose} />
               <NavItem href="/dashboard/settings" icon={Settings} label="Ayarlar" isActive={isActive("/dashboard/settings")} onClick={onClose} />
             </NavSection>
           </>

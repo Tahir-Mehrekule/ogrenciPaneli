@@ -1,5 +1,3 @@
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
-
 export interface DepartmentInfo {
   id: string;
   name: string;
@@ -15,7 +13,6 @@ export interface User {
   is_active: boolean;
   departments: DepartmentInfo[];
   student_no?: string;
-  approval_status: ApprovalStatus;
   entry_year?: number | null;
   grade_label?: string | null;
 }
@@ -27,7 +24,6 @@ export interface TokenResponse {
 }
 
 export interface RegisterResponse {
-  approval_status: ApprovalStatus;
   message: string;
   access_token?: string | null;
   refresh_token?: string | null;

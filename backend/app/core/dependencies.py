@@ -59,6 +59,13 @@ def get_current_user(
     if payload.get("type") != "access":
         raise credentials_exception
 
+    # 2b. Logout ile revoke edilmiş mi? (revoked_tokens.jti kontrolü)
+    from app.features.auth.revoked_token_model import RevokedToken
+
+    jti = payload.get("jti")
+    if jti and db.get(RevokedToken, jti) is not None:
+        raise credentials_exception
+
     # 3. Token'dan user_id çıkar
     user_id: str = payload.get("sub")
     if user_id is None:

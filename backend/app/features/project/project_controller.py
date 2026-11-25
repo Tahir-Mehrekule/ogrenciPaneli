@@ -59,6 +59,20 @@ def list_projects(
 
 
 @router.get(
+    "/deleted/list",
+    response_model=PaginatedResponse,
+    summary="Silinmiş projeler (geri dönüşüm)",
+)
+def list_deleted_projects(
+    params: ProjectFilterParams = Depends(),
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Yalnız silinmiş projeler. Sadece ADMIN (geri dönüşüm sayfası)."""
+    return ProjectService(db).list_deleted_projects(params, current_user)
+
+
+@router.get(
     "/{project_id}",
     response_model=ProjectResponse,
     summary="Proje detayı",

@@ -16,14 +16,15 @@ def test_student_can_fetch_notifications(client, student_token):
 
 def test_notification_creation_and_mark_read(client, student_token, student_user, db):
     """Bildirim oluşturulabilmeli ve 'okundu' olarak işaretlenebilmeli."""
+    from app.common.enums import NotificationType
     from app.features.notification.notification_model import Notification
-    
+
     # Doğrudan DB seviyesinde test için bir bildirim ekleyelim
     notif = Notification(
         user_id=student_user.id,
         title="Test Bildirimi",
         message="Bu bir test mesajıdır",
-        type="system_alert",
+        type=NotificationType.SYSTEM_ALERT,
         is_read=False
     )
     db.add(notif)
@@ -48,12 +49,13 @@ def test_notification_creation_and_mark_read(client, student_token, student_user
 
 def test_mark_all_read(client, teacher_token, teacher_user, db):
     """Bir kullanıcıya ait tüm bildirimler 'okundu' olarak işaretlenebilmeli."""
+    from app.common.enums import NotificationType
     from app.features.notification.notification_model import Notification
-    
+
     # Öğretmene 2 bildirim ekleyelim
     db.add_all([
-        Notification(user_id=teacher_user.id, title="1", message="m1", type="system_alert"),
-        Notification(user_id=teacher_user.id, title="2", message="m2", type="task_assigned")
+        Notification(user_id=teacher_user.id, title="1", message="m1", type=NotificationType.SYSTEM_ALERT),
+        Notification(user_id=teacher_user.id, title="2", message="m2", type=NotificationType.TASK_ASSIGNED)
     ])
     db.commit()
 
@@ -70,10 +72,11 @@ def test_mark_all_read(client, teacher_token, teacher_user, db):
 
 def test_user_cannot_read_others_notification(client, student_token, teacher_user, db):
     """Kullanıcı başkasına ait bir bildirimi 'okundu' yapamamalı."""
+    from app.common.enums import NotificationType
     from app.features.notification.notification_model import Notification
-    
+
     # Öğretmene ait bir bildirim
-    notif = Notification(user_id=teacher_user.id, title="Özel", message="x", type="system_alert")
+    notif = Notification(user_id=teacher_user.id, title="Özel", message="x", type=NotificationType.SYSTEM_ALERT)
     db.add(notif)
     db.commit()
     db.refresh(notif)

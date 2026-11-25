@@ -23,7 +23,7 @@ interface AuthContextType {
   loading: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<RegisterResponse>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -33,7 +33,7 @@ export const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => { },
   register: async () => ({ message: "", token_type: "bearer" } as RegisterResponse),
-  logout: () => { },
+  logout: async () => { },
   refreshUser: async () => { },
 });
 
@@ -100,7 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // ─── Çıkış Yap ───
-  const logout = () => {
+  // Önce backend'e bildir (token revoke), sonra cookie'leri temizle.
+  // Backend'e ulaşılamazsa da local temizlik yapılır.
+  const logout = async () => {
+    try {
+      await apiClient.post("/api/v1/auth/logout");
+    } catch {
+      // Sessiz geç — local temizlik aşağıda yapılır
+    }
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
     setUser(null);

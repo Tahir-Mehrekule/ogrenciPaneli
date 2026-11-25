@@ -59,6 +59,7 @@ export interface User {
   role: UserRole;
   departments: DepartmentInfo[];
   student_no?: string;
+  must_change_password?: boolean;
   grade_label?: string;
   entry_year?: number;
   is_active: boolean;

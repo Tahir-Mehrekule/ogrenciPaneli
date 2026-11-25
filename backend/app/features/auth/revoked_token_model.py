@@ -38,7 +38,7 @@ class RevokedToken(Base):
         String(10),
         nullable=False,
         default="refresh",
-        comment="Token tipi (refresh)",
+        comment="Token tipi (refresh veya access — logout access'i de revoke eder)",
     )
     expires_at = Column(
         DateTime(timezone=True),

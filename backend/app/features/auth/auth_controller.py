@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, oauth2_scheme
 from app.core.limiter import limiter
+from app.core.security import verify_token
 from app.features.auth.auth_service import AuthService
 from app.features.auth.auth_dto import (
     RegisterRequest,
@@ -204,4 +205,39 @@ def change_password(
 ):
     service = AuthService(db)
     service.change_password(current_user, data)
+    # 204 No Content — body yok
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Çıkış yap",
+    description=(
+        "Mevcut access token'ı revoke listesine ekler. "
+        "Sonraki isteklerde bu token 401 döner."
+    ),
+)
+def logout(
+    current_user=Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime, timezone
+    from app.features.auth.revoked_token_model import RevokedToken
+
+    payload = verify_token(token)
+    jti = payload.get("jti") if payload else None
+    exp = payload.get("exp") if payload else None
+    token_type = payload.get("type", "access") if payload else "access"
+    if jti:
+        expires_at = (
+            datetime.fromtimestamp(exp, tz=timezone.utc)
+            if exp
+            else datetime.now(timezone.utc)
+        )
+        if db.get(RevokedToken, jti) is None:
+            db.add(
+                RevokedToken(jti=jti, token_type=token_type, expires_at=expires_at)
+            )
+            db.commit()
     # 204 No Content — body yok

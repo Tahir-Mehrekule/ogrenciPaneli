@@ -12,11 +12,12 @@ PATCH /users/{id}/student-info → TEACHER ve ADMIN erişebilir.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
+from app.core.limiter import limiter
 from app.common.enums import UserRole
 from app.base.base_dto import PaginatedResponse
 from app.features.user.user_service import UserService
@@ -96,13 +97,18 @@ def list_my_students(
     "/import",
     response_model=BulkImportResult,
     summary="Toplu Öğrenci Ekleme (Import)",
-    description="JSON formatında öğrenci listesi alır ve sisteme ekler. Sadece TEACHER ve ADMIN kullanabilir.",
+    description="JSON formatında öğrenci listesi alır ve sisteme ekler. Sadece TEACHER ve ADMIN kullanabilir. En fazla 200 kayıt.",
 )
+@limiter.limit("5/minute")
 def import_students(
+    request: Request,
     data: list[ImportStudentData],
     current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
+    from fastapi import HTTPException
+    if len(data) > 200:
+        raise HTTPException(status_code=413, detail="Tek seferde en fazla 200 öğrenci içe aktarılabilir")
     service = UserService(db)
     return service.import_students(data)
 
@@ -114,10 +120,13 @@ def import_students(
     description=(
         "STUDENT listeleme/arama. "
         "q boş bırakılırsa bölüm filtresine göre tüm öğrencileri döner. "
-        "same_grade=true ise sadece aynı sınıf, department_id verilirse o bölümdeki öğrenciler döner."
+        "same_grade=true ise sadece aynı sınıf, department_id verilirse o bölümdeki öğrenciler döner. "
+        "IP başına dakikada 30 arama sınırı uygulanır."
     ),
 )
+@limiter.limit("30/minute")
 def search_users(
+    request: Request,
     q: str = Query(default="", description="Arama terimi (boş bırakılabilir)"),
     same_grade: bool = Query(default=False, description="Sadece aynı sınıfı getir"),
     department_id: UUID | None = Query(default=None, description="Bölüm filtresi"),
@@ -149,7 +158,7 @@ def get_user(
     db: Session = Depends(get_db),
 ):
     service = UserService(db)
-    return service.get_user(user_id)
+    return service.get_user(user_id, current_user)
 
 
 @router.patch(

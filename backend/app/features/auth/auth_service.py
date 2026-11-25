@@ -32,8 +32,8 @@ class AuthService:
         """
         Yeni kullanıcı kaydı.
 
-        Öğrenci (@ogr. mail): PENDING statüsünde oluşturulur, token dönmez.
-        Öğretmen/Admin: APPROVED statüsünde oluşturulur, token ile birlikte döner.
+        Rol email'den otomatik belirlenir (@ogr. → STUDENT, diğer → TEACHER).
+        Her kayıt anında aktif olur ve token döner; onay akışı yoktur.
         """
         # 1. Validasyon ve rol belirleme (student_no da bu aşamada doğrulanır)
         role = self.manager.validate_register_data(data.email, data.student_no, data.role)
@@ -236,6 +236,7 @@ class AuthService:
             raise BadRequestException("Hesap bulunamadı")
 
         user.password_hash = hash_password(data.new_password)
+        user.must_change_password = False
         self.db.delete(reset_token)
         self.db.commit()
 

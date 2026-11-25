@@ -6,11 +6,12 @@ OpenRouter AI görev önerisi endpoint'lerini tanımlar.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, role_required
+from app.core.limiter import limiter
 from app.common.enums import UserRole
 from app.features.ai.ai_service import AIService
 from app.features.ai.ai_dto import (
@@ -34,10 +35,13 @@ router = APIRouter(
     description=(
         "Belirtilen proje için OpenRouter API kullanarak görev önerisi üretir. "
         "Proje APPROVED veya IN_PROGRESS durumunda olmalıdır. "
-        "Sadece TEACHER ve ADMIN kullanabilir."
+        "Sadece TEACHER ve ADMIN kullanabilir. "
+        "Maliyet koruması: IP başına dakikada 5 istek."
     ),
 )
+@limiter.limit("5/minute")
 def suggest_tasks(
+    request: Request,
     data: AISuggestRequest,
     current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
     db: Session = Depends(get_db),
@@ -80,10 +84,13 @@ def get_saved_suggestion(
     description=(
         "Belirtilen öğrenci raporunu AI ile analiz ederek; "
         "özet, güçlü/zayıf yönler ve tavsiyeler üretir. "
-        "Sadece rapor sahibi, öğretmen ve admin kullanabilir."
+        "Sadece rapor sahibi, öğretmen ve admin kullanabilir. "
+        "Maliyet koruması: IP başına dakikada 5 istek."
     ),
 )
+@limiter.limit("5/minute")
 def analyze_report(
+    request: Request,
     data: ReportAnalysisRequest,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -102,10 +109,13 @@ def analyze_report(
     description=(
         "Öğretmenin rapor altına yazacağı geri bildirim taslağını AI ile üretir. "
         "İstenen tona göre (constructive/encouraging/critical) 2-4 cümlelik düz metin döner. "
-        "Sadece TEACHER ve ADMIN kullanabilir. Rapor SUBMITTED olmalıdır."
+        "Sadece TEACHER ve ADMIN kullanabilir. Rapor SUBMITTED olmalıdır. "
+        "Maliyet koruması: IP başına dakikada 5 istek."
     ),
 )
+@limiter.limit("5/minute")
 def suggest_feedback(
+    request: Request,
     data: FeedbackSuggestRequest,
     current_user=Depends(role_required([UserRole.TEACHER, UserRole.ADMIN])),
     db: Session = Depends(get_db),

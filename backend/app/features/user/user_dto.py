@@ -166,9 +166,9 @@ class UserFilterParams(FilterParams):
 
 
 class ExportFilterParams(UserFilterParams):
-    """Export için parametreler. Sayfalama devre dışı bırakılabilir."""
+    """Export için parametreler. DoS koruması: en fazla 1000 kayıt."""
     page: int = Field(default=1, description="Sayfa numarası (Tümünü indirmek için 1)")
-    size: int = Field(default=10000, description="Kayıt sayısı (Tümünü indirmek için yüksek bir sayı)")
+    size: int = Field(default=1000, ge=1, le=1000, description="Kayıt sayısı (en fazla 1000)")
 
 
 # ─────────────── Admin → Kullanıcı Oluştur (Paket 5 / Admin Plan A3) ───────────────

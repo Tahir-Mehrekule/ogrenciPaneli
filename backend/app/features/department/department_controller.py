@@ -7,11 +7,12 @@ Prefix: /api/v1/admin/departments
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import role_required, get_current_user
+from app.core.limiter import limiter
 from app.common.enums import UserRole
 from app.features.department.department_service import DepartmentService
 from app.features.department.department_dto import (
@@ -52,10 +53,11 @@ def create_department(
 @router.get(
     "",
     response_model=list[DepartmentResponse],
-    summary="Bölümleri listele",
+    summary="Bölümleri listele (admin)",
     description="Tüm aktif bölümleri isme göre sıralı listeler.",
 )
 def list_departments(
+    _=_admin_only,
     db: Session = Depends(get_db),
 ):
     return DepartmentService(db).list_all()
@@ -104,19 +106,22 @@ def delete_department(
 
 # ─────────────── Public (auth-required) okuma endpoint'leri ───────────────
 # Dropdown'larda kullanılır: course/new, register vs.
-# Auth-required (her giriş yapmış kullanıcı), CRUD admin-only kalır.
+# Kayıt sayfası henüz giriş yapmamış kullanıcılara da bölüm listesi
+# göstermek zorunda olduğu için auth'suzdur; sadece id+name döner.
 
 @public_router.get(
     "",
     response_model=list[DepartmentResponse],
-    summary="Bölüm listesi (public — auth gerekmez)",
+    summary="Bölüm listesi (public)",
     description=(
         "Bölüm dropdown'ları için kullanılır (register, course/new vb.). "
-        "Bilgi PII değildir, auth gerekmez. "
+        "Sadece id+name içerir, PII değildir. "
         "Yazma işlemleri (POST/PATCH/DELETE) `/api/v1/admin/departments` altındadır."
     ),
 )
+@limiter.limit("30/minute")
 def list_departments_public(
+    request: Request,
     db: Session = Depends(get_db),
 ):
     return DepartmentService(db).list_all()

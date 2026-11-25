@@ -2,6 +2,9 @@
 Dosya yükleme (File Upload) iş mantığı servisi.
 """
 
+import os
+import re
+
 from uuid import UUID, uuid4
 from fastapi import UploadFile
 
@@ -17,6 +20,49 @@ from app.features.file.file_dto import FileUploadResponse
 from app.features.report.report_repo import ReportRepo
 from app.features.auth.auth_model import User
 from app.core.storage import get_storage_client
+
+
+# P1: dosya yükleme guard'ları — servis başına tek kaynak.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/csv",
+    "image/png",
+    "image/jpeg",
+    "application/zip",
+}
+_ALLOWED_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".ppt", ".pptx", ".txt", ".csv", ".png", ".jpg", ".jpeg", ".zip",
+}
+
+
+def _sanitize_filename(filename: str | None) -> str:
+    base = os.path.basename(filename or "dosya")
+    base = base.replace(" ", "_")
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", base)
+    return base[:100] or "dosya"
+
+
+def _validate_upload(file: UploadFile, file_size: int) -> None:
+    if file_size <= 0:
+        raise BadRequestException("Boş dosya yüklenemez")
+    if file_size > MAX_UPLOAD_BYTES:
+        raise BadRequestException("Dosya en fazla 10 MB olabilir")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise BadRequestException(f"Desteklenmeyen dosya uzantısı: {ext or '?'}")
+    if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
+        raise BadRequestException(
+            f"Desteklenmeyen dosya tipi: {file.content_type}"
+        )
 
 
 class FileService(BaseService[FileUpload, FileRepo]):
@@ -41,12 +87,13 @@ class FileService(BaseService[FileUpload, FileRepo]):
         if report.status != ReportStatus.DRAFT:
             raise BadRequestException("Dosya sadece DRAFT durumundaki raporlara yüklenebilir")
 
-        safe_filename = file.filename.replace(" ", "_")
-        storage_key = f"reports/{report_id}/{uuid4().hex}_{safe_filename}"
-
         file.file.seek(0, 2)
         file_size = file.file.tell()
         file.file.seek(0)
+        _validate_upload(file, file_size)
+
+        safe_filename = _sanitize_filename(file.filename)
+        storage_key = f"reports/{report_id}/{uuid4().hex}_{safe_filename}"
 
         storage_client = get_storage_client()
         storage_client.upload_file(
@@ -74,12 +121,26 @@ class FileService(BaseService[FileUpload, FileRepo]):
     def list_report_files(self, report_id: UUID, current_user: User) -> list[FileUploadResponse]:
         """
         Belirli bir rapora yüklenmiş dosyaları listeler.
-        Öğrenci ise sadece kendi raporundakileri görebilir; öğretmen/admin ise her raporunkini görebilir.
+        - STUDENT: sadece kendi raporu
+        - TEACHER: sadece kendi dersine ait raporlar
+        - ADMIN: tüm raporlar
         """
         report = self.report_repo.get_by_id_or_404(report_id)
 
         if current_user.role == UserRole.STUDENT and not self.is_owner(report, "submitted_by", current_user):
             raise ForbiddenException("Bu raporun dosyalarını görüntüleme yetkiniz yok")
+
+        if current_user.role == UserRole.TEACHER:
+            from app.features.project.project_repo import ProjectRepo
+            from app.features.course.course_model import Course
+            project = ProjectRepo(self.db).get_by_id_or_404(report.project_id)
+            course = (
+                self.db.query(Course).filter(Course.id == project.course_id).first()
+                if project.course_id
+                else None
+            )
+            if not course or not self.ids_equal(course.teacher_id, current_user.id):
+                raise ForbiddenException("Bu rapor sizin derslerinize ait değil")
 
         files, _ = self.repo.get_many(filters={"report_id": report_id})
 

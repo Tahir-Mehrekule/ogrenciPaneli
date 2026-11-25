@@ -15,7 +15,10 @@ _admin_only = Depends(role_required([UserRole.ADMIN]))
 
 
 @router.get("", response_model=list[PrefixResponse], summary="Prefix listesi")
-def list_prefixes(db: Session = Depends(get_db)):
+def list_prefixes(
+    _=_admin_only,
+    db: Session = Depends(get_db),
+):
     return StudentPrefixService(db).list_all()
 
 

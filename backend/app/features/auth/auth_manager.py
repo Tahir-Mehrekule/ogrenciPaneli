@@ -77,10 +77,7 @@ class AuthManager(BaseManager):
         return role
 
     def verify_login(self, email: str, password: str) -> User:
-        """
-        Giriş doğrulaması yapar.
-        Onaylanmamış veya reddedilmiş hesaplar giriş yapamaz.
-        """
+        """Giriş doğrulaması yapar (email + şifre)."""
         user = self.repo.get_by_email(email)
         if user is None:
             raise UnauthorizedException("Email veya şifre hatalı")
@@ -146,6 +143,10 @@ class AuthManager(BaseManager):
 
         if verify_password(new_password, user.password_hash):
             raise BadRequestException("Yeni şifre eski şifreden farklı olmalıdır")
+
+        # Toplu içe aktarılan hesap ilk girişinde varsayılan şifreyi
+        # değiştirmek zorundadır.
+        user.must_change_password = False
 
     def validate_reset_password(self, reset_token, new_password: str) -> None:
         """

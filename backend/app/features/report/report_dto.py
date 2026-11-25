@@ -84,6 +84,10 @@ class ReportFilterParams(FilterParams):
     course_id: Optional[UUID] = Field(default=None, description="Ders filtresi (project → course)")
     submitted_by: Optional[UUID] = Field(default=None, description="Raporlayan kullanıcı filtresi")
     status: Optional[ReportStatus] = Field(default=None, description="Durum filtresi")
+    include_deleted: bool = Field(
+        default=False,
+        description="ADMIN geri dönüşüm: silinmiş kayıtları da getir",
+    )
     week_number: Optional[int] = Field(default=None, ge=1, le=53, description="Hafta numarası filtresi")
     year: Optional[int] = Field(default=None, description="Yıl filtresi")
     grade_label: Optional[str] = Field(

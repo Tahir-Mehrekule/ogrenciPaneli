@@ -97,7 +97,11 @@ class BaseRepository(Generic[ModelType]):
         query = self._not_deleted(self.db.query(self.model))
         query = self._active_filter(query, active_only)
 
-        sort_column = getattr(self.model, sort_by, None)
+        # Sıralama — yalnızca gerçek kolonlara izin ver; hassas alanlar
+        # (örn. password_hash) sort_by ile erişilemez.
+        sort_column = None
+        if sort_by not in {"password_hash"}:
+            sort_column = getattr(self.model, sort_by, None)
         if sort_column is not None:
             query = query.order_by(
                 desc(sort_column) if order == "desc" else asc(sort_column)
@@ -159,23 +163,37 @@ class BaseRepository(Generic[ModelType]):
             for key, value in like_filters.items():
                 column = getattr(self.model, key, None)
                 if column is not None and value is not None:
-                    query = query.filter(column.ilike(f"%{value}%"))
+                    escaped = (
+                        str(value)
+                        .replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_")
+                    )
+                    query = query.filter(column.ilike(f"%{escaped}%", escape="\\"))
 
-        # Arama (birden fazla alanda OR)
+        # Arama (birden fazla alanda OR) — LIKE wildcard'ları kaçırılır.
         if search and search_fields:
-            search_term = f"%{search.strip()}%"
+            escaped = (
+                search.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            search_term = f"%{escaped}%"
             conditions = []
             for field_name in search_fields:
                 column = getattr(self.model, field_name, None)
                 if column is not None:
-                    conditions.append(column.ilike(search_term))
+                    conditions.append(column.ilike(search_term, escape="\\"))
             if conditions:
                 query = query.filter(or_(*conditions))
 
         total = query.count()
 
-        # Sıralama
-        sort_column = getattr(self.model, sort_by, None)
+        # Sıralama — hassas alanlar (password_hash) sort_by ile erişilemez.
+        sort_column = None
+        if sort_by not in {"password_hash"}:
+            sort_column = getattr(self.model, sort_by, None)
         if sort_column is not None:
             query = query.order_by(
                 desc(sort_column) if order == "desc" else asc(sort_column)

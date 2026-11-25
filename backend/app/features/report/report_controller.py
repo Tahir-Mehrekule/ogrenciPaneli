@@ -55,6 +55,20 @@ def list_reports(
 
 
 @router.get(
+    "/deleted/list",
+    response_model=PaginatedResponse,
+    summary="Silinmiş raporlar (geri dönüşüm)",
+)
+def list_deleted_reports(
+    params: ReportFilterParams = Depends(),
+    current_user=Depends(role_required([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Yalnız silinmiş raporlar. Sadece ADMIN (geri dönüşüm sayfası)."""
+    return ReportService(db).list_deleted_reports(params, current_user)
+
+
+@router.get(
     "/{report_id}",
     response_model=ReportResponse,
     summary="Rapor detayı",

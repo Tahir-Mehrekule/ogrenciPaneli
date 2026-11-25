@@ -138,6 +138,7 @@ function ProfileSection() {
 /* ─────────────── Password Section ─────────────── */
 
 function PasswordSection() {
+  const { refreshUser } = useAuth();
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -145,6 +146,17 @@ function PasswordSection() {
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [mustChange, setMustChange] = useState(false);
+
+  // ?mustChangePassword=1 ile gelindiyse zorunlu değişim bandını göster
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("mustChangePassword") === "1") {
+        setMustChange(true);
+      }
+    }
+  }, []);
 
   // Şifre gücü göstergesi
   const strength = {
@@ -177,6 +189,13 @@ function PasswordSection() {
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
+      setMustChange(false);
+      if (typeof refreshUser === "function") await refreshUser();
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("mustChangePassword");
+        window.history.replaceState({}, "", url.toString());
+      }
     } catch (err: unknown) {
       const msg = getErrorMessage(err);
       setFormError(
@@ -205,6 +224,12 @@ function PasswordSection() {
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+          {mustChange && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2.5 text-sm text-amber-300">
+              Hesabınız toplu içe aktarma ile oluşturuldu. Devam etmek için
+              varsayılan şifrenizi değiştirmeniz zorunludur.
+            </div>
+          )}
           {formError && (
             <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm text-red-400">
               {formError}

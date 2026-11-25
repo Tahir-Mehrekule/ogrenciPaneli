@@ -135,6 +135,7 @@ class UserResponse(BaseResponse):
     role: UserRole
     departments: list[DepartmentInfo] = []
     student_no: Optional[str] = None
+    must_change_password: bool = False
 
     grade_label: Optional[str] = None
     entry_year: Optional[int] = None

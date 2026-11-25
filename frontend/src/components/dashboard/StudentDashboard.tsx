@@ -208,7 +208,7 @@ export const StudentDashboard = () => {
         <div className="flex flex-wrap gap-2">
           {[
             { label: "Ders Kataloğu", href: "/dashboard/courses", icon: BookOpen },
-            { label: "Görevlerim", href: "/dashboard/tasks", icon: CheckSquare },
+            { label: "Projelerim", href: "/dashboard/projects", icon: CheckSquare },
             { label: "Haftalık Raporlar", href: "/dashboard/reports", icon: FolderKanban },
           ].map((action) => {
             const Icon = action.icon;

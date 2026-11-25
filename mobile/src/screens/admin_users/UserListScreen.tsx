@@ -21,7 +21,6 @@ interface UserItem {
   role: string;
   student_no?: string;
   grade_label?: string;
-  approval_status: string;
   is_active: boolean;
   departments: Department[];
 }

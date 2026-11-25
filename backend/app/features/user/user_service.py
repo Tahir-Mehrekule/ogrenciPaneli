@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.base.base_dto import PaginatedResponse
 from app.base.base_service import BaseService
 from app.common.enums import UserRole
-from app.common.exceptions import NotFoundException, BadRequestException, ConflictException
+from app.common.exceptions import NotFoundException, BadRequestException, ConflictException, ForbiddenException
 from app.features.auth.auth_model import User
 from app.features.user.user_repo import UserRepo
 from app.features.user.user_manager import UserManager
@@ -115,9 +115,32 @@ class UserService(BaseService[User, UserRepo]):
 
         return self.paginate(items, total, params.page, params.size)
 
-    def get_user(self, user_id: UUID) -> UserListResponse:
-        """ID ile tek kullanıcı detayını döner."""
+    def get_user(self, user_id: UUID, current_user: User) -> UserListResponse:
+        """
+        ID ile tek kullanıcı detayını döner.
+
+        TEACHER yalnızca kendi bölümlerindeki öğrencilerin detayını görebilir
+        (liste endpoint'lerindeki kapsamla aynı kural).
+        """
         user = self.repo.get_by_id_or_404(user_id)
+
+        if (
+            current_user.role == UserRole.TEACHER
+            and user.role == UserRole.STUDENT
+        ):
+            teacher_dept_ids = {
+                ud.department_id
+                for ud in current_user.user_departments
+                if ud.is_active and not ud.is_deleted
+            }
+            student_dept_ids = {
+                ud.department_id
+                for ud in user.user_departments
+                if ud.is_active and not ud.is_deleted
+            }
+            if not (teacher_dept_ids & student_dept_ids):
+                raise ForbiddenException("Bu öğrencinin detayını görüntüleme yetkiniz yok")
+
         return UserListResponse.model_validate(user)
 
     def update_user(
@@ -218,8 +241,9 @@ class UserService(BaseService[User, UserRepo]):
         - ADMIN → hard delete (kayıt DB'den tamamen kaldırılır)
         - TEACHER → soft delete (is_active=False, kayıt erişilebilir kalır)
         """
-        target_user = self.repo.get_by_id_or_404(user_id)
+        target_user = self.repo.get_by_id_or_404(user_id, active_only=False)
         self.manager.validate_self_delete(current_user, target_user)
+        self.manager.validate_can_modify_user(current_user, target_user)
 
         if current_user.role == UserRole.ADMIN:
             self.repo.delete(user_id)
@@ -232,7 +256,7 @@ class UserService(BaseService[User, UserRepo]):
     def deactivate_user(self, user_id: UUID, current_user: User) -> dict:
         """Admin: kullanıcıyı pasifleştirir (is_active=False). Veri korunur."""
         self.require_admin(current_user)
-        target_user = self.repo.get_by_id_or_404(user_id)
+        target_user = self.repo.get_by_id_or_404(user_id, active_only=False)
         self.manager.validate_self_delete(current_user, target_user)
         self.repo.update(user_id, {"is_active": False})
         return {"message": f"Kullanıcı pasifleştirildi: {target_user.full_name}"}
@@ -417,10 +441,18 @@ class UserService(BaseService[User, UserRepo]):
         return UserListResponse.model_validate(new_user)
 
     def import_students(self, data: list[ImportStudentData]) -> BulkImportResult:
-        """JSON formatında gelen öğrencileri toplu olarak ekler."""
+        """
+        JSON formatında gelen öğrencileri toplu olarak ekler.
+
+        Guard'lar:
+        - En fazla 200 kayıt (DoS koruması — controller'da 413 döner).
+        - Free-text bölüm adından department auto-create YOK; eşleşmeyen
+          bölüm adı hata olarak raporlanır (veri kirliliği koruması).
+        - İçe aktarılan hesaplar ilk girişte şifresini değiştirmek zorundadır
+          (must_change_password=True).
+        """
         from app.core.security import hash_password
         from app.features.department.department_repo import DepartmentRepo
-        from app.features.department.department_model import Department
         from app.features.student_prefix.student_prefix_repo import StudentPrefixRepo
         from app.features.user_department.user_department_model import UserDepartment
 
@@ -431,7 +463,7 @@ class UserService(BaseService[User, UserRepo]):
         # Cache existing departments to avoid repetitive DB calls
         all_depts = dept_repo.get_all()
         dept_map = {d.name.lower().strip(): d for d in all_depts}
-        
+
         # Default password for imported users
         default_pw_hash = hash_password("Ogrenci123!")
 
@@ -468,20 +500,25 @@ class UserService(BaseService[User, UserRepo]):
                     "student_no": student_no,
                     "entry_year": entry_year,
                     "grade_label": grade_label,
+                    "must_change_password": True,
                 }
                 user = self.repo.create(user_dict)
 
-                # Process Departments
+                # Process Departments — yalnızca mevcut bölümler; bilinmeyen
+                # isim auto-create YAPILMAZ, hata olarak raporlanır.
+                unknown_departments = [
+                    d_name.strip()
+                    for d_name in student_data.department_names
+                    if d_name.strip().lower() not in dept_map
+                ]
+                if unknown_departments:
+                    raise BadRequestException(
+                        "Bilinmeyen bölüm(ler): "
+                        + ", ".join(unknown_departments)
+                        + ". Önce admin panelinden bölümü ekleyin."
+                    )
                 for d_name in student_data.department_names:
-                    d_name_clean = d_name.strip()
-                    d_key = d_name_clean.lower()
-                    
-                    if d_key not in dept_map:
-                        # Create new department if it doesn't exist
-                        new_dept = dept_repo.create({"name": d_name_clean})
-                        dept_map[d_key] = new_dept
-                    
-                    dept = dept_map[d_key]
+                    dept = dept_map[d_name.strip().lower()]
                     ud = UserDepartment(user_id=user.id, department_id=dept.id)
                     self.db.add(ud)
 

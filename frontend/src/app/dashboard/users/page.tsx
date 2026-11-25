@@ -12,6 +12,7 @@ import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { AuthContext } from "@/context/AuthContext";
 import { GRADE_OPTIONS } from "@/constants/grades";
 import AdminCreateUserModal from "@/components/users/AdminCreateUserModal";
+import { BulkImportModal } from "@/components/users/BulkImportModal";
 
 type TabRole = "all" | "STUDENT" | "TEACHER";
 
@@ -104,9 +105,16 @@ export default function UsersPage() {
   const [detailSaving, setDetailSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [cascadeInfo, setCascadeInfo] = useState<{
+    created_projects: number;
+    memberships: number;
+    reports: number;
+  } | null>(null);
+  const [cascadeLoading, setCascadeLoading] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -232,6 +240,20 @@ export default function UsersPage() {
       setDeleteLoading(false);
     }
   };
+
+  // Silme dialogu acilinca bagli kayit sayilarini getir
+  useEffect(() => {
+    if (!deleteTarget) {
+      setCascadeInfo(null);
+      return;
+    }
+    setCascadeLoading(true);
+    apiClient
+      .get(`/api/v1/users/${deleteTarget.id}/cascade-info`)
+      .then(({ data }) => setCascadeInfo(data))
+      .catch(() => setCascadeInfo(null))
+      .finally(() => setCascadeLoading(false));
+  }, [deleteTarget]);
 
   const handleStatusChange = async () => {
     if (!statusTarget) return;
@@ -455,13 +477,21 @@ export default function UsersPage() {
           </p>
         </div>
         {isAdmin && (
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 shadow"
-          >
-            <UserPlus className="h-4 w-4" />
-            Yeni Kullanıcı Ekle
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-700"
+            >
+              Toplu Ice Aktar
+            </button>
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 shadow"
+            >
+              <UserPlus className="h-4 w-4" />
+              Yeni Kullanıcı Ekle
+            </button>
+          </div>
         )}
       </div>
 
@@ -469,6 +499,12 @@ export default function UsersPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => fetchUsers()}
+      />
+
+      <BulkImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onDone={() => fetchUsers()}
       />
 
 
@@ -782,6 +818,22 @@ export default function UsersPage() {
       )}
 
       {/* Silme Onay Dialogu */}
+      {deleteTarget && (
+        <div className="mx-auto mb-3 max-w-md rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-xs text-gray-400">
+          {cascadeLoading ? (
+            "Bagli kayitlar yukleniyor..."
+          ) : cascadeInfo ? (
+            <span>
+              Bu islem <strong className="text-white">{cascadeInfo.created_projects} proje</strong>,{" "}
+              <strong className="text-white">{cascadeInfo.memberships} uyelik</strong> ve{" "}
+              <strong className="text-white">{cascadeInfo.reports} rapor</strong> ile iliskili hesabi
+              etkiler.
+            </span>
+          ) : (
+            "Bagli kayit bilgisi alinamadi."
+          )}
+        </div>
+      )}
       <ConfirmDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}

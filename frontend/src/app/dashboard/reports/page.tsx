@@ -44,6 +44,14 @@ interface Report {
   submitted_by_name?: string;
 }
 
+interface ReportFile {
+  id: string;
+  original_name: string;
+  file_size: number;
+  mime_type: string | null;
+  download_url: string | null;
+}
+
 interface CourseOption {
   id: string;
   name: string;
@@ -239,7 +247,37 @@ export default function ReportsPage() {
   const [aiTone, setAiTone] = useState<"constructive" | "encouraging" | "critical">("constructive");
   const [softDeleteTarget, setSoftDeleteTarget] = useState<Report | null>(null);
   const [hardDeleteTarget, setHardDeleteTarget] = useState<Report | null>(null);
+  const [reportFiles, setReportFiles] = useState<ReportFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
 
+  // Rapor dosyalari: modal acilinca listele, yukleme/silme sonrasi tazele
+  const fetchReportFiles = useCallback(async (reportId: string) => {
+    setFilesLoading(true);
+    try {
+      const { data } = await apiClient.get<ReportFile[]>(`/api/v1/reports/${reportId}/files`);
+      setReportFiles(data ?? []);
+    } catch {
+      setReportFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewModal) fetchReportFiles(viewModal.id);
+    else setReportFiles([]);
+  }, [viewModal, fetchReportFiles]);
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (!viewModal) return;
+    try {
+      await apiClient.delete(`/api/v1/files/${fileId}`);
+      toast.success("Dosya silindi.");
+      fetchReportFiles(viewModal.id);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Dosya silinemedi.");
+    }
+  };
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -349,7 +387,7 @@ export default function ReportsPage() {
       });
       setAiAnalysis((prev) => ({ ...prev, [report.id]: res.data }));
     } catch (err: unknown) {
-      alert(getErrorMessage(err) || "Analiz alınamadı.");
+      toast.error(getErrorMessage(err) || "Analiz alınamadı.");
     } finally {
       setAiLoading((prev) => ({ ...prev, [report.id]: false }));
     }
@@ -788,7 +826,8 @@ export default function ReportsPage() {
                               formData,
                               { headers: { "Content-Type": "multipart/form-data" } }
                             );
-                            toast.success("Dosya başarıyla eklendi!");
+                            toast.success("Dosya eklendi.");
+                            fetchReportFiles(viewModal.id);
                           } catch (err: unknown) {
                             toast.error(
                               getErrorMessage(err) || "Dosya eklenemedi."
@@ -800,6 +839,31 @@ export default function ReportsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Yuklenmis dosyalar */}
+              {reportFiles.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Yuklenen Dosyalar</h4>
+                  <div className="space-y-1.5">
+                    {reportFiles.map((f) => (
+                      <div key={f.id} className="flex items-center gap-2 rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-2">
+                        <a href={f.download_url ?? "#"} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-indigo-300 hover:underline">
+                          {f.original_name}
+                        </a>
+                        <span className="shrink-0 text-[10px] text-gray-500">{(f.file_size / 1024).toFixed(0)} KB</span>
+                        {(role === "STUDENT" || role === "ADMIN") && (
+                          <button onClick={() => handleDeleteFile(f.id)} title="Dosyayi sil" className="shrink-0 rounded-md p-1 text-gray-500 transition hover:bg-red-500/10 hover:text-red-400">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filesLoading && (
+                <p className="text-xs text-gray-500">Dosyalar yukleniyor...</p>
+              )}
 
               {/* Öğretmen Geri Bildirimi */}
               {viewModal.reviewer_note ? (

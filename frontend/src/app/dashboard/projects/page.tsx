@@ -420,7 +420,7 @@ export default function ProjectsPage() {
       await apiClient.post(`/api/v1/projects/${id}/approve`);
       fetchProjects();
     } catch (err: unknown) {
-      alert(getErrorMessage(err) || "Onaylama başarısız.");
+      toast.error(getErrorMessage(err) || "Onaylama başarısız.");
     }
   };
 

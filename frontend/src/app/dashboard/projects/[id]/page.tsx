@@ -12,7 +12,7 @@ import { FocusTrapContainer } from "@/components/ui/FocusTrapContainer";
 import { SkeletonDetail } from "@/components/ui/Skeleton";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { SoftDeleteModal } from "@/components/ui/SoftDeleteModal";
-import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown, Github, Trash2, User, Calendar, GripVertical } from "lucide-react";
+import { CheckCircle, Circle, Clock, Plus, Pencil, X, Users, UserPlus, Search, Crown, Github, Trash2, User, Calendar, GripVertical, Archive, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -31,7 +31,7 @@ type MemberStatus = "ACTIVE" | "INVITED" | "JOIN_REQUESTED" | "REJECTED";
 
 interface Project {
   id: string; title: string; description: string;
-  status: ProjectStatus; created_by: string;
+  status: ProjectStatus; created_by: string; is_archived?: boolean;
   project_type?: ProjectType; created_by_name?: string;
   github_url?: string | null;
   rejection_reason?: string | null;
@@ -825,7 +825,7 @@ export default function ProjectDetailPage() {
   const [codeCopied, setCodeCopied] = useState(false);
 
   // Onay diyaloğu: hangi aksiyon bekliyor?
-  type PendingAction = "submit" | "reject" | "ai" | null;
+  type PendingAction = "submit" | "reject" | "ai" | "leave" | null;
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   // Soft / Hard delete modalları
@@ -906,6 +906,27 @@ export default function ProjectDetailPage() {
     router.push("/dashboard/projects");
   };
 
+  const handleArchiveToggle = async () => {
+    try {
+      const archived = Boolean((project as { is_archived?: boolean } | null)?.is_archived);
+      await apiClient.post(archived ? `/api/v1/projects/${id}/unarchive` : `/api/v1/projects/${id}/archive`);
+      toast.success(archived ? "Proje arsivden cikarildi." : "Proje arsivlendi.");
+      fetchData();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Arsiv islemi basarisiz.");
+    }
+  };
+
+  const handleLeaveProject = async () => {
+    try {
+      await apiClient.delete(`/api/v1/projects/${id}/members/me`);
+      toast.success("Projeden ayrildiniz.");
+      router.push("/dashboard/projects");
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err) || "Ayrilma basarisiz.");
+    }
+  };
+
   const handleReject = async () => {
     if (rejectReason.trim().length < 10) return;
     setRejecting(true);
@@ -922,20 +943,31 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // Cache-first: once kaydedilmis oneri varsa ucretsiz GET kullan, yoksa POST ile uret.
   const handleAiPlan = async () => {
     if (!project) return;
     try {
       setAiLoading(true);
-      await apiClient.post('/api/v1/ai/suggest', { project_id: project.id });
-      toast.success("AI tarafından önerilen görevler projeye eklendi.");
+      try {
+        await apiClient.get(`/api/v1/ai/tasks/${project.id}`);
+        toast.success("Kaydedilmis AI gorev plani bulundu, liste guncellendi.");
+        fetchData();
+        return;
+      } catch (cacheErr: unknown) {
+        const s = (cacheErr as { response?: { status?: number } }).response?.status;
+        if (s !== undefined && s !== 400 && s !== 404) throw cacheErr;
+      }
+      await apiClient.post("/api/v1/ai/suggest", { project_id: project.id });
+      toast.success("AI tarafindan onerilen gorevler projeye eklendi.");
       fetchData();
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err) || "AI görev önerisi alınamadı.");
+      toast.error(getErrorMessage(err) || "AI gorev onerisi alinamadi.");
     } finally {
       setAiLoading(false);
       setPendingAction(null);
     }
   };
+
 
   const handleAcceptInvite = async (memberId: string) => {
     try {
@@ -1202,6 +1234,25 @@ export default function ProjectDetailPage() {
                   className="flex items-center gap-2 rounded-xl border border-red-600/40 bg-red-600/10 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-600/20 transition-colors whitespace-nowrap"
                 >
                   <Trash2 className="h-4 w-4" /> Kalıcı Sil
+                </button>
+              )}
+              {/* Arsivle / Arsivden cikar (TEACHER + ADMIN) */}
+              {(role === "TEACHER" || role === "ADMIN") && (
+                <button
+                  onClick={handleArchiveToggle}
+                  className="flex items-center gap-2 rounded-xl border border-slate-600/60 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors whitespace-nowrap"
+                >
+                  <Archive className="h-4 w-4" /> Arsivle
+                </button>
+              )}
+
+              {/* Projeden ayril (STUDENT uye) */}
+              {role === "STUDENT" && (
+                <button
+                  onClick={() => setPendingAction("leave")}
+                  className="flex items-center gap-2 rounded-xl border border-slate-600/60 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors whitespace-nowrap"
+                >
+                  <LogOut className="h-4 w-4" /> Projeden Ayril
                 </button>
               )}
             </div>
@@ -1679,6 +1730,17 @@ export default function ProjectDetailPage() {
         description="Proje açıklaması analiz edilerek üyelere otomatik görevler atanacak. Mevcut görevler etkilenmez. Devam edilsin mi?"
         confirmText="Evet, Planla"
         cancelText="Vazgeç"
+      />
+
+      {/* Projeden Ayril Onayi */}
+      <ConfirmDialog
+        isOpen={pendingAction === "leave"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={handleLeaveProject}
+        title="Projeden Ayril"
+        description="Projeden ayrildiktan sonra tekrar katilmak icin davet almaniz gerekir. Devam edilsin mi?"
+        confirmText="Evet, Ayril"
+        cancelText="Vazgec"
       />
 
       {/* Soft Delete Modal */}

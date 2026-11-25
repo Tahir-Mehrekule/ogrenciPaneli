@@ -113,6 +113,35 @@ def _send_review_pending_notifications() -> None:
         db.close()
 
 
+# ─────────────── Job 2: Süresi dolmuş revoke kayıtları ───────────────
+
+def _cleanup_expired_tokens() -> None:
+    """revoked_tokens + password_reset_tokens tablolarındaki süresi dolmuş
+    kayıtları temizler (tablo şişmesini önler)."""
+    from app.features.auth.revoked_token_model import RevokedToken
+    from app.features.auth.password_reset_model import PasswordResetToken
+
+    db = SessionLocal()
+    try:
+        revoked = RevokedToken.cleanup_expired(db)
+        now = datetime.now(timezone.utc)
+        expired_resets = (
+            db.query(PasswordResetToken)
+            .filter(PasswordResetToken.expires_at < now)
+            .delete()
+        )
+        db.commit()
+        logger.info(
+            "[scheduler] Token cleanup: %s revoked + %s reset tokens removed.",
+            revoked, expired_resets,
+        )
+    except Exception:
+        logger.exception("[scheduler] Token cleanup failed.")
+        db.rollback()
+    finally:
+        db.close()
+
+
 # ─────────────── Scheduler yaşam döngüsü ───────────────
 
 def start_scheduler() -> BackgroundScheduler:
@@ -130,6 +159,14 @@ def start_scheduler() -> BackgroundScheduler:
         id="report_review_pending_weekly",
         replace_existing=True,
         misfire_grace_time=3600,  # 1 saat içinde başlatılırsa hala çalıştır
+    )
+    # Her gece 03:00 — süresi dolmuş token kayıtlarını temizle
+    sched.add_job(
+        _cleanup_expired_tokens,
+        trigger=CronTrigger(hour=3, minute=0),
+        id="expired_token_cleanup_daily",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
     sched.start()
     _scheduler = sched

@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, String, Enum, Integer, ForeignKey
+from sqlalchemy import Column, String, Enum, Integer, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -87,6 +87,14 @@ class User(BaseModel):
         "ClassSection",
         foreign_keys=[class_section_id],
         lazy="select",
+    )
+
+    must_change_password = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Toplu içe aktarılan hesaplar ilk girişte şifresini değiştirmek zorundadır",
     )
 
     @property

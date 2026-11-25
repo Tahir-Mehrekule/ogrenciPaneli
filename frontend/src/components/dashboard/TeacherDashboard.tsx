@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import apiClient from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errorMessage";
+import toast from "react-hot-toast";
 import {
   BookOpen,
   FolderKanban,
@@ -134,17 +136,30 @@ export const TeacherDashboard = () => {
       await apiClient.post(`/api/v1/projects/${projectId}/approve`);
       setPendingProjects((prev) => prev.filter((p) => p.id !== projectId));
       setStats((s) => ({ ...s, pendingProjects: Math.max(0, s.pendingProjects - 1) }));
-    } catch {}
+      toast.success("Proje onaylandı.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Onaylama başarısız."));
+    }
   };
 
   const handleReject = async (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (!confirm("Bu projeyi reddetmek istediğinize emin misiniz?")) return;
+    const reason = prompt("Red gerekçesi (en az 10 karakter):");
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      toast.error("Red gerekçesi en az 10 karakter olmalıdır.");
+      return;
+    }
     try {
-      await apiClient.post(`/api/v1/projects/${projectId}/reject`);
+      await apiClient.post(`/api/v1/projects/${projectId}/reject`, {
+        reason: reason.trim(),
+      });
       setPendingProjects((prev) => prev.filter((p) => p.id !== projectId));
       setStats((s) => ({ ...s, pendingProjects: Math.max(0, s.pendingProjects - 1) }));
-    } catch {}
+      toast.success("Proje reddedildi.");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Reddetme başarısız."));
+    }
   };
 
   const firstName = user?.full_name?.split(" ")[0] ?? "Öğretmen";

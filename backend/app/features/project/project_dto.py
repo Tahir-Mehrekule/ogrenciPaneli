@@ -127,6 +127,10 @@ class ProjectFilterParams(FilterParams):
         default=None,
         description="Bu statusü hariç tut (örn: DRAFT)"
     )
+    include_deleted: bool = Field(
+        default=False,
+        description="ADMIN geri dönüşüm: silinmiş kayıtları da getir"
+    )
     created_by: Optional[UUID] = Field(
         default=None,
         description="Oluşturan öğrenci UUID filtresi"

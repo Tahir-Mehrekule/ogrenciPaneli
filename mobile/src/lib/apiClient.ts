@@ -1,12 +1,19 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 // Backend Docker'da 19000 portunda yayında (19000->8000 eşlemesi).
-// Android Emülatör localhost için 10.0.2.2 kullanır; iOS için localhost.
-// Gerçek cihaz için EXPO_PUBLIC_API_URL=http://<makine-LAN-IP>:19000 ver.
+// Öncelik sırası:
+//   1. EXPO_PUBLIC_API_URL (manuel override — CI veya prod)
+//   2. Expo dev server'ın LAN IP'si (Constants.expoConfig.hostUri)
+//      → gerçek cihaz (iOS/Android) için WiFi değişince otomatik güncellenir
+//   3. Android emülatör fallback → 10.0.2.2 (host loopback, hostUri yoksa)
+//   4. localhost (iOS simülatör veya web)
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+  const host = Constants.expoConfig?.hostUri?.split(":")[0];
+  if (host) return `http://${host}:19000`;
   if (Platform.OS === "android") return "http://10.0.2.2:19000";
   return "http://localhost:19000";
 };

@@ -486,17 +486,40 @@ class ProjectMemberService(BaseService[ProjectMember, ProjectMemberRepo]):
         return bool(project and self.ids_equal(project.created_by, user_id))
 
     def _require_manager_or_admin(self, project_id: UUID, user: User) -> None:
-        # Teacher ve Admin projeleri yönetebilir (üye davet/iptal/onay)
-        if user.role in (UserRole.TEACHER, UserRole.ADMIN):
+        # ADMIN tüm projeleri yönetebilir.
+        if user.role == UserRole.ADMIN:
             return
+        # TEACHER yalnızca kendi dersine ait projeleri yönetebilir.
+        if user.role == UserRole.TEACHER:
+            project = self.project_repo.get_by_id_or_404(project_id)
+            from app.features.course.course_model import Course
+            course = (
+                self.db.query(Course).filter(Course.id == project.course_id).first()
+                if project.course_id
+                else None
+            )
+            if course and self.ids_equal(course.teacher_id, user.id):
+                return
+            raise ForbiddenException("Sadece kendi derslerinize ait projeleri yönetebilirsiniz")
         if self._is_project_creator(project_id, user.id):
             return
         if not self.repo.is_manager(project_id, user.id):
             raise ForbiddenException("Bu işlem için proje yöneticisi, öğretmen veya admin olmanız gerekiyor")
 
     def _require_manager_or_staff(self, project_id: UUID, user: User) -> None:
-        if user.role in (UserRole.TEACHER, UserRole.ADMIN):
+        if user.role == UserRole.ADMIN:
             return
+        if user.role == UserRole.TEACHER:
+            project = self.project_repo.get_by_id_or_404(project_id)
+            from app.features.course.course_model import Course
+            course = (
+                self.db.query(Course).filter(Course.id == project.course_id).first()
+                if project.course_id
+                else None
+            )
+            if course and self.ids_equal(course.teacher_id, user.id):
+                return
+            raise ForbiddenException("Bu bilgiyi görme yetkiniz yok")
         if self._is_project_creator(project_id, user.id):
             return
         if not self.repo.is_manager(project_id, user.id):

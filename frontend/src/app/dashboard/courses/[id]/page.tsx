@@ -7,7 +7,9 @@ import apiClient from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { CourseCategories } from "@/components/courses/CourseCategories";
 import { ArrowLeft, BookOpen, Save, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 type ProjectType = "individual" | "team" | "both";
 
@@ -103,7 +105,7 @@ export default function CourseEditPage() {
       await apiClient.delete(`/api/v1/courses/${courseId}`);
       router.push("/dashboard/courses");
     } catch (err: unknown) {
-      alert(getErrorMessage(err) || "Ders silinemedi.");
+      toast.error(getErrorMessage(err) || "Ders silinemedi.");
     }
   };
 
@@ -298,6 +300,9 @@ export default function CourseEditPage() {
           </form>
         </CardContent>
       </Card>
+      <div className="mx-auto mt-4 max-w-lg">
+        <CourseCategories courseId={courseId} />
+      </div>
     </div>
   );
 }

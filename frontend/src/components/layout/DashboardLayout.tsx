@@ -22,6 +22,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     }
   }, [user, loading, router]);
 
+  // Toplu içe aktarılan hesaplar ilk girişte şifresini değiştirmek zorunda.
+  // Ayarlar sayfasından başka yere kaçışı engellemek için zorunlu yönlendirme.
+  useEffect(() => {
+    if (
+      !loading &&
+      user?.must_change_password &&
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/dashboard/settings")
+    ) {
+      router.replace("/dashboard/settings?mustChangePassword=1");
+    }
+  }, [user, loading, router]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0f172a]">

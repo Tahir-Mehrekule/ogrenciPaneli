@@ -50,9 +50,27 @@ class TaskService(BaseService[Task, TaskRepo]):
         Kurallar:
         - Proje sahibi / ADMIN → herhangi bir üyeye veya kendine atayabilir
         - ACTIVE üye → sadece kendine görev oluşturabilir
+        - TEACHER → sadece kendi dersine ait projelerde görev oluşturabilir
         - Diğer → yasak
         """
         project = self.project_repo.get_by_id_or_404(data.project_id)
+
+        if (
+            current_user.role == UserRole.TEACHER
+            and not self.is_owner(project, "created_by", current_user)
+        ):
+            from app.features.course.course_model import Course
+            course = (
+                self.db.query(Course)
+                .filter(Course.id == project.course_id)
+                .first()
+                if project.course_id
+                else None
+            )
+            if not course or not self.ids_equal(course.teacher_id, current_user.id):
+                raise ForbiddenException(
+                    "Sadece kendi derslerinize ait projelerde görev oluşturabilirsiniz"
+                )
 
         is_creator = self.is_owner(project, "created_by", current_user)
         is_admin = current_user.role == UserRole.ADMIN
@@ -99,7 +117,8 @@ class TaskService(BaseService[Task, TaskRepo]):
         Rol bazlı görev listesi döner.
 
         - STUDENT: kendi oluşturduğu + üyesi olduğu projelerdeki görevler
-        - TEACHER/ADMIN: tüm görevler
+        - TEACHER: yalnızca kendi derslerine ait projelerdeki görevler
+        - ADMIN: tüm görevler
         """
         # Dinamik filtre oluştur
         filters = {}
@@ -112,9 +131,39 @@ class TaskService(BaseService[Task, TaskRepo]):
         if params.ai_suggested is not None:
             filters["ai_suggested"] = params.ai_suggested
 
-        # STUDENT için proje kısıtlaması (IN filtresi):
-        # Kendi oluşturduğu + ACTIVE üyesi olduğu projeler
+        # TEACHER için ders kısıtlaması (IN filtresi):
+        # report/project servislerindeki teacher_course_ids scoping ile aynı mantık.
         in_filters = {}
+        if current_user.role == UserRole.TEACHER:
+            from app.features.course.course_model import Course
+            rows = (
+                self.db.query(Course.id)
+                .filter(
+                    Course.teacher_id == current_user.id,
+                    Course.is_deleted == False,
+                    Course.is_active == True,
+                )
+                .all()
+            )
+            teacher_course_ids = [row.id for row in rows]
+            if not teacher_course_ids:
+                return self.paginate([], 0, params.page, params.size)
+            teacher_project_rows = (
+                self.db.query(self.project_repo.model.id)
+                .filter(
+                    self.project_repo.model.course_id.in_(teacher_course_ids),
+                    self.project_repo.model.is_deleted == False,
+                )
+                .all()
+            )
+            teacher_project_ids = [row.id for row in teacher_project_rows]
+            if params.project_id and params.project_id not in teacher_project_ids:
+                return self.paginate([], 0, params.page, params.size)
+            if not params.project_id:
+                from uuid import UUID as _UUID
+                in_filters["project_id"] = teacher_project_ids or [
+                    _UUID("00000000-0000-0000-0000-000000000000")
+                ]
         if current_user.role == UserRole.STUDENT:
             member_project_ids = set(self.member_repo.get_user_project_ids(current_user.id))
             own_project_ids = {

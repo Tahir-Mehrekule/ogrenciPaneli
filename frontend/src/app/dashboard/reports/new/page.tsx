@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import apiClient from "@/lib/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FileText, Paperclip, X, AlertTriangle } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Project {
   id: string;
@@ -57,7 +58,7 @@ export default function NewReportPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
     } catch {
-      alert("Rapor oluşturuldu fakat dosya yüklenirken hata oluştu. Dosyayı daha sonra ekleyebilirsiniz.");
+      toast.error("Rapor oluşturuldu fakat dosya yüklenirken hata oluştu. Dosyayı daha sonra ekleyebilirsiniz.");
     }
   };
 

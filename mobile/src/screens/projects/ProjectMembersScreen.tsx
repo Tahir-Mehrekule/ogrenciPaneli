@@ -19,7 +19,7 @@ const safeErrorMsg = (error: any, fallback: string) => {
 };
 
 export const ProjectMembersScreen = ({ route, navigation }: any) => {
-  const { projectId, isManager: isManagerProp } = route.params;
+  const { projectId, isManager: isManagerProp } = route.params ?? {};
   const { user } = useAuth();
   const role = user?.role?.toUpperCase() ?? '';
   const isStaff = role === 'TEACHER' || role === 'ADMIN';

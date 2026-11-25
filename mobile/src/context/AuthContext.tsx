@@ -40,8 +40,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data } = await apiClient.get("/api/v1/auth/me");
       await SecureStore.setItemAsync("user_data", JSON.stringify(data));
       setUser(data);
-    } catch (error) {
-      await logout();
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        await logout();
+      }
     }
   };
 
@@ -60,9 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const response = await apiClient.post<RegisterResponse>("/api/v1/auth/register", data);
     const result = response.data;
 
-    // Sadece APPROVED hesaplar (öğretmen/admin) token alır ve otomatik giriş yapar.
-    // PENDING öğrenciler token almaz; ekran modalı gösterir.
-    if (result.approval_status === 'approved' && result.access_token) {
+    // Backend her kayda token döner (onay akışı kaldırıldı) — web ile aynı mantık.
+    if (result.access_token) {
       await SecureStore.setItemAsync("access_token", result.access_token);
       if (result.refresh_token) {
         await SecureStore.setItemAsync("refresh_token", result.refresh_token);

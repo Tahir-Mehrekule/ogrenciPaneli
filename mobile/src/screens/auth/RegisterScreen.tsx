@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { BookOpen, GraduationCap, Clock, Mail, Users, ChevronDown, X } from 'lucide-react-native';
+import { BookOpen, GraduationCap, Users, Clock, ChevronDown, X } from 'lucide-react-native';
 import apiClient from '../../lib/apiClient';
 import type { DepartmentInfo } from '../../types/auth';
 
@@ -26,7 +26,6 @@ export const RegisterScreen = ({ navigation }: any) => {
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
   const [showDeptModal, setShowDeptModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showPendingModal, setShowPendingModal] = useState(false);
 
   const isStudent = selectedRole === 'STUDENT';
 
@@ -83,8 +82,11 @@ export const RegisterScreen = ({ navigation }: any) => {
 
       const result = await register(payload);
 
-      if (result.approval_status === 'pending') {
-        setShowPendingModal(true);
+      // Backend her kayda token döner ve AuthContext otomatik giriş yapar
+      // (web ile aynı). Başarıda RootNavigator otomatik Main'e geçirir.
+      if (!result.access_token) {
+        Alert.alert('Kayıt Tamamlandı', 'Giriş sayfasından giriş yapabilirsiniz.');
+        navigation.navigate('Login');
       }
     } catch (error: any) {
       let msg = 'Kayıt sırasında bir hata oluştu.';
@@ -188,16 +190,16 @@ export const RegisterScreen = ({ navigation }: any) => {
               />
 
               {isStudent && (
-                <View className="rounded-xl border border-amber-800/40 bg-amber-900/20 p-3 mb-4 flex-row items-start gap-2">
-                  <Clock size={14} color="#fbbf24" style={{ marginTop: 1 }} />
-                  <Text className="text-xs text-amber-400 flex-1">
-                    Kaydınız öğretmeninizin onayını bekleyecektir.
+                <View className="rounded-xl border border-emerald-800/40 bg-emerald-900/20 p-3 mb-4 flex-row items-start gap-2">
+                  <Clock size={14} color="#34d399" style={{ marginTop: 1 }} />
+                  <Text className="text-xs text-emerald-400 flex-1">
+                    Kayıt sonrası otomatik giriş yapılır, ek onay gerekmez.
                   </Text>
                 </View>
               )}
 
               <Button
-                title={isStudent ? 'Kayıt Başvurusu Yap' : 'Kayıt Ol ve Giriş Yap'}
+                title={isStudent ? 'Kayıt Ol' : 'Kayıt Ol ve Giriş Yap'}
                 onPress={handleRegister}
                 isLoading={isLoading}
                 className={isStudent ? 'bg-emerald-700' : 'bg-indigo-700'}
@@ -250,34 +252,6 @@ export const RegisterScreen = ({ navigation }: any) => {
         </View>
       </Modal>
 
-      {/* Onay Bekleniyor Modal */}
-      <Modal visible={showPendingModal} transparent animationType="fade" onRequestClose={() => {}}>
-        <View className="flex-1 items-center justify-center bg-black/60 px-6">
-          <View className="w-full rounded-2xl bg-slate-900 overflow-hidden">
-            <View className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
-            <View className="p-6 items-center">
-              <View className="h-20 w-20 rounded-full bg-emerald-900/40 items-center justify-center mb-4">
-                <GraduationCap size={36} color="#10b981" />
-              </View>
-              <Text className="text-xl font-bold text-white mb-1">Başvurunuz Alındı!</Text>
-              <Text className="text-sm text-emerald-400 mb-4">Onay bekleniyor</Text>
-              <Text className="text-sm text-center text-gray-400 mb-4">
-                Kaydınız öğretmeniniz veya yetkili tarafından onaylandıktan sonra giriş yapabilirsiniz.
-              </Text>
-              <View className="flex-row items-center gap-2 rounded-xl bg-slate-800 px-4 py-3 mb-4 w-full">
-                <Mail size={14} color="#94a3b8" />
-                <Text className="text-xs text-gray-400 flex-1">Onay sonrası öğretmeninizle iletişime geçin.</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Login')}
-                className="w-full rounded-xl bg-emerald-700 py-3 items-center"
-              >
-                <Text className="text-sm font-semibold text-white">Giriş Sayfasına Dön</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 };

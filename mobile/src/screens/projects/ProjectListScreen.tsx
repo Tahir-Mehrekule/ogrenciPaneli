@@ -225,9 +225,9 @@ export const ProjectListScreen = ({ navigation }: any) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [search, statusFilter]);
 
-  useEffect(() => { fetchProjects(); }, [search, statusFilter]);
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const handleApprove = async (projectId: string) => {
     try {
@@ -540,7 +540,7 @@ export const ProjectListScreen = ({ navigation }: any) => {
                               {role === 'STUDENT' && isManager && (
                                 <TouchableOpacity
                                   className="flex-row items-center gap-1 rounded-lg bg-indigo-900/40 border border-indigo-500/20 px-2.5 py-1.5"
-                                  onPress={() => navigation.navigate('ProjectDetail', { projectId: project.id, openMembers: true })}
+                                  onPress={() => navigation.navigate('ProjectDetail', { projectId: project.id, focusMembers: true })}
                                 >
                                   <Users size={11} color="#818cf8" />
                                   <Text className="text-xs text-indigo-400 font-semibold">Üyeler</Text>

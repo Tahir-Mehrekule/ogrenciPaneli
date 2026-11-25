@@ -23,6 +23,23 @@ interface SystemStats {
   total_open_reports: number;
 }
 
+interface DetailedStats {
+  total_users: number;
+  active_users: number;
+  total_departments: number;
+  total_projects: number;
+  total_courses: number;
+  total_tasks: number;
+  total_reports: number;
+  total_files: number;
+  role_breakdown: { students: number; teachers: number; admins: number };
+  project_breakdown: Record<string, number>;
+  task_breakdown: Record<string, number>;
+  report_breakdown: Record<string, number>;
+  task_completion_rate: number;
+  report_review_rate: number;
+}
+
 interface ActivityLog {
   id: string;
   user_name: string | null;
@@ -62,6 +79,9 @@ export const AdminDashboard = () => {
   const router = useRouter();
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [detailed, setDetailed] = useState<DetailedStats | null>(null);
+  const [detailedLoading, setDetailedLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -74,6 +94,29 @@ export const AdminDashboard = () => {
       .catch(() => toast.error("İstatistikler alınırken hata oluştu."))
       .finally(() => setStatsLoading(false));
   }, []);
+
+  const fetchDetailed = useCallback(() => {
+    setDetailedLoading(true);
+    apiClient
+      .get<DetailedStats>("/api/v1/admin/stats/detailed")
+      .then(({ data }) => setDetailed(data))
+      .catch(() => toast.error("Detayli istatistikler alinamadi."))
+      .finally(() => setDetailedLoading(false));
+  }, []);
+
+  const handleTriggerScheduler = async () => {
+    setTriggering(true);
+    try {
+      const { data } = await apiClient.post("/api/v1/admin/scheduler/trigger-review-pending");
+      toast.success(data?.message ?? "Scheduler tetiklendi.");
+      fetchLogs();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(typeof msg === "string" ? msg : "Tetikleme basarisiz.");
+    } finally {
+      setTriggering(false);
+    }
+  };
 
   const fetchLogs = useCallback(async () => {
     setLogsLoading(true);
@@ -97,8 +140,9 @@ export const AdminDashboard = () => {
 
   useEffect(() => {
     fetchStats();
+    fetchDetailed();
     fetchLogs();
-  }, [fetchStats, fetchLogs]);
+  }, [fetchStats, fetchDetailed, fetchLogs]);
 
   const statCards = [
     {
@@ -128,6 +172,40 @@ export const AdminDashboard = () => {
   ];
 
   const goToLogs = () => router.push("/dashboard/admin/logs");
+
+  const pct = (v: number) => `${Math.round((v ?? 0) * 100)}%`;
+
+  const breakdownRows = (
+    title: string,
+    data: Record<string, number> | undefined,
+    labels: Record<string, string>
+  ) => {
+    if (!data) return null;
+    const total = Object.values(data).reduce((a, b) => a + (b ?? 0), 0);
+    return (
+      <div>
+        <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">{title}</p>
+        <div className="space-y-1.5">
+          {Object.entries(data).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-2 text-xs">
+              <span className="w-28 shrink-0 text-gray-500 dark:text-gray-400">
+                {labels[k] ?? k}
+              </span>
+              <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                <div
+                  className="h-full rounded-full bg-indigo-500"
+                  style={{ width: `${total > 0 ? Math.round(((v ?? 0) / total) * 100) : 0}%` }}
+                />
+              </div>
+              <span className="w-10 shrink-0 text-right font-mono text-gray-700 dark:text-gray-300">
+                {v ?? 0}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -186,6 +264,103 @@ export const AdminDashboard = () => {
               );
             })}
       </div>
+
+      <Card>
+        <CardContent className="p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                Detayli Dagilim
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Rol, proje, gorev ve rapor dagilimlari + tamamlanma oranlari.
+              </p>
+            </div>
+            <button
+              onClick={handleTriggerScheduler}
+              disabled={triggering}
+              title="Haftalik inceleme bildirim job'unu hemen calistir (debug)"
+              className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-500 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              {triggering ? "Tetikleniyor..." : "Review-pending'i Tetikle"}
+            </button>
+          </div>
+          {detailedLoading ? (
+            <p className="py-6 text-center text-sm text-gray-400">Yukleniyor...</p>
+          ) : detailed ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  Roller ({detailed.total_users} kullanici, {detailed.active_users} aktif)
+                </p>
+                <div className="space-y-1.5 text-xs">
+                  {(
+                    [
+                      ["Ogrenci", detailed.role_breakdown.students],
+                      ["Ogretmen", detailed.role_breakdown.teachers],
+                      ["Admin", detailed.role_breakdown.admins],
+                    ] as const
+                  ).map(([label, v]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="w-28 shrink-0 text-gray-500 dark:text-gray-400">{label}</span>
+                      <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                        <div
+                          className="h-full rounded-full bg-emerald-500"
+                          style={{
+                            width: `${
+                              detailed.total_users > 0
+                                ? Math.round((v / detailed.total_users) * 100)
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <span className="w-10 shrink-0 text-right font-mono text-gray-700 dark:text-gray-300">
+                        {v}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>
+                    Gorev tamamlanma:{" "}
+                    <strong className="text-gray-900 dark:text-white">
+                      {pct(detailed.task_completion_rate)}
+                    </strong>
+                  </span>
+                  <span>
+                    Rapor inceleme:{" "}
+                    <strong className="text-gray-900 dark:text-white">
+                      {pct(detailed.report_review_rate)}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+              {breakdownRows("Projeler", detailed.project_breakdown, {
+                draft: "Taslak",
+                pending: "Bekliyor",
+                approved: "Onayli",
+                rejected: "Reddedildi",
+                in_progress: "Devam",
+                completed: "Tamam",
+              })}
+              {breakdownRows("Gorevler", detailed.task_breakdown, {
+                todo: "Yapilacak",
+                in_progress: "Devam",
+                review: "Inceleme",
+                done: "Tamam",
+              })}
+              {breakdownRows("Raporlar", detailed.report_breakdown, {
+                draft: "Taslak",
+                submitted: "Teslim",
+                reviewed: "Incelendi",
+              })}
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-gray-400">Veri alinamadi.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
